@@ -1,0 +1,11 @@
+const express = require("express");
+const router = express.Router();
+const auth = require("../middleware/authMiddleware");
+const role = require("../middleware/roleMiddleware");
+const ctrl = require("../controllers/tenantController");
+router.get("/me",         auth, ctrl.getMyTenant);
+router.get("/",           auth, role("admin"), ctrl.getTenants);
+router.get("/:id",        auth, role("admin"), ctrl.getTenantById);
+router.get("/:id/stats",  auth, role("admin"), ctrl.getTenantStats);
+router.put("/:id",        auth, role("admin"), ctrl.updateTenant);
+module.exports = router;

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rodrigo Arrezzi — Portfólio</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #fff; color: #1d1d1f; overflow-x: hidden; }
+
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 0 48px; height: 60px; border-bottom: 1px solid #e5e5e5; position: sticky; top: 0; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); z-index: 100; }
+    .logo { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; color: #1d1d1f; }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a { font-size: 13px; color: #6e6e73; text-decoration: none; transition: color 0.2s; cursor: pointer; }
+    .nav-links a:hover { color: #1d1d1f; }
+    .nav-cta { background: #1d1d1f; color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+    .nav-cta:hover { background: #333; }
+
+    .hero { padding: 120px 48px 100px; max-width: 800px; margin: 0 auto; text-align: center; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; background: #f5f5f7; border: 1px solid #e5e5e5; border-radius: 20px; padding: 6px 14px; font-size: 12px; color: #6e6e73; margin-bottom: 24px; }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; animation: pulse 2s infinite; }
+    .hero-name { font-size: 20px; font-weight: 500; color: #6e6e73; margin-bottom: 12px; letter-spacing: -0.01em; }
+    .hero h1 { font-size: 72px; font-weight: 700; letter-spacing: -0.05em; line-height: 1.0; color: #1d1d1f; margin-bottom: 20px; }
+    .hero h1 span { color: #888; }
+    .hero-sub { font-size: 16px; color: #6e6e73; line-height: 1.6; max-width: 480px; margin: 0 auto 48px; }
+    .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-ver { background: #1d1d1f; color: #fff; border: none; border-radius: 12px; padding: 16px 40px; font-size: 16px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px; }
+    .btn-ver:hover { background: #333; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .btn-ver .arrow { transition: transform 0.3s; display: inline-block; }
+    .btn-ver.open .arrow { transform: rotate(180deg); }
+    .btn-cursos { background: none; color: #1d1d1f; border: 1.5px solid #d2d2d7; border-radius: 12px; padding: 16px 32px; font-size: 16px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px; }
+    .btn-cursos:hover { border-color: #1d1d1f; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+
+    .conteudo { max-height: 0; overflow: hidden; transition: max-height 1.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease; opacity: 0; }
+    .conteudo.visivel { max-height: 9999px; opacity: 1; }
+
+    .divisor { height: 1px; background: #e5e5e5; margin: 0 48px; }
+
+    .preview-wrapper { margin: 60px 48px 0; border-radius: 16px; border: 1px solid #e5e5e5; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.08); }
+    .dash-header { background: #1d1d1f; padding: 14px 20px; display: flex; align-items: center; gap: 8px; }
+    .dash-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dash-url { font-size: 12px; color: rgba(255,255,255,0.4); margin-left: 8px; }
+    .dash-body { background: #f9f9f9; padding: 24px; display: grid; grid-template-columns: 180px 1fr; gap: 20px; min-height: 360px; }
+    .dash-sidebar { background: #fff; border-radius: 12px; border: 1px solid #e5e5e5; padding: 16px; }
+    .dash-logo { font-size: 14px; font-weight: 700; color: #1d1d1f; margin-bottom: 20px; }
+    .dash-section-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .dash-nav-item { padding: 8px 10px; border-radius: 6px; font-size: 12px; color: #6e6e73; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
+    .dash-nav-item.active { background: #1d1d1f; color: #fff; }
+    .dash-nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.5; flex-shrink: 0; }
+    .dash-content { display: flex; flex-direction: column; gap: 16px; }
+    .dash-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .dash-card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; padding: 14px; }
+    .dash-card-label { font-size: 11px; color: #999; margin-bottom: 6px; }
+    .dash-card-value { font-size: 22px; font-weight: 700; color: #1d1d1f; }
+    .dash-card-value.blue { color: #3b82f6; }
+    .dash-card-value.green { color: #10b981; }
+    .dash-card-value.purple { color: #8b5cf6; }
+    .dash-chart { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; padding: 16px; flex: 1; }
+    .dash-chart-title { font-size: 12px; font-weight: 500; color: #1d1d1f; margin-bottom: 16px; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 80px; }
+    .bar { flex: 1; border-radius: 4px 4px 0 0; transition: height 1s ease; }
+    .dash-aria { background: #1d1d1f; border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 10px; }
+    .aria-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #a78bfa, #38bdf8); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .aria-name { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
+    .aria-text { font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.5; transition: opacity 0.3s; }
+
+    .features { padding: 100px 48px; max-width: 1100px; margin: 0 auto; }
+    .section-label { font-size: 12px; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+    .section-title { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; color: #1d1d1f; margin-bottom: 16px; line-height: 1.1; }
+    .section-sub { font-size: 16px; color: #6e6e73; max-width: 480px; line-height: 1.6; margin-bottom: 56px; }
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feature-card { background: #f9f9f9; border-radius: 16px; padding: 28px; border: 1px solid #e5e5e5; transition: all 0.2s; cursor: pointer; }
+    .feature-card:hover { background: #fff; border-color: #d2d2d7; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .feature-icon { font-size: 28px; margin-bottom: 16px; }
+    .feature-title { font-size: 16px; font-weight: 500; color: #1d1d1f; margin-bottom: 8px; }
+    .feature-desc { font-size: 13px; color: #6e6e73; line-height: 1.6; }
+    .feature-saiba { font-size: 12px; color: #0066cc; margin-top: 12px; font-weight: 500; }
+    .feature-card:hover .feature-saiba { text-decoration: underline; }
+
+    .tech { padding: 0 48px 80px; }
+    .tech-inner { background: #f5f5f7; border-radius: 20px; padding: 48px; text-align: center; }
+    .tech-title { font-size: 13px; color: #999; margin-bottom: 28px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .tech-pills { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .tech-pill { background: #fff; border: 1px solid #e5e5e5; border-radius: 20px; padding: 8px 16px; font-size: 13px; color: #1d1d1f; font-weight: 500; }
+
+    .stats { padding: 0 48px 80px; }
+    .stats-inner { background: #1d1d1f; border-radius: 20px; padding: 56px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+    .stat-item { text-align: center; }
+    .stat-value { font-size: 40px; font-weight: 700; color: #fff; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .stat-label { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+    /* CURSOS E PROJETOS */
+    .cursos-section { padding: 0 48px 80px; max-width: 1100px; margin: 0 auto; }
+    .cursos-conteudo { max-height: 0; overflow: hidden; transition: max-height 1s cubic-bezier(0.4,0,0.2,1), opacity 0.5s ease; opacity: 0; }
+    .cursos-conteudo.visivel { max-height: 9999px; opacity: 1; }
+    .cursos-tabs { display: flex; gap: 4px; background: #f5f5f7; border-radius: 10px; padding: 4px; width: fit-content; margin-bottom: 40px; }
+    .cursos-tab { padding: 8px 20px; border-radius: 8px; border: none; background: none; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; color: #6e6e73; transition: all 0.2s; }
+    .cursos-tab.ativo { background: #fff; color: #1d1d1f; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+    /* PROJETOS */
+    .projetos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .projeto-card { border: 1px solid #e5e5e5; border-radius: 20px; overflow: hidden; transition: all 0.3s; cursor: pointer; }
+    .projeto-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.1); border-color: #d2d2d7; }
+    .projeto-preview { height: 200px; background: #1d1d1f; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .projeto-preview-inner { width: 85%; height: 80%; background: #111; border-radius: 8px; border: 1px solid #333; overflow: hidden; display: flex; flex-direction: column; }
+    .projeto-preview-bar { background: #222; height: 24px; display: flex; align-items: center; padding: 0 10px; gap: 5px; flex-shrink: 0; }
+    .projeto-preview-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .projeto-preview-content { flex: 1; padding: 10px; display: grid; grid-template-columns: 60px 1fr; gap: 8px; }
+    .projeto-preview-sidebar { background: #0a0a0a; border-radius: 4px; }
+    .projeto-preview-main { display: flex; flex-direction: column; gap: 6px; }
+    .projeto-preview-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .projeto-preview-block { background: #222; border-radius: 4px; height: 28px; }
+    .projeto-preview-chart { background: #222; border-radius: 4px; flex: 1; display: flex; align-items: flex-end; padding: 6px; gap: 3px; }
+    .projeto-preview-chartbar { flex: 1; border-radius: 2px 2px 0 0; animation: barAnim 2s ease-in-out infinite alternate; }
+    @keyframes barAnim { from { opacity: 0.4; } to { opacity: 1; } }
+    .projeto-badge { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: #fff; }
+    .projeto-info { padding: 20px 24px; }
+    .projeto-titulo { font-size: 18px; font-weight: 600; color: #1d1d1f; margin-bottom: 8px; }
+    .projeto-desc { font-size: 13px; color: #6e6e73; line-height: 1.6; margin-bottom: 16px; }
+    .projeto-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .projeto-pill { background: #f5f5f7; border-radius: 20px; padding: 4px 10px; font-size: 11px; color: #1d1d1f; font-weight: 500; }
+    .projeto-footer { display: flex; justify-content: space-between; align-items: center; }
+    .projeto-link { font-size: 13px; color: #0066cc; text-decoration: none; font-weight: 500; }
+    .projeto-link:hover { text-decoration: underline; }
+    .projeto-ano { font-size: 12px; color: #999; }
+
+    /* CERTIFICADOS */
+    .certs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .cert-card { border: 1px solid #e5e5e5; border-radius: 16px; overflow: hidden; transition: all 0.2s; }
+    .cert-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .cert-preview { height: 140px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .cert-inner { width: 80%; height: 75%; background: #fff; border-radius: 8px; border: 2px solid #e5e5e5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 12px; text-align: center; }
+    .cert-logo { font-size: 24px; }
+    .cert-nome { font-size: 10px; font-weight: 600; color: #1d1d1f; }
+    .cert-sub { font-size: 9px; color: #999; }
+    .cert-info { padding: 14px 16px; }
+    .cert-titulo { font-size: 14px; font-weight: 500; color: #1d1d1f; margin-bottom: 4px; }
+    .cert-escola { font-size: 12px; color: #6e6e73; margin-bottom: 8px; }
+    .cert-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .cert-tag { background: #f5f5f7; border-radius: 10px; padding: 2px 8px; font-size: 10px; color: #6e6e73; }
+
+    /* MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+    .modal-overlay.ativo { display: flex; }
+    .modal-bg { position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+    .modal-box { position: relative; background: #fff; border-radius: 20px; padding: 40px; max-width: 560px; width: 90%; max-height: 80vh; overflow-y: auto; transform: translateY(20px); transition: transform 0.3s; box-shadow: 0 32px 80px rgba(0,0,0,0.2); }
+
+    .sobre { padding: 80px 48px; max-width: 800px; margin: 0 auto; text-align: center; }
+    .sobre p { font-size: 18px; color: #6e6e73; line-height: 1.8; margin-bottom: 40px; }
+    .contato-links { display: flex; gap: 16px; justify-content: center; }
+    .contato-link { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s; }
+    .contato-link.github { background: #1d1d1f; color: #fff; }
+    .contato-link.github:hover { background: #333; }
+    .contato-link.email { background: #f5f5f7; color: #1d1d1f; border: 1px solid #e5e5e5; }
+    .contato-link.email:hover { background: #e5e5e5; }
+
+    footer { padding: 40px 48px; border-top: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center; }
+    .footer-logo { font-size: 15px; font-weight: 600; color: #1d1d1f; }
+    .footer-copy { font-size: 12px; color: #999; }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 12px; color: #6e6e73; text-decoration: none; }
+    .footer-links a:hover { color: #1d1d1f; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { opacity: 0; animation: fadeUp 0.7s ease forwards; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 40px; }
+      .features-grid { grid-template-columns: 1fr; }
+      .stats-inner { grid-template-columns: repeat(2, 1fr); }
+      .projetos-grid { grid-template-columns: 1fr; }
+      .certs-grid { grid-template-columns: 1fr 1fr; }
+      .dash-body { grid-template-columns: 1fr; }
+      .dash-sidebar { display: none; }
+      nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .hero { padding: 60px 20px 60px; }
+      .features { padding: 60px 20px; }
+      .preview-wrapper { margin: 40px 20px 0; }
+      .stats { padding: 0 20px 60px; }
+      .stats-inner { padding: 32px; }
+      .sobre { padding: 60px 20px; }
+      footer { padding: 30px 20px; flex-direction: column; gap: 16px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="logo">Rodrigo Arrezzi</div>
+    <div class="nav-links">
+      <a href="#projeto">Projeto</a>
+      <a href="#features">Funcionalidades</a>
+      <a href="#cursos">Cursos</a>
+      <a href="#sobre">Sobre</a>
+    </div>
+    <button class="nav-cta" onclick="window.open('http://localhost:5173')">Acessar sistema</button>
+  </nav>
+
+  <section class="hero">
+    <div class="badge fade-up"><span class="badge-dot"></span> Disponível para oportunidades</div>
+    <p class="hero-name fade-up delay-1">Desenvolvedor Full Stack</p>
+    <h1 class="fade-up delay-1">Projeto<br><span>Apollo.</span></h1>
+    <p class="hero-sub fade-up delay-2">Sistema SaaS de gestão de e-commerce com inteligência artificial, construído do zero com Node.js, React e Gemini AI.</p>
+    <div class="hero-btns fade-up delay-3">
+      <button class="btn-ver" id="btnVer" onclick="toggleConteudo()">
+        Ver demonstração <span class="arrow">↓</span>
+      </button>
+      <button class="btn-cursos" onclick="irParaCursos()">
+        🎓 Cursos e Projetos
+      </button>
+    </div>
+  </section>
+
+  <div class="conteudo" id="conteudo">
+    <div class="divisor"></div>
+    <div class="preview-wrapper" id="projeto">
+      <div class="dash-header">
+        <div class="dash-dot" style="background:#ff5f57"></div>
+        <div class="dash-dot" style="background:#febc2e"></div>
+        <div class="dash-dot" style="background:#28c840"></div>
+        <span class="dash-url">localhost:5173 — Apollo</span>
+      </div>
+      <div class="dash-body">
+        <div class="dash-sidebar">
+          <div class="dash-logo">Apollo</div>
+          <div class="dash-section-label">E-commerce</div>
+          <div class="dash-nav-item active"><span class="dash-nav-dot"></span> Dashboard</div>
+          <div class="dash-nav-item"><span class="dash-nav-dot"></span> Produtos</div>
+          <div class="dash-nav-item"><span class="dash-nav-dot"></span> Pedidos</div>
+          <div class="dash-nav-item"><span class="dash-nav-dot"></span> Clientes</div>
+          <div class="dash-nav-item"><span class="dash-nav-dot"></span> Assistente IA</div>
+          <div class="dash-nav-item"><span class="dash-nav-dot"></span> Integrações</div>
+        </div>
+        <div class="dash-content">
+          <div class="dash-row">
+            <div class="dash-card"><div class="dash-card-label">Produtos</div><div class="dash-card-value" id="c1">0</div></div>
+            <div class="dash-card"><div class="dash-card-label">Pedidos</div><div class="dash-card-value blue" id="c2">0</div></div>
+            <div class="dash-card"><div class="dash-card-label">Clientes</div><div class="dash-card-value green" id="c3">0</div></div>
+            <div class="dash-card"><div class="dash-card-label">Receita Total</div><div class="dash-card-value purple" id="c4">R$ 0</div></div>
+          </div>
+          <div class="dash-chart">
+            <div class="dash-chart-title">Vendas por mês — 2025</div>
+            <div class="chart-bars" id="bars"></div>
+          </div>
+          <div class="dash-aria">
+            <div class="aria-avatar">🤖</div>
+            <div>
+              <div class="aria-name">Aria — Assistente Virtual • Online agora</div>
+              <div class="aria-text" id="aria-msg">Olá! Identifiquei 3 produtos com estoque baixo. Deseja criar uma campanha de reposição?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="features" id="features">
+      <div class="section-label">Funcionalidades</div>
+      <div class="section-title">Tudo que você precisa,<br>em um só lugar.</div>
+      <p class="section-sub">Do cadastro de produtos à análise de vendas com IA, o Apollo centraliza toda a operação do seu e-commerce.</p>
+      <div class="features-grid">
+        <div class="feature-card" onclick="abrirModal('ecommerce')"><div class="feature-icon">🛒</div><div class="feature-title">E-commerce completo</div><div class="feature-desc">Gerencie produtos, pedidos e clientes com uma interface limpa e intuitiva.</div><div class="feature-saiba">Saiba mais →</div></div>
+        <div class="feature-card" onclick="abrirModal('aria')"><div class="feature-icon">🤖</div><div class="feature-title">Aria — Assistente IA</div><div class="feature-desc">Assistente virtual com voz, alimentada pelo Gemini AI.</div><div class="feature-saiba">Saiba mais →</div></div>
+        <div class="feature-card" onclick="abrirModal('marketing')"><div class="feature-icon">📊</div><div class="feature-title">Marketing com IA</div><div class="feature-desc">Geração automática de copy, lead scoring e funil de vendas.</div><div class="feature-saiba">Saiba mais →</div></div>
+        <div class="feature-card" onclick="abrirModal('integracoes')"><div class="feature-icon">🔗</div><div class="feature-title">Integrações</div><div class="feature-desc">Conecte Bling, Mercado Livre e outras ferramentas.</div><div class="feature-saiba">Saiba mais →</div></div>
+        <div class="feature-card" onclick="abrirModal('automacoes')"><div class="feature-icon">⚡</div><div class="feature-title">Automações com n8n</div><div class="feature-desc">Editor visual de fluxos sem código para escalar sua operação.</div><div class="feature-saiba">Saiba mais →</div></div>
+        <div class="feature-card" onclick="abrirModal('seguranca')"><div class="feature-icon">🔐</div><div class="feature-title">Multi-tenant seguro</div><div class="feature-desc">Arquitetura SaaS com autenticação JWT e controle de acesso.</div><div class="feature-saiba">Saiba mais →</div></div>
+      </div>
+    </section>
+
+    <div class="tech" id="stack">
+      <div class="tech-inner">
+        <div class="tech-title">Stack tecnológica</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Node.js</span><span class="tech-pill">Express</span><span class="tech-pill">React</span><span class="tech-pill">Vite</span><span class="tech-pill">MySQL</span><span class="tech-pill">JWT</span><span class="tech-pill">Gemini AI</span><span class="tech-pill">n8n</span><span class="tech-pill">Axios</span><span class="tech-pill">Nodemailer</span><span class="tech-pill">Bcrypt</span><span class="tech-pill">REST API</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stats-inner">
+        <div class="stat-item"><div class="stat-value" id="s1">0</div><div class="stat-label">Módulos integrados</div></div>
+        <div class="stat-item"><div class="stat-value" id="s2">0</div><div class="stat-label">Rotas de API</div></div>
+        <div class="stat-item"><div class="stat-value" id="s3">0</div><div class="stat-label">Componentes React</div></div>
+        <div class="stat-item"><div class="stat-value" id="s4">0%</div><div class="stat-label">Open source</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CURSOS E PROJETOS -->
+  <section class="cursos-section" id="cursos" style="padding-top:80px">
+    <div class="section-label">Portfólio</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;gap:16px;">
+      <div class="section-title" style="margin-bottom:0">Cursos e Projetos</div>
+      <button class="btn-ver" id="btnCursos" onclick="toggleCursos()" style="padding:12px 28px;font-size:14px;">
+        Ver tudo <span class="arrow">↓</span>
+      </button>
+    </div>
+    <p class="section-sub">Certificações, projetos desenvolvidos e as tecnologias utilizadas em cada um.</p>
+
+    <div class="cursos-conteudo" id="cursosConteudo">
+      <div class="cursos-tabs">
+        <button class="cursos-tab ativo" onclick="trocarTab('projetos', this)">🚀 Projetos</button>
+        <button class="cursos-tab" onclick="trocarTab('certificados', this)">🎓 Certificados</button>
+      </div>
+
+      <!-- PROJETOS -->
+      <div id="tab-projetos">
+        <div class="projetos-grid">
+
+          <div class="projeto-card" onclick="abrirModalProjeto('apollo')">
+            <div class="projeto-preview" style="background:linear-gradient(135deg,#0f0f0f,#1a1a2e);">
+              <div class="projeto-preview-inner">
+                <div class="projeto-preview-bar">
+                  <div class="projeto-preview-dot" style="background:#ff5f57"></div>
+                  <div class="projeto-preview-dot" style="background:#febc2e"></div>
+                  <div class="projeto-preview-dot" style="background:#28c840"></div>
+                </div>
+                <div class="projeto-preview-content">
+                  <div class="projeto-preview-sidebar"></div>
+                  <div class="projeto-preview-main">
+                    <div class="projeto-preview-row">
+                      <div class="projeto-preview-block" style="background:#3b82f622"></div>
+                      <div class="projeto-preview-block" style="background:#10b98122"></div>
+                      <div class="projeto-preview-block" style="background:#8b5cf622"></div>
+                      <div class="projeto-preview-block" style="background:#f59e0b22"></div>
+                    </div>
+                    <div class="projeto-preview-chart">
+                      <div class="projeto-preview-chartbar" style="height:40%;background:#3b82f6;animation-delay:0s"></div>
+                      <div class="projeto-preview-chartbar" style="height:60%;background:#3b82f6;animation-delay:0.2s"></div>
+                      <div class="projeto-preview-chartbar" style="height:35%;background:#3b82f6;animation-delay:0.4s"></div>
+                      <div class="projeto-preview-chartbar" style="height:75%;background:#3b82f6;animation-delay:0.6s"></div>
+                      <div class="projeto-preview-chartbar" style="height:55%;background:#3b82f6;animation-delay:0.8s"></div>
+                      <div class="projeto-preview-chartbar" style="height:90%;background:#1d1d1f;animation-delay:1s"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="projeto-badge">SaaS</div>
+            </div>
+            <div class="projeto-info">
+              <div class="projeto-titulo">Projeto Apollo</div>
+              <div class="projeto-desc">Sistema completo de gestão de e-commerce com IA, multi-tenant, marketing automatizado e assistente virtual.</div>
+              <div class="projeto-pills">
+                <span class="projeto-pill">Node.js</span>
+                <span class="projeto-pill">React</span>
+                <span class="projeto-pill">MySQL</span>
+                <span class="projeto-pill">Gemini AI</span>
+                <span class="projeto-pill">n8n</span>
+              </div>
+              <div class="projeto-footer">
+                <a href="https://github.com/RD921/Projeto-atualizado" target="_blank" class="projeto-link" onclick="event.stopPropagation()">Ver no GitHub →</a>
+                <span class="projeto-ano">2025</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="projeto-card" onclick="abrirModalProjeto('portfolio')">
+            <div class="projeto-preview" style="background:linear-gradient(135deg,#f5f5f7,#e5e5e5);">
+              <div class="projeto-preview-inner" style="background:#fff;border-color:#e5e5e5;">
+                <div class="projeto-preview-bar" style="background:#f5f5f7;">
+                  <div class="projeto-preview-dot" style="background:#ff5f57"></div>
+                  <div class="projeto-preview-dot" style="background:#febc2e"></div>
+                  <div class="projeto-preview-dot" style="background:#28c840"></div>
+                </div>
+                <div style="padding:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:6px;">
+                  <div style="width:60%;height:12px;background:#1d1d1f;border-radius:4px;"></div>
+                  <div style="width:40%;height:8px;background:#e5e5e5;border-radius:4px;"></div>
+                  <div style="width:50%;height:28px;background:#1d1d1f;border-radius:6px;margin-top:8px;"></div>
+                </div>
+              </div>
+              <div class="projeto-badge" style="background:rgba(0,0,0,0.1);color:#1d1d1f;border-color:rgba(0,0,0,0.1);">HTML</div>
+            </div>
+            <div class="projeto-info">
+              <div class="projeto-titulo">Site Portfólio</div>
+              <div class="projeto-desc">Landing page de portfólio com animações, modal de detalhes, seção de projetos e certificados. Design minimalista Apple-like.</div>
+              <div class="projeto-pills">
+                <span class="projeto-pill">HTML</span>
+                <span class="projeto-pill">CSS</span>
+                <span class="projeto-pill">JavaScript</span>
+              </div>
+              <div class="projeto-footer">
+                <span class="projeto-link" style="color:#999;cursor:default">Este site</span>
+                <span class="projeto-ano">2025</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- CERTIFICADOS -->
+      <div id="tab-certificados" style="display:none;">
+        <div class="certs-grid">
+
+          <div class="cert-card">
+            <div class="cert-preview" style="background:#f0f7ff;">
+              <div class="cert-inner" style="border-color:#bfdbfe;">
+                <div class="cert-logo">🟦</div>
+                <div class="cert-nome">CERTIFICADO</div>
+                <div class="cert-sub">Adicione seu certificado aqui</div>
+              </div>
+            </div>
+            <div class="cert-info">
+              <div class="cert-titulo">Node.js — Backend Completo</div>
+              <div class="cert-escola">Adicione a escola/plataforma</div>
+              <div class="cert-tags">
+                <span class="cert-tag">Node.js</span>
+                <span class="cert-tag">Express</span>
+                <span class="cert-tag">API REST</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cert-card">
+            <div class="cert-preview" style="background:#f0fdf4;">
+              <div class="cert-inner" style="border-color:#bbf7d0;">
+                <div class="cert-logo">⚛️</div>
+                <div class="cert-nome">CERTIFICADO</div>
+                <div class="cert-sub">Adicione seu certificado aqui</div>
+              </div>
+            </div>
+            <div class="cert-info">
+              <div class="cert-titulo">React — Interfaces Modernas</div>
+              <div class="cert-escola">Adicione a escola/plataforma</div>
+              <div class="cert-tags">
+                <span class="cert-tag">React</span>
+                <span class="cert-tag">Hooks</span>
+                <span class="cert-tag">Vite</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cert-card">
+            <div class="cert-preview" style="background:#fefce8;">
+              <div class="cert-inner" style="border-color:#fde68a;">
+                <div class="cert-logo">🗄️</div>
+                <div class="cert-nome">CERTIFICADO</div>
+                <div class="cert-sub">Adicione seu certificado aqui</div>
+              </div>
+            </div>
+            <div class="cert-info">
+              <div class="cert-titulo">MySQL — Banco de Dados</div>
+              <div class="cert-escola">Adicione a escola/plataforma</div>
+              <div class="cert-tags">
+                <span class="cert-tag">MySQL</span>
+                <span class="cert-tag">SQL</span>
+                <span class="cert-tag">Queries</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cert-card">
+            <div class="cert-preview" style="background:#fdf4ff;">
+              <div class="cert-inner" style="border-color:#e9d5ff;">
+                <div class="cert-logo">🤖</div>
+                <div class="cert-nome">CERTIFICADO</div>
+                <div class="cert-sub">Adicione seu certificado aqui</div>
+              </div>
+            </div>
+            <div class="cert-info">
+              <div class="cert-titulo">Inteligência Artificial</div>
+              <div class="cert-escola">Adicione a escola/plataforma</div>
+              <div class="cert-tags">
+                <span class="cert-tag">Gemini AI</span>
+                <span class="cert-tag">Prompts</span>
+                <span class="cert-tag">APIs</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cert-card">
+            <div class="cert-preview" style="background:#fff7ed;">
+              <div class="cert-inner" style="border-color:#fed7aa;">
+                <div class="cert-logo">⚡</div>
+                <div class="cert-nome">CERTIFICADO</div>
+                <div class="cert-sub">Adicione seu certificado aqui</div>
+              </div>
+            </div>
+            <div class="cert-info">
+              <div class="cert-titulo">Automações com n8n</div>
+              <div class="cert-escola">Adicione a escola/plataforma</div>
+              <div class="cert-tags">
+                <span class="cert-tag">n8n</span>
+                <span class="cert-tag">Workflows</span>
+                <span class="cert-tag">APIs</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cert-card">
+            <div class="cert-preview" style="background:#f0f9ff;">
+              <div class="cert-inner" style="border-color:#bae6fd;">
+                <div class="cert-logo">🔐</div>
+                <div class="cert-nome">CERTIFICADO</div>
+                <div class="cert-sub">Adicione seu certificado aqui</div>
+              </div>
+            </div>
+            <div class="cert-info">
+              <div class="cert-titulo">Segurança Web — JWT e Auth</div>
+              <div class="cert-escola">Adicione a escola/plataforma</div>
+              <div class="cert-tags">
+                <span class="cert-tag">JWT</span>
+                <span class="cert-tag">Bcrypt</span>
+                <span class="cert-tag">Auth</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL FEATURES -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-bg" onclick="fecharModal()"></div>
+    <div class="modal-box" id="modal-box">
+      <button onclick="fecharModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;color:#999;cursor:pointer;">✕</button>
+      <div id="modal-icon" style="font-size:48px;margin-bottom:16px;"></div>
+      <h2 id="modal-title" style="font-size:24px;font-weight:700;color:#1d1d1f;margin-bottom:12px;letter-spacing:-0.02em;"></h2>
+      <p id="modal-desc" style="font-size:15px;color:#6e6e73;line-height:1.7;margin-bottom:24px;"></p>
+      <div id="modal-items" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL PROJETOS -->
+  <div class="modal-overlay" id="modal-projeto">
+    <div class="modal-bg" onclick="fecharModalProjeto()"></div>
+    <div class="modal-box" id="modal-projeto-box" style="max-width:640px;">
+      <button onclick="fecharModalProjeto()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;color:#999;cursor:pointer;">✕</button>
+      <div id="mp-icon" style="font-size:40px;margin-bottom:12px;"></div>
+      <h2 id="mp-title" style="font-size:22px;font-weight:700;color:#1d1d1f;margin-bottom:8px;"></h2>
+      <p id="mp-tipo" style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;"></p>
+      <p id="mp-desc" style="font-size:15px;color:#6e6e73;line-height:1.7;margin-bottom:24px;"></p>
+      <div id="mp-como" style="background:#f9f9f9;border-radius:12px;padding:20px;margin-bottom:20px;">
+        <p style="font-size:12px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Como foi feito</p>
+        <div id="mp-etapas" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <p style="font-size:12px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Ferramentas e linguagens</p>
+        <div id="mp-pills" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+      <div id="mp-link-wrapper">
+        <a id="mp-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#1d1d1f;color:#fff;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:500;text-decoration:none;">⬡ Ver no GitHub</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOBRE -->
+  <section class="sobre" id="sobre">
+    <div class="section-label" style="text-align:center">Sobre o desenvolvedor</div>
+    <div class="section-title" style="font-size:32px;text-align:center">Rodrigo Arrezzi</div>
+    <p>Desenvolvedor Full Stack apaixonado por construir produtos completos do zero. O Projeto Apollo foi desenvolvido com foco em arquitetura SaaS, integração de IA e experiência do usuário moderna.</p>
+    <div class="contato-links">
+      <a href="https://github.com/RD921/Projeto-atualizado" target="_blank" class="contato-link github">⬡ GitHub do projeto</a>
+      <a href="mailto:rodrigoarrezzimaciel17@gmail.com" class="contato-link email">✉ Entrar em contato</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">Rodrigo Arrezzi</div>
+    <div class="footer-links">
+      <a href="https://github.com/RD921/Projeto-atualizado" target="_blank">GitHub</a>
+      <a href="http://localhost:5173" target="_blank">Sistema</a>
+    </div>
+    <div class="footer-copy">Projeto Apollo — Node.js, React, MySQL e Gemini AI</div>
+  </footer>
+
+  <script>
+    let aberto = false;
+    let animado = false;
+
+    function toggleConteudo() {
+      aberto = !aberto;
+      const conteudo = document.getElementById('conteudo');
+      const btn = document.getElementById('btnVer');
+      conteudo.classList.toggle('visivel', aberto);
+      btn.classList.toggle('open', aberto);
+      btn.innerHTML = aberto
+        ? 'Ocultar <span class="arrow" style="display:inline-block;transform:rotate(180deg)">↓</span>'
+        : 'Ver demonstração <span class="arrow">↓</span>';
+      if (aberto && !animado) { animado = true; setTimeout(() => iniciarAnimacoes(), 400); }
+    }
+
+    function iniciarAnimacoes() {
+      const barsEl = document.getElementById('bars');
+      const heights = [40,55,35,70,50,85,60,90,65,75,80,95];
+      const colors = ['#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#e5e5e5','#1d1d1f'];
+      heights.forEach((h, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'bar'; bar.style.height = '0px'; bar.style.background = colors[i];
+        barsEl.appendChild(bar);
+        setTimeout(() => { bar.style.height = h + 'px'; }, 200 + i * 60);
+      });
+      function animCount(el, target, suffix, duration) {
+        let start = 0; const step = target / (duration / 16);
+        const timer = setInterval(() => {
+          start = Math.min(start + step, target);
+          el.textContent = Math.round(start) + suffix;
+          if (start >= target) clearInterval(timer);
+        }, 16);
+      }
+      setTimeout(() => {
+        animCount(document.getElementById('c1'), 47, '', 1000);
+        animCount(document.getElementById('c2'), 128, '', 1200);
+        animCount(document.getElementById('c3'), 89, '', 1000);
+        document.getElementById('c4').textContent = 'R$ 24.8k';
+        animCount(document.getElementById('s1'), 5, '', 800);
+        animCount(document.getElementById('s2'), 32, '', 1000);
+        animCount(document.getElementById('s3'), 18, '', 900);
+        animCount(document.getElementById('s4'), 100, '%', 1000);
+      }, 600);
+      const msgs = ['Olá! Identifiquei 3 produtos com estoque baixo. Deseja criar uma campanha?','Seus pedidos aumentaram 23% esta semana.','Dica: seus clientes mais ativos estão no período noturno.','Integração disponível: conecte seu Bling em menos de 2 minutos.','Lead scoring: 12 clientes com alta probabilidade de compra!'];
+      let msgIdx = 0;
+      setInterval(() => {
+        msgIdx = (msgIdx + 1) % msgs.length;
+        const el = document.getElementById('aria-msg');
+        el.style.opacity = '0';
+        setTimeout(() => { el.textContent = msgs[msgIdx]; el.style.opacity = '1'; }, 300);
+      }, 3000);
+    }
+
+    let cursosAberto = false;
+    function toggleCursos() {
+      cursosAberto = !cursosAberto;
+      const el = document.getElementById('cursosConteudo');
+      const btn = document.getElementById('btnCursos');
+      el.classList.toggle('visivel', cursosAberto);
+      btn.innerHTML = cursosAberto
+        ? 'Ocultar <span class="arrow" style="display:inline-block;transform:rotate(180deg)">↓</span>'
+        : 'Ver tudo <span class="arrow">↓</span>';
+    }
+
+    function irParaCursos() {
+      document.getElementById('cursos').scrollIntoView({ behavior: 'smooth' });
+      if (!cursosAberto) setTimeout(() => toggleCursos(), 600);
+    }
+
+    function trocarTab(tab, btn) {
+      document.getElementById('tab-projetos').style.display = tab === 'projetos' ? 'block' : 'none';
+      document.getElementById('tab-certificados').style.display = tab === 'certificados' ? 'block' : 'none';
+      document.querySelectorAll('.cursos-tab').forEach(b => b.classList.remove('ativo'));
+      btn.classList.add('ativo');
+    }
+
+    const modais = {
+      ecommerce: { icon:'🛒', title:'E-commerce completo', desc:'Sistema completo de gestão de e-commerce construído do zero.', items:[{icon:'📦',titulo:'Gestão de Produtos',texto:'Cadastre, edite e organize produtos com SKU, preço, estoque e status.'},{icon:'🛍️',titulo:'Controle de Pedidos',texto:'Acompanhe pedidos em tempo real com status completo.'},{icon:'👥',titulo:'CRM de Clientes',texto:'Base de clientes centralizada com histórico de compras.'},{icon:'📈',titulo:'Dashboard em tempo real',texto:'Métricas essenciais: produtos, pedidos, clientes e receita.'}]},
+      aria: { icon:'🤖', title:'Aria — Assistente Virtual IA', desc:'Assistente virtual alimentada pelo Gemini AI que acessa todos os módulos.', items:[{icon:'🎤',titulo:'Reconhecimento de voz',texto:'Web Speech API em português brasileiro.'},{icon:'🧠',titulo:'IA com contexto',texto:'Mantém histórico da conversa. Powered by Gemini 2.5 Flash Lite.'},{icon:'⚡',titulo:'Ações rápidas',texto:'Botões para acessar qualquer módulo pelo chat.'},{icon:'💬',titulo:'Consultor de negócios',texto:'Estratégias de vendas, marketing e precificação.'}]},
+      marketing: { icon:'📊', title:'Marketing com IA', desc:'Módulo completo de marketing potencializado por inteligência artificial.', items:[{icon:'✍️',titulo:'Gerador de Copy',texto:'Mensagens persuasivas para WhatsApp, Email, Instagram.'},{icon:'🎯',titulo:'Lead Scoring',texto:'Pontuação 0-100 por cliente: frio/morno/quente.'},{icon:'🎭',titulo:'Scripts de Abordagem',texto:'Scripts para WhatsApp, Email e Telefone.'},{icon:'📉',titulo:'Funil de Vendas',texto:'Funil com dados reais em tempo real.'}]},
+      integracoes: { icon:'🔗', title:'Integrações', desc:'Conecte o Apollo com as principais ferramentas do mercado.', items:[{icon:'🔵',titulo:'Bling ERP',texto:'Captação automática de produtos via API Key.'},{icon:'🟡',titulo:'Mercado Livre',texto:'Conexão OAuth para análise de vendas.'},{icon:'📋',titulo:'Guia rápido',texto:'Passo a passo visual dentro do sistema.'},{icon:'🔌',titulo:'Expansível via API',texto:'Arquitetura REST para novas integrações.'}]},
+      automacoes: { icon:'⚡', title:'Automações com n8n', desc:'Editor visual de workflows integrado ao Apollo.', items:[{icon:'🔄',titulo:'Editor visual',texto:'Interface drag-and-drop do n8n dentro do Apollo.'},{icon:'📬',titulo:'Automação de emails',texto:'Boas-vindas, carrinho abandonado, follow-up.'},{icon:'🤝',titulo:'WhatsApp',texto:'Mensagens automáticas via WhatsApp Business.'},{icon:'⏱️',titulo:'Gatilhos',texto:'Ações por eventos ou horários programados.'}]},
+      seguranca: { icon:'🔐', title:'Arquitetura Multi-tenant', desc:'Arquitetura SaaS robusta com dados isolados e protegidos.', items:[{icon:'🏢',titulo:'Multi-tenant',texto:'Cada empresa tem seu tenant isolado.'},{icon:'🔑',titulo:'JWT',texto:'Tokens com expiração. Middleware em todas as rotas.'},{icon:'📧',titulo:'Suporte por email',texto:'Sistema de suporte via Nodemailer.'},{icon:'🛡️',titulo:'Helmet + CORS',texto:'Headers de segurança e proteção contra ataques.'}]}
+    };
+
+    const modaisProjetos = {
+      apollo: {
+        icon: '🚀', title: 'Projeto Apollo', tipo: 'Sistema SaaS Full Stack',
+        desc: 'Sistema completo de gestão de e-commerce com inteligência artificial integrada. Desenvolvido do zero com arquitetura multi-tenant, módulos de marketing com IA, assistente virtual e automações.',
+        etapas: [
+          '1. Estruturação do backend com Node.js + Express e banco MySQL',
+          '2. Criação da API REST com autenticação JWT multi-tenant',
+          '3. Desenvolvimento do frontend React com Vite e roteamento',
+          '4. Integração da IA Gemini para marketing e assistente virtual',
+          '5. Módulo de automações com n8n integrado via iframe',
+          '6. Sistema de integrações com Bling e Mercado Livre',
+        ],
+        pills: ['Node.js', 'Express', 'React', 'Vite', 'MySQL', 'JWT', 'Gemini AI', 'n8n', 'Axios', 'Nodemailer', 'Bcrypt', 'REST API'],
+        link: 'https://github.com/RD921/Projeto-atualizado'
+      },
+      portfolio: {
+        icon: '🎨', title: 'Site Portfólio', tipo: 'Landing Page',
+        desc: 'Site de portfólio pessoal com design minimalista inspirado na Apple. Desenvolvido em HTML, CSS e JavaScript puro, sem frameworks, com animações suaves e conteúdo interativo.',
+        etapas: [
+          '1. Design minimalista com paleta preto/branco e tipografia forte',
+          '2. Navbar sticky com backdrop blur e links de navegação',
+          '3. Hero section com animações fadeUp e badge animado',
+          '4. Preview animado do dashboard com barras e contador',
+          '5. Modal de detalhes para cada funcionalidade',
+          '6. Seção de cursos com tabs e cards de projetos/certificados',
+        ],
+        pills: ['HTML5', 'CSS3', 'JavaScript', 'Animações CSS', 'Design Responsivo'],
+        link: '#'
+      }
+    };
+
+    function abrirModal(id) {
+      const dados = modais[id];
+      document.getElementById('modal-icon').textContent = dados.icon;
+      document.getElementById('modal-title').textContent = dados.title;
+      document.getElementById('modal-desc').textContent = dados.desc;
+      document.getElementById('modal-items').innerHTML = dados.items.map(item => `
+        <div style="background:#f9f9f9;border:1px solid #e5e5e5;border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;">
+          <span style="font-size:20px;flex-shrink:0;">${item.icon}</span>
+          <div><p style="font-size:14px;font-weight:500;color:#1d1d1f;margin-bottom:4px;">${item.titulo}</p><p style="font-size:13px;color:#6e6e73;line-height:1.6;">${item.texto}</p></div>
+        </div>`).join('');
+      const modal = document.getElementById('modal');
+      modal.classList.add('ativo');
+      setTimeout(() => { modal.style.opacity = '1'; document.getElementById('modal-box').style.transform = 'translateY(0)'; }, 10);
+      document.body.style.overflow = 'hidden';
+    }
+
+    function fecharModal() {
+      const modal = document.getElementById('modal');
+      modal.style.opacity = '0'; document.getElementById('modal-box').style.transform = 'translateY(20px)';
+      setTimeout(() => modal.classList.remove('ativo'), 300);
+      document.body.style.overflow = '';
+    }
+
+    function abrirModalProjeto(id) {
+      const d = modaisProjetos[id];
+      document.getElementById('mp-icon').textContent = d.icon;
+      document.getElementById('mp-title').textContent = d.title;
+      document.getElementById('mp-tipo').textContent = d.tipo;
+      document.getElementById('mp-desc').textContent = d.desc;
+      document.getElementById('mp-etapas').innerHTML = d.etapas.map(e => `
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:#34d399;font-size:14px;margin-top:1px;">✓</span>
+          <p style="font-size:13px;color:#6e6e73;line-height:1.5;">${e}</p>
+        </div>`).join('');
+      document.getElementById('mp-pills').innerHTML = d.pills.map(p => `<span style="background:#f5f5f7;border:1px solid #e5e5e5;border-radius:20px;padding:6px 14px;font-size:12px;color:#1d1d1f;font-weight:500;">${p}</span>`).join('');
+      const linkEl = document.getElementById('mp-link');
+      if (d.link === '#') { document.getElementById('mp-link-wrapper').style.display = 'none'; }
+      else { document.getElementById('mp-link-wrapper').style.display = 'block'; linkEl.href = d.link; }
+      const modal = document.getElementById('modal-projeto');
+      modal.classList.add('ativo');
+      setTimeout(() => { modal.style.opacity = '1'; document.getElementById('modal-projeto-box').style.transform = 'translateY(0)'; }, 10);
+      document.body.style.overflow = 'hidden';
+    }
+
+    function fecharModalProjeto() {
+      const modal = document.getElementById('modal-projeto');
+      modal.style.opacity = '0'; document.getElementById('modal-projeto-box').style.transform = 'translateY(20px)';
+      setTimeout(() => modal.classList.remove('ativo'), 300);
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { fecharModal(); fecharModalProjeto(); } });
+  </script>
+
+</body>
+</html>

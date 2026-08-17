@@ -1,0 +1,4 @@
+﻿Remove-Item .git -Recurse -Force
+git init
+git add .
+git status

@@ -1,0 +1,11 @@
+const express = require("express");
+const router = express.Router();
+const auth = require("../middleware/authMiddleware");
+const ctrl = require("../controllers/integrationController");
+router.get("/",                                      auth, ctrl.getIntegrations);
+router.get("/mercadolivre/auth",                     auth, ctrl.getAuthUrl);
+router.get("/mercadolivre/callback",                 ctrl.handleCallback);
+router.post("/mercadolivre/sync/orders",             auth, ctrl.syncOrders);
+router.get("/mercadolivre/orders",                   auth, (req, res) => { req.params.marketplace = "mercadolivre"; ctrl.getMarketplaceOrders(req, res); });
+router.delete("/:marketplace/disconnect",            auth, ctrl.disconnectIntegration);
+module.exports = router;

@@ -1,0 +1,10 @@
+const express = require("express");
+const router = express.Router();
+const auth = require("../middleware/authMiddleware");
+const role = require("../middleware/roleMiddleware");
+const ctrl = require("../controllers/planController");
+router.get("/",     ctrl.getPlans);
+router.get("/:id",  ctrl.getPlanById);
+router.post("/",    auth, role("admin"), ctrl.createPlan);
+router.put("/:id",  auth, role("admin"), ctrl.updatePlan);
+module.exports = router;
