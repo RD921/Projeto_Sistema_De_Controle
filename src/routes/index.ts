@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import dashboardRouter from "./dashboard";
 import integrationRouter from "./integrationRoutes";
+import moduleRecommendationRouter from "./moduleRecommendationRoutes";
 import planRouter from "./planRoutes";
 import reportRouter from "./reportRoutes";
 import tenantRouter from "./tenantRoutes";
@@ -16,6 +17,7 @@ router.get("/healthz", (_req, res) => {
 
 router.use("/dashboard", dashboardRouter);
 router.use("/integrations", integrationRouter);
+router.use("/modules", moduleRecommendationRouter);
 router.use("/plans", planRouter);
 router.use("/reports", reportRouter);
 router.use("/tenants", tenantRouter);

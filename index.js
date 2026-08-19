@@ -7,3 +7,5 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
   scheduler.init();
 });
+   const recomendacaoRouter = require("./exemploRotaRecomendacao");
+   app.use(recomendacaoRouter);
