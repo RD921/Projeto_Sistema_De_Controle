@@ -13,12 +13,16 @@ const reportRoutes      = require("./routes/reportRoutes");
 const tenantRoutes      = require("./routes/tenantRoutes");
 const planRoutes        = require("./routes/planRoutes");
 const marketingRoutes   = require("./routes/marketingRoutes");
-const eventRoutes = require("./routes/eventRoutes");
+const eventRoutes       = require("./routes/eventRoutes");
+const aiRoutes          = require("./routes/aiRoutes");
+const onboardingRoutes  = require("./routes/onboardingRoutes");
+
 const app = express();
-const aiRoutes = require("./routes/aiRoutes");
+
 app.use(helmet());
 app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE"], allowedHeaders: ["Content-Type","Authorization"] }));
 app.use(express.json());
+
 app.use("/api/automations", automationRoutes);
 app.use("/api/auth",         authRoutes);
 app.use("/api/users",        userRoutes);
@@ -32,7 +36,10 @@ app.use("/api/reports",      reportRoutes);
 app.use("/api/tenants",      tenantRoutes);
 app.use("/api/plans",        planRoutes);
 app.use("/api/marketing",    marketingRoutes);
+app.use("/api/events",       eventRoutes);
+app.use("/api/ai",           aiRoutes);
+app.use("/api/onboarding",   onboardingRoutes);
+
 app.get("/", (req, res) => res.json({ status: "ok", version: "3.0" }));
-app.use("/api/events", eventRoutes);
-app.use("/api/ai", aiRoutes);
+
 module.exports = app;

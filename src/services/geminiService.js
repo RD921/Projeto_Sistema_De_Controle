@@ -1,14 +1,19 @@
 const axios = require("axios");
-
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_URL =
+"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 
 async function chamarGemini(prompt, tentativas = 3) {
   for (let i = 0; i < tentativas; i++) {
     try {
       const response = await axios.post(
-        `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
+        GEMINI_URL,
         { contents: [{ parts: [{ text: prompt }] }] },
-        { headers: { "Content-Type": "application/json" } }
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": process.env.GEMINI_API_KEY,
+          },
+        }
       );
       return response.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     } catch (err) {
@@ -80,14 +85,10 @@ exports.chat = async (mensagens) => {
   const prompt = `Você é Aria, assistente virtual do EcomFlow, sistema de gestão de e-commerce brasileiro.
 Responda sempre em português brasileiro, de forma natural, amigável e profissional.
 Você conhece os módulos: Dashboard, Produtos, Pedidos, Clientes, Marketing com IA e Automações.
-
-// Exporta a função de baixo nível para reuso por outras camadas
-// (ex: AIService), sem duplicar a lógica de chamada ao Gemini.
-exports.chamarGemini = chamarGemini;
-
 Histórico da conversa:
 ${historico}
-
 Responda a última mensagem do usuário:`;
   return await chamarGemini(prompt);
 };
+
+exports.chamarGemini = chamarGemini;

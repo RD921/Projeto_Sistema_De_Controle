@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useOutletContext, Link } from "react-router-dom";
+import { useOutletContext, useNavigate, Link } from "react-router-dom";
 import api from "../api";
 
 const statusCor = {
@@ -9,13 +9,43 @@ const statusLabel = {
   draft: "Rascunho", active: "Ativa", paused: "Pausada", error: "Erro", archived: "Arquivada",
 };
 
+const TABS = [
+  { id: "minhas", label: "Minhas Automações" },
+  { id: "modelos", label: "Modelos Prontos" },
+  { id: "ia", label: "Templates da IA", badge: "Novo" },
+  { id: "execucoes", label: "Execuções" },
+  { id: "eventos", label: "Eventos" },
+  { id: "logs", label: "Logs" },
+];
+
+function EstadoVazio({ cor, icone, titulo, texto }) {
+  return (
+    <div style={{ textAlign: "center", padding: "60px 20px" }}>
+      <p style={{ fontSize: 32, marginBottom: 8 }}>{icone}</p>
+      <p style={{ color: cor.text, fontWeight: 600, margin: 0 }}>{titulo}</p>
+      <p style={{ color: cor.textMuted, fontSize: 13, marginTop: 4 }}>{texto}</p>
+    </div>
+  );
+}
+
 export default function Automacoes() {
   const { cor } = useOutletContext();
+  const navigate = useNavigate();
+
   const [automations, setAutomations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [abaAtiva, setAbaAtiva] = useState("minhas");
+
   const [modalNova, setModalNova] = useState(false);
   const [nomeNova, setNomeNova] = useState("");
   const [criando, setCriando] = useState(false);
+
+  const [modalIA, setModalIA] = useState(false);
+  const [promptIA, setPromptIA] = useState("");
+  const [respostaIA, setRespostaIA] = useState(null);
+  const [carregandoIA, setCarregandoIA] = useState(false);
+  const [erroIA, setErroIA] = useState("");
+
   const [detalhe, setDetalhe] = useState(null);
   const [executions, setExecutions] = useState([]);
   const [logs, setLogs] = useState(null);
@@ -41,6 +71,21 @@ export default function Automacoes() {
       alert("Erro ao criar: " + (err.response?.data?.error || err.message));
     } finally {
       setCriando(false);
+    }
+  };
+
+  const perguntarIA = async () => {
+    if (!promptIA.trim()) return;
+    setCarregandoIA(true);
+    setErroIA("");
+    setRespostaIA(null);
+    try {
+      const r = await api.post("/ai/chat", { mensagens: [{ role: "user", text: promptIA }] });
+      setRespostaIA(r.data);
+    } catch (err) {
+      setErroIA(err.response?.data?.error || "Erro ao conversar com a IA.");
+    } finally {
+      setCarregandoIA(false);
     }
   };
 
@@ -94,25 +139,66 @@ export default function Automacoes() {
   const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 14, padding: 18 };
   const inputStyle = { width: "100%", padding: "10px 14px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
 
+  const totais = {
+    total: automations.length,
+    ativas: automations.filter(a => a.status === "active").length,
+    pausadas: automations.filter(a => a.status === "paused").length,
+    rascunhos: automations.filter(a => a.status === "draft").length,
+  };
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+      <button
+        onClick={() => navigate("/central-controle")}
+        style={{
+          background: "none", border: "none", color: cor.textMuted, cursor: "pointer",
+          fontSize: 13, fontFamily: "inherit", padding: 0, marginBottom: 16,
+          display: "flex", alignItems: "center", gap: 6,
+        }}
+      >
+        ← Voltar para o painel
+      </button>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ color: cor.text, fontWeight: 700, margin: 0 }}>Automações</h1>
-          <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 0" }}>Apollo Automation Engine — motor próprio, sem depender do n8n</p>
+          <h1 style={{ color: cor.text, fontWeight: 700, margin: 0 }}>⚡ Automações</h1>
+          <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 0" }}>Crie, gerencie e automatize processos do seu negócio.</p>
         </div>
-        <button onClick={() => setModalNova(true)} style={{ background: cor.text, color: cor.bg, border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "sans-serif" }}>
-          + Nova Automação
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setModalNova(true)} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "sans-serif" }}>
+            + Nova Automação
+          </button>
+          <button onClick={() => setModalIA(true)} style={{ background: "linear-gradient(135deg, #a78bfa, #38bdf8)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "sans-serif" }}>
+            ✦ Criar com IA
+          </button>
+        </div>
       </div>
 
-      {/* KPIs rápidos */}
+      <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 22, borderBottom: `1px solid ${cor.border}` }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setAbaAtiva(t.id)} style={{
+            background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
+            padding: "10px 16px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
+            color: abaAtiva === t.id ? cor.text : cor.textMuted,
+            borderBottom: abaAtiva === t.id ? "2px solid #a78bfa" : "2px solid transparent",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            {t.label}
+            {t.badge && (
+              <span style={{ background: "#a78bfa22", color: "#a78bfa", fontSize: 9.5, padding: "1px 6px", borderRadius: 20, fontWeight: 700 }}>
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Total", v: automations.length, c: "#a78bfa" },
-          { label: "Ativas", v: automations.filter(a => a.status === "active").length, c: "#4ade80" },
-          { label: "Pausadas", v: automations.filter(a => a.status === "paused").length, c: "#fbbf24" },
-          { label: "Rascunhos", v: automations.filter(a => a.status === "draft").length, c: "#6e6e73" },
+          { label: "Total", v: totais.total, c: "#a78bfa" },
+          { label: "Ativas", v: totais.ativas, c: "#4ade80" },
+          { label: "Pausadas", v: totais.pausadas, c: "#fbbf24" },
+          { label: "Rascunhos", v: totais.rascunhos, c: "#6e6e73" },
         ].map(k => (
           <div key={k.label} style={cardStyle}>
             <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 6 }}>{k.label}</p>
@@ -121,49 +207,65 @@ export default function Automacoes() {
         ))}
       </div>
 
-      {/* LISTA */}
-      {loading ? (
-        <div>{[1, 2, 3].map(i => <div key={i} style={{ height: 64, background: cor.card, borderRadius: 12, marginBottom: 10, opacity: 0.5, border: `1px solid ${cor.border}` }} />)}</div>
-      ) : automations.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: "center", padding: 60 }}>
-          <p style={{ fontSize: 32, marginBottom: 8 }}>⚡</p>
-          <p style={{ color: cor.text, fontWeight: 600, margin: 0 }}>Nenhuma automação criada ainda</p>
-          <p style={{ color: cor.textMuted, fontSize: 13, marginTop: 4 }}>Clique em "+ Nova Automação" para começar.</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {automations.map(a => (
-            <div key={a.id} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => abrirDetalhe(a)}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: `${statusCor[a.status]}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚡</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ color: cor.text, fontSize: 14, fontWeight: 600, margin: 0 }}>{a.name}</p>
-                <p style={{ color: cor.textMuted, fontSize: 12, margin: "2px 0 0" }}>{a.description || "Sem descrição"} · v{a.version}</p>
-              </div>
-              <span style={{ background: `${statusCor[a.status]}22`, color: statusCor[a.status], fontSize: 11.5, padding: "3px 12px", borderRadius: 20, flexShrink: 0 }}>
-                {statusLabel[a.status]}
-              </span>
-              <Link
-                to={`/automacoes/${a.id}/editor`}
-                onClick={(e) => e.stopPropagation()}
-                style={{
+      {abaAtiva === "minhas" && (
+        loading ? (
+          <div>{[1, 2, 3].map(i => <div key={i} style={{ height: 64, background: cor.card, borderRadius: 12, marginBottom: 10, opacity: 0.5, border: `1px solid ${cor.border}` }} />)}</div>
+        ) : automations.length === 0 ? (
+          <EstadoVazio cor={cor} icone="⚡" titulo="Nenhuma automação criada ainda" texto='Clique em "+ Nova Automação" ou "✦ Criar com IA" para começar.' />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {automations.map(a => (
+              <div key={a.id} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => abrirDetalhe(a)}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${statusCor[a.status]}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚡</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ color: cor.text, fontSize: 14, fontWeight: 600, margin: 0 }}>{a.name}</p>
+                  <p style={{ color: cor.textMuted, fontSize: 12, margin: "2px 0 0" }}>{a.description || "Sem descrição"} · v{a.version}</p>
+                </div>
+                <span style={{ background: `${statusCor[a.status]}22`, color: statusCor[a.status], fontSize: 11.5, padding: "3px 12px", borderRadius: 20, flexShrink: 0 }}>
+                  {statusLabel[a.status]}
+                </span>
+                <Link
+                  to={`/automacoes/${a.id}/editor`}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "5px 12px",
+                    cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0, textDecoration: "none",
+                  }}
+                >
+                  ✎ Editor
+                </Link>
+                <button onClick={(e) => { e.stopPropagation(); toggleStatus(a); }} style={{
                   background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "5px 12px",
-                  cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0, textDecoration: "none",
-                }}
-              >
-                ✎ Editor
-              </Link>
-              <button onClick={(e) => { e.stopPropagation(); toggleStatus(a); }} style={{
-                background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "5px 12px",
-                cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0,
-              }}>
-                {a.status === "active" ? "⏸ Pausar" : "▶ Ativar"}
-              </button>
-            </div>
-          ))}
-        </div>
+                  cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0,
+                }}>
+                  {a.status === "active" ? "⏸ Pausar" : "▶ Ativar"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
-      {/* MODAL NOVA AUTOMAÇÃO */}
+      {abaAtiva === "modelos" && (
+        <EstadoVazio cor={cor} icone="📋" titulo="Modelos prontos em breve" texto="Estamos preparando automações prontas para os principais casos de uso." />
+      )}
+
+      {abaAtiva === "ia" && (
+        <EstadoVazio cor={cor} icone="✦" titulo="Templates da IA em breve" texto='Use o botão "✦ Criar com IA" no topo para conversar com a IA agora.' />
+      )}
+
+      {abaAtiva === "execucoes" && (
+        <EstadoVazio cor={cor} icone="📊" titulo="Execuções por automação" texto="Clique em uma automação em 'Minhas Automações' para ver o histórico de execuções dela." />
+      )}
+
+      {abaAtiva === "eventos" && (
+        <EstadoVazio cor={cor} icone="📡" titulo="Catálogo de eventos" texto="Em breve: lista de todos os eventos disponíveis no Event Bus, com quantas automações escutam cada um." />
+      )}
+
+      {abaAtiva === "logs" && (
+        <EstadoVazio cor={cor} icone="🧾" titulo="Logs consolidados" texto="Em breve: logs de todas as automações filtráveis por status e período." />
+      )}
+
       {modalNova && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModalNova(false)} />
@@ -171,9 +273,6 @@ export default function Automacoes() {
             <h2 style={{ color: cor.text, marginBottom: 16, fontSize: 17 }}>Nova Automação</h2>
             <form onSubmit={criarAutomacao}>
               <input value={nomeNova} onChange={e => setNomeNova(e.target.value)} placeholder="Nome da automação" required autoFocus style={inputStyle} />
-              <p style={{ color: cor.textMuted, fontSize: 11.5, marginTop: 8 }}>
-                Após criar, você poderá definir os nodes (trigger, condições, ações) via API. O editor visual chega na próxima fase.
-              </p>
               <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                 <button type="button" onClick={() => setModalNova(false)} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
                 <button type="submit" disabled={criando} style={{ flex: 1, padding: 11, background: cor.text, color: cor.bg, border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
@@ -185,7 +284,35 @@ export default function Automacoes() {
         </div>
       )}
 
-      {/* MODAL DETALHE / EXECUÇÕES */}
+      {modalIA && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => { setModalIA(false); setRespostaIA(null); setErroIA(""); }} />
+          <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 520 }}>
+            <h2 style={{ color: cor.text, marginBottom: 4, fontSize: 17 }}>✦ Criar automação com IA</h2>
+            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 16 }}>Explique o que você quer automatizar.</p>
+            <textarea
+              value={promptIA}
+              onChange={e => setPromptIA(e.target.value)}
+              placeholder="Ex: quando o estoque de um produto ficar baixo, quero ser avisado."
+              rows={4}
+              style={{ ...inputStyle, resize: "none" }}
+            />
+            {erroIA && <p style={{ color: "#f87171", fontSize: 12.5, marginTop: 10 }}>{erroIA}</p>}
+            {respostaIA && (
+              <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 14, marginTop: 14, fontSize: 13, color: cor.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                {respostaIA.message}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button type="button" onClick={() => { setModalIA(false); setRespostaIA(null); setErroIA(""); }} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Fechar</button>
+              <button type="button" onClick={perguntarIA} disabled={carregandoIA || !promptIA.trim()} style={{ flex: 1, padding: 11, background: "linear-gradient(135deg, #a78bfa, #38bdf8)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
+                {carregandoIA ? "Pensando..." : "Perguntar à IA"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {detalhe && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => { setDetalhe(null); setLogs(null); }} />

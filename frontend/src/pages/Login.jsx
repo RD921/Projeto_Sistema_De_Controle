@@ -23,12 +23,21 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault(); setErro(""); setLoading(true);
     try {
-      const res = await api.post("/auth/login", { email, senha });
+            const res = await api.post("/auth/login", { email, senha });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("tenant_id", res.data.tenant_id);
-      navigate("/");
-    } catch { setErro("E-mail ou senha incorretos."); }
-    finally { setLoading(false); }
+
+      try {
+        const onboarding = await api.get("/onboarding");
+        navigate(onboarding.data.completed ? "/" : "/onboarding");
+      } catch {
+        navigate("/");
+      }
+    } catch {
+      setErro("E-mail ou senha incorretos.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSuporte = async (e) => {

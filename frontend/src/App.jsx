@@ -13,6 +13,7 @@ import Integracoes from "./pages/Integracoes";
 import Automacoes from "./pages/Automacoes";
 import AutomationEditorPage from "./pages/AutomationEditorPage";
 import Layout from "./components/Layout";
+import Onboarding from "./pages/Onboarding";
 
 function PrivateRoute({ children }) {
   return localStorage.getItem("token") ? children : <Navigate to="/login" />;
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="integracoes" element={<Integracoes />} />
           <Route path="automacoes" element={<Automacoes />} />
           <Route path="automacoes/:id/editor" element={<AutomationEditorPage />} />
+          <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>
