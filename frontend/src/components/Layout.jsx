@@ -19,6 +19,8 @@ const traducoes = {
     fechar: "✕ Fechar", expandir: "⛶", limpar: "↺",
     tema: "Tema", idioma: "Idioma", buscar: "Buscar em tudo...",
     semNotificacoes: "Nenhuma notificação nova",
+    canaisVenda: "Canais de Venda e Marketplaces", logistica: "Logística e Frete",
+    fiscal: "Emissão de Nota Fiscal", pagamentos: "Gateways de Pagamento",
   },
   en: {
     modulos: "Modules", ecommerce: "E-commerce", marketing: "Marketing", central: "Control Center", integracoes: "Integrations",
@@ -30,6 +32,8 @@ const traducoes = {
     fechar: "✕ Close", expandir: "⛶", limpar: "↺",
     tema: "Theme", idioma: "Language", buscar: "Search everything...",
     semNotificacoes: "No new notifications",
+    canaisVenda: "Sales Channels & Marketplaces", logistica: "Logistics & Shipping",
+    fiscal: "Invoice Issuance", pagamentos: "Payment Gateways",
   },
   es: {
     modulos: "Módulos", ecommerce: "E-commerce", marketing: "Marketing", central: "Centro de Control", integracoes: "Integraciones",
@@ -41,6 +45,8 @@ const traducoes = {
     fechar: "✕ Cerrar", expandir: "⛶", limpar: "↺",
     tema: "Tema", idioma: "Idioma", buscar: "Buscar en todo...",
     semNotificacoes: "Sin notificaciones nuevas",
+    canaisVenda: "Canales de Venta y Marketplaces", logistica: "Logística y Envío",
+    fiscal: "Emisión de Factura", pagamentos: "Pasarelas de Pago",
   },
 };
 
@@ -51,14 +57,14 @@ const MODULOS_BUSCA = [
   { label: "Pedidos", path: "/orders", icon: "🛒" },
   { label: "Clientes", path: "/customers", icon: "👥" },
   { label: "Marketing", path: "/marketing", icon: "📣" },
-  { label: "Integrações", path: "/integracoes", icon: "🔗" },
+  { label: "Integrações", path: "/integracoes/canais-venda", icon: "🔗" },
   { label: "Assistente Aria", path: "/assistente", icon: "🤖" },
 ];
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-    const [ariaOpen, setAriaOpen] = useState(false);
+  const [ariaOpen, setAriaOpen] = useState(false);
   const [ariaHover, setAriaHover] = useState(false);
   const [mensagens, setMensagens] = useState([
     { role: "assistant", text: "Olá! Sou a Aria 👋 Como posso te ajudar?" }
@@ -130,7 +136,7 @@ export default function Layout() {
 
   const isCentral = location.pathname === "/central-controle";
   const isEcommerce = ["/products", "/orders", "/customers"].includes(location.pathname);
-  const isIntegracoes = location.pathname === "/integracoes";
+  const isIntegracoes = location.pathname.startsWith("/integracoes");
   const isMarketing = location.pathname === "/marketing";
   const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes;
 
@@ -141,15 +147,15 @@ export default function Layout() {
     { to: "/customers", label: t.clientes, icon: "👥" },
   ];
   const marketingLinks = [{ to: "/marketing", label: t.visaoGeral, icon: "📣" }];
-  const integracoesLinks = [{ to: "/integracoes", label: t.integracoes, icon: "🔗" }];
+  const integracoesLinks = [
+    { to: "/integracoes/canais-venda", label: t.canaisVenda, icon: "🛒" },
+    { to: "/integracoes/logistica", label: t.logistica, icon: "🚚" },
+    { to: "/integracoes/fiscal", label: t.fiscal, icon: "📄" },
+    { to: "/integracoes/pagamentos", label: t.pagamentos, icon: "💳" },
+  ];
 
   const linksAtivos = isCentral ? centralLinks : isMarketing ? marketingLinks : isIntegracoes ? integracoesLinks : ecommerceLinks;
   const tituloSecao = isCentral ? t.central : isMarketing ? t.marketing : isIntegracoes ? t.integracoes : t.ecommerce;
-
-  const breadcrumb = [
-    { label: t.modulos, path: "/" },
-    { label: tituloSecao, path: linksAtivos[0]?.to },
-  ];
 
   const resultadosBusca = buscaTexto.trim()
     ? MODULOS_BUSCA.filter(m => m.label.toLowerCase().includes(buscaTexto.toLowerCase()))
@@ -164,12 +170,7 @@ export default function Layout() {
           color: cor.text, padding: "16px 0", display: "flex", flexDirection: "column",
           transition: "width 0.25s ease", overflow: "hidden", flexShrink: 0,
         }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: sidebarColapsada ? "center" : "space-between", padding: "0 16px 16px", gap: 8 }}>
-            {!sidebarColapsada && (
-              <button onClick={() => navigate("/")} style={{ background: "none", border: "none", color: cor.textMuted, cursor: "pointer", fontSize: 12, fontFamily: "inherit", textAlign: "left", padding: 0 }}>
-                ← {t.modulos}
-              </button>
-            )}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 16px 16px" }}>
             <button onClick={() => setSidebarColapsada(!sidebarColapsada)} title={sidebarColapsada ? "Expandir" : "Recolher"}
               style={{ background: "none", border: `1px solid ${cor.border}`, borderRadius: 6, color: cor.textMuted, cursor: "pointer", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>
               {sidebarColapsada ? "»" : "«"}
@@ -198,18 +199,6 @@ export default function Layout() {
               {!sidebarColapsada && n.label}
             </NavLink>
           ))}
-
-          <div style={{ marginTop: "auto", padding: sidebarColapsada ? "0 10px" : "0 20px" }}>
-            <button onClick={logout} title={t.sair} style={{
-              background: "none", color: cor.textMuted, border: `1px solid ${cor.border}`,
-              padding: sidebarColapsada ? "8px 0" : "8px 16px", borderRadius: 6, cursor: "pointer",
-              width: "100%", fontFamily: "inherit", fontSize: 13, transition: "all 0.2s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = cor.text; e.currentTarget.style.color = cor.text; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = cor.border; e.currentTarget.style.color = cor.textMuted; }}>
-              {sidebarColapsada ? "⏻" : t.sair}
-            </button>
-          </div>
         </aside>
       )}
 
@@ -217,20 +206,6 @@ export default function Layout() {
 
         {/* HEADER */}
         <div style={{ height: 52, background: cor.header, borderBottom: `1px solid ${cor.border}`, display: "flex", alignItems: "center", padding: "0 20px", gap: 12, transition: "all 0.3s", position: "sticky", top: 0, zIndex: 50 }}>
-
-          {/* BREADCRUMB */}
-          {hasSidebar && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: cor.textMuted, flexShrink: 0 }}>
-              {breadcrumb.map((b, i) => (
-                <span key={b.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span onClick={() => navigate(b.path)} style={{ cursor: "pointer", color: i === breadcrumb.length - 1 ? cor.text : cor.textMuted, fontWeight: i === breadcrumb.length - 1 ? 600 : 400 }}>
-                    {b.label}
-                  </span>
-                  {i < breadcrumb.length - 1 && <span style={{ opacity: 0.5 }}>/</span>}
-                </span>
-              ))}
-            </div>
-          )}
 
           {/* BUSCA GLOBAL */}
           <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
@@ -336,14 +311,6 @@ export default function Layout() {
         <main style={{ flex: 1, padding: hasSidebar ? 30 : 0, background: cor.bg, transition: "all 0.3s" }}>
           <Outlet context={{ tema, idioma, cor }} />
         </main>
-
-        {/* FOOTER */}
-        {hasSidebar && (
-          <footer style={{ borderTop: `1px solid ${cor.border}`, padding: "10px 30px", display: "flex", justifyContent: "space-between", fontSize: 11, color: cor.textMuted }}>
-            <span>Apollo v1.0.0</span>
-            <span>🟢 Servidor online</span>
-          </footer>
-        )}
       </div>
 
       {/* MODAL DE BUSCA GLOBAL */}
@@ -495,7 +462,6 @@ export default function Layout() {
         </div>
       )}
 
-      
       <style>{`
         @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }

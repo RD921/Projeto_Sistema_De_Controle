@@ -3,11 +3,12 @@ const pool = require("../config/db");
 const BASE_URL = "https://api.mercadolibre.com";
 const AUTH_URL = "https://auth.mercadolivre.com.br/authorization";
 const TOKEN_URL = `${BASE_URL}/oauth/token`;
-function getAuthUrl() {
+function getAuthUrl(tenantId) {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: process.env.ML_APP_ID,
-    redirect_uri: process.env.ML_REDIRECT_URI
+    redirect_uri: process.env.ML_REDIRECT_URI,
+    state: String(tenantId)
   });
   return `${AUTH_URL}?${params.toString()}`;
 }

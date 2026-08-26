@@ -526,7 +526,28 @@ function EditorCanvas({
           <Background gap={16} color="#e5e5e5" />
           <Controls />
           <MiniMap pannable zoomable />
-        </ReactFlow>
+                </ReactFlow>
+      </div>
+
+      <div className="apollo-execpanel">
+        <p className="apollo-execpanel__title">Execuções recentes</p>
+        {(!executions || executions.length === 0) ? (
+          <p className="apollo-execpanel__empty">Nenhuma execução ainda.</p>
+        ) : (
+          executions.slice(0, 5).map((ex) => (
+            <div
+              key={ex.id}
+              className="apollo-execpanel__item"
+              onClick={() => onSelectExecution(String(ex.id))}
+              style={{ color: '#d4d4d8' }}
+            >
+              <span>#{ex.id} · {new Date(ex.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {ex.duration_ms != null ? `${ex.duration_ms}ms` : '—'}</span>
+              <span className={`apollo-execpanel__status apollo-execpanel__status--${ex.status === 'success' ? 'success' : ex.status === 'failed' ? 'failed' : 'pending'}`}>
+                {ex.status === 'success' ? '✓ Sucesso' : ex.status === 'failed' ? '✕ Falhou' : ex.status}
+              </span>
+            </div>
+          ))
+        )}
       </div>
 
       <ConfigPanel

@@ -40,11 +40,11 @@ const SISTEMAS = [
 
 const AREAS = [
   { id: "pedidos", label: "Gestão de Pedidos", desc: "Processamento e controle de pedidos", icon: "📦", modulo: { label: "Pedidos", rota: "/orders", disponivel: true } },
-  { id: "estoque", label: "Estoque", desc: "Controle e gestão de inventário", icon: "📊", modulo: { label: "Produtos (com controle de estoque)", rota: "/products", disponivel: true } },
+  { id: "produtos", label: "Estoque", desc: "Controle e gestão de inventário", icon: "📊", modulo: { label: "Produtos (com controle de estoque)", rota: "/products", disponivel: true } },
   { id: "financeiro", label: "Financeiro", desc: "Contas a pagar/receber e fluxo de caixa", icon: "💰", modulo: { label: "Financeiro", disponivel: false } },
   { id: "marketing", label: "Marketing", desc: "Campanhas e gestão de leads", icon: "📣", modulo: { label: "Marketing", rota: "/marketing", disponivel: true } },
   { id: "atendimento", label: "Atendimento", desc: "Suporte e relacionamento com clientes", icon: "🎧", modulo: { label: "Atendimento", disponivel: false } },
-  { id: "crm", label: "CRM", desc: "Gestão de clientes e oportunidades", icon: "👥", modulo: { label: "Clientes", rota: "/customers", disponivel: true } },
+  { id: "clientes", label: "CRM", desc: "Gestão de clientes e oportunidades", icon: "👥", modulo: { label: "Clientes", rota: "/customers", disponivel: true } },
   { id: "relatorios", label: "Relatórios e BI", desc: "Dashboards e análises inteligentes", icon: "📈", modulo: { label: "Relatórios", disponivel: false } },
   { id: "logistica", label: "Logística", desc: "Envios e rastreamento de entregas", icon: "🚛", modulo: { label: "Logística", disponivel: false } },
   { id: "fiscal", label: "Fiscal e Contábil", desc: "Notas fiscais e obrigações fiscais", icon: "🧾", modulo: { label: "Fiscal", disponivel: false } },

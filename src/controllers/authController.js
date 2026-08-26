@@ -17,7 +17,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id || 1 },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "7d" }
     );
     return res.json({ message: "Login realizado com sucesso", token, tenant_id: user.tenant_id });
   } catch (err) {
@@ -43,7 +43,7 @@ exports.register = async (req, res) => {
     );
     const tenantId = tenantResult.insertId;
     const hash = await bcrypt.hash(senha, 10);
-       const [userResult] = await pool.query(
+    const [userResult] = await pool.query(
       "INSERT INTO users (nome, email, senha, role, tenant_id) VALUES (?, ?, ?, 'admin', ?)",
       [nome_admin, email_admin, hash, tenantId]
     );
@@ -51,17 +51,12 @@ exports.register = async (req, res) => {
     const token = jwt.sign(
       { id: userResult.insertId, email: email_admin, role: "admin", tenant_id: tenantId },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "7d" }
     );
 
     return res.status(201).json({
       message: "Empresa registrada com sucesso",
       token,
-      tenant_id: tenantId,
-      trial_ends: trialEnds
-    });
-    return res.status(201).json({
-      message: "Empresa registrada com sucesso",
       tenant_id: tenantId,
       trial_ends: trialEnds
     });

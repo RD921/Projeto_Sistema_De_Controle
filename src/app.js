@@ -16,6 +16,8 @@ const marketingRoutes   = require("./routes/marketingRoutes");
 const eventRoutes       = require("./routes/eventRoutes");
 const aiRoutes          = require("./routes/aiRoutes");
 const onboardingRoutes  = require("./routes/onboardingRoutes");
+const moduleRoutes = require("./routes/moduleRoutes");
+const integrationCatalogRoutes = require("./routes/integrationCatalogRoutes");
 
 const app = express();
 
@@ -39,6 +41,8 @@ app.use("/api/marketing",    marketingRoutes);
 app.use("/api/events",       eventRoutes);
 app.use("/api/ai",           aiRoutes);
 app.use("/api/onboarding",   onboardingRoutes);
+app.use("/api/modules", moduleRoutes);
+app.use("/api/integrations-catalog", integrationCatalogRoutes);
 
 app.get("/", (req, res) => res.json({ status: "ok", version: "3.0" }));
 

@@ -1,6 +1,6 @@
-// frontend/src/pages/Modulos.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
+import api from "../api";
 
 const modulosPorIdioma = {
   pt: {
@@ -15,9 +15,9 @@ const modulosPorIdioma = {
     modulos: [
       { id: "central", nome: "Central de Controle", descricao: "Visão geral, métricas e insights do seu negócio.", icon: "📊", cor: "#8b5cf6", bg: "#f3f0ff" },
       { id: "ecommerce", nome: "E-commerce", descricao: "Gerencie seus produtos, pedidos e clientes em um só lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff" },
-      { id: "marketing", nome: "Marketing", descricao: "Captação, funis de vendas e automação de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5" },
-      { id: "automacoes", nome: "Automações", descricao: "Crie fluxos inteligentes e automatize processos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
-      { id: "integracoes", nome: "Integrações", descricao: "Conecte Bling, Mercado Livre e outras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+      { id: "marketing", nome: "Marketing", descricao: "Captação, funis de vendas e automação de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
+      { id: "automacoes", nome: "Automações", descricao: "Crie fluxos inteligentes e automatize processos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb", moduloId: "automacoes" },
+      { id: "integracoes", nome: "Integrações", descricao: "Conecte Bling, Mercado Livre e outras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff", moduloId: "integracoes" },
     ],
   },
   en: {
@@ -32,9 +32,9 @@ const modulosPorIdioma = {
     modulos: [
       { id: "central", nome: "Control Center", descricao: "Overview, metrics and insights for your business.", icon: "📊", cor: "#8b5cf6", bg: "#f3f0ff" },
       { id: "ecommerce", nome: "E-commerce", descricao: "Manage your products, orders and customers in one place.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff" },
-      { id: "marketing", nome: "Marketing", descricao: "Lead capture, sales funnels and marketing automation.", icon: "📣", cor: "#10b981", bg: "#ecfdf5" },
-      { id: "automacoes", nome: "Automations", descricao: "Create smart flows and automate processes.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
-      { id: "integracoes", nome: "Integrations", descricao: "Connect Bling, Mercado Livre and other platforms.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+      { id: "marketing", nome: "Marketing", descricao: "Lead capture, sales funnels and marketing automation.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
+      { id: "automacoes", nome: "Automations", descricao: "Create smart flows and automate processes.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb", moduloId: "automacoes" },
+      { id: "integracoes", nome: "Integrations", descricao: "Connect Bling, Mercado Livre and other platforms.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff", moduloId: "integracoes" },
     ],
   },
   es: {
@@ -49,14 +49,14 @@ const modulosPorIdioma = {
     modulos: [
       { id: "central", nome: "Centro de Control", descricao: "Visión general, métricas e insights de tu negocio.", icon: "📊", cor: "#8b5cf6", bg: "#f3f0ff" },
       { id: "ecommerce", nome: "E-commerce", descricao: "Gestiona tus productos, pedidos y clientes en un solo lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff" },
-      { id: "marketing", nome: "Marketing", descricao: "Captación, embudos de ventas y automatización de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5" },
-      { id: "automacoes", nome: "Automatizaciones", descricao: "Crea flujos inteligentes y automatiza procesos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
-      { id: "integracoes", nome: "Integraciones", descricao: "Conecta Bling, Mercado Libre y otras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+      { id: "marketing", nome: "Marketing", descricao: "Captación, embudos de ventas y automatización de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
+      { id: "automacoes", nome: "Automatizaciones", descricao: "Crea flujos inteligentes y automatiza procesos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb", moduloId: "automacoes" },
+      { id: "integracoes", nome: "Integraciones", descricao: "Conecta Bling, Mercado Libre y otras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff", moduloId: "integracoes" },
     ],
   },
 };
 
-function ModuloCard({ mod, onClick, cor, acessarLabel }) {
+function ModuloCard({ mod, onClick, cor, acessarLabel, statusModulo }) {
   const [hover, setHover] = useState(false);
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
@@ -70,6 +70,16 @@ function ModuloCard({ mod, onClick, cor, acessarLabel }) {
         minHeight: 220, display: "flex", flexDirection: "column",
       }}
       onClick={onClick}>
+      {statusModulo && (
+        <span style={{
+          position: "absolute", top: 16, right: 16, fontSize: 10, fontWeight: 700,
+          padding: "3px 10px", borderRadius: 20,
+          background: statusModulo === "instalado" ? "#dcfce7" : "#f4f4f5",
+          color: statusModulo === "instalado" ? "#16a34a" : "#a3a3a3",
+        }}>
+          {statusModulo === "instalado" ? "✓ Instalado" : "Não instalado"}
+        </span>
+      )}
       <div style={{
         width: 52, height: 52, borderRadius: 14,
         background: mod.bg, display: "flex", alignItems: "center", justifyContent: "center",
@@ -98,8 +108,17 @@ export default function Modulos() {
   const { tema, idioma, cor } = useOutletContext();
   const [ariaHover, setAriaHover] = useState(false);
   const [ariaOpen, setAriaOpen] = useState(false);
+  const [modulosInstalados, setModulosInstalados] = useState(null);
 
   const t = modulosPorIdioma[idioma] || modulosPorIdioma.pt;
+
+  useEffect(() => {
+    api.get("/modules").then(r => {
+      const mapa = {};
+      (r.data || []).forEach(m => { mapa[m.id] = m.instalado; });
+      setModulosInstalados(mapa);
+    }).catch(() => setModulosInstalados({}));
+  }, []);
 
   const irPara = (id) => {
     if (id === "central") navigate("/central-controle");
@@ -126,7 +145,6 @@ export default function Modulos() {
           </h1>
           <p style={{ color: cor.textMuted, fontSize: 15, maxWidth: 480, margin: 0 }}>{t.subtitulo}</p>
 
-          {/* Ilustração decorativa simples */}
           <div style={{
             position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)",
             display: "flex", gap: 8, opacity: 0.5,
@@ -139,8 +157,35 @@ export default function Modulos() {
         {/* CARDS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18, marginBottom: 20 }}>
           {t.modulos.map(mod => (
-            <ModuloCard key={mod.id} mod={mod} cor={cor} acessarLabel={t.acessar} onClick={() => irPara(mod.id)} />
+            <ModuloCard
+              key={mod.id} mod={mod} cor={cor} acessarLabel={t.acessar}
+              onClick={() => irPara(mod.id)}
+              statusModulo={mod.moduloId && modulosInstalados ? (modulosInstalados[mod.moduloId] ? "instalado" : "nao_instalado") : null}
+            />
           ))}
+        </div>
+
+        {/* BANNER LOJA DE MÓDULOS */}
+        <div style={{
+          background: "linear-gradient(135deg, #a78bfa15, #38bdf815)", border: `1px solid ${cor.border}`,
+          borderRadius: 16, padding: "18px 28px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 16, marginBottom: 20,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#a78bfa22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🧩</div>
+            <div>
+              <p style={{ color: cor.text, fontWeight: 600, fontSize: 14, margin: 0 }}>Loja de Módulos</p>
+              <p style={{ color: cor.textMuted, fontSize: 13, margin: "2px 0 0" }}>Veja todos os módulos disponíveis e instale novos quando precisar.</p>
+            </div>
+          </div>
+          <button onClick={() => navigate("/loja-modulos")} style={{
+            background: "#7c3aed", border: "none", color: "#fff",
+            borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+          }}>
+            Ver todos os módulos →
+          </button>
         </div>
 
         {/* DICA RÁPIDA */}

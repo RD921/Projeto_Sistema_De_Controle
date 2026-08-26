@@ -1,45 +1,44 @@
 .apollo-editor {
   display: grid;
-  grid-template-columns: 220px 1fr 280px;
-  height: calc(100vh - 64px); /* ajuste conforme a altura do seu header */
-  background: #fafafa;
-  font-family: inherit;
+  grid-template-columns: 240px 1fr 300px;
+  grid-template-rows: 1fr auto;
+  height: calc(100vh - 64px);
+  background: #0d0d0f;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ---------- Modo embutido (dentro de um bloco, não tela cheia) ---------- */
 .apollo-editor--embedded {
-  height: 560px;
+  height: 640px;
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #232326;
 }
 
 /* ---------- Toolbar ---------- */
 .apollo-editor__canvas {
   position: relative;
-  border-left: 1px solid #e5e5e5;
-  border-right: 1px solid #e5e5e5;
+  background: #0d0d0f;
+  grid-row: 1;
 }
 
 .apollo-editor__toolbar {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 10;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  padding: 10px 16px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  background: #151517;
+  border-bottom: 1px solid #232326;
+  padding: 14px 20px;
 }
 
 .apollo-editor__toolbar-title {
   font-weight: 700;
   font-size: 14px;
+  color: #f5f5f5;
 }
 
 .apollo-editor__toolbar-actions {
@@ -58,7 +57,7 @@
 }
 
 .apollo-btn--primary {
-  background: #111111;
+  background: #7c3aed;
   color: #fff;
 }
 
@@ -68,7 +67,7 @@
 }
 
 .apollo-editor__error {
-  color: #dc2626;
+  color: #f87171;
   font-size: 12px;
 }
 
@@ -77,6 +76,7 @@
   padding: 40px;
   text-align: center;
   color: #737373;
+  background: #0d0d0f;
 }
 
 .apollo-editor__toast {
@@ -84,7 +84,7 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: #111;
+  background: #16a34a;
   color: #fff;
   padding: 10px 20px;
   border-radius: 999px;
@@ -92,220 +92,85 @@
   z-index: 50;
 }
 
-/* ---------- Palette ---------- */
+/* ---------- Palette (dark, categorized) ---------- */
 .apollo-palette {
-  background: #ffffff;
+  background: #151517;
+  border-right: 1px solid #232326;
   padding: 16px 12px;
   overflow-y: auto;
+  grid-row: 1 / 3;
 }
 
 .apollo-palette__title {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b6b70;
+  margin-bottom: 14px;
 }
 
 .apollo-palette__group {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .apollo-palette__group-label {
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #a3a3a3;
-  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  color: #52525b;
+  margin-bottom: 8px;
+  font-weight: 600;
 }
 
 .apollo-palette__item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: 10px;
+  padding: 9px 8px;
   border-radius: 8px;
   font-size: 13px;
+  color: #d4d4d8;
   cursor: grab;
   border: 1px solid transparent;
 }
 
 .apollo-palette__item:hover {
-  background: #f5f5f5;
-  border-color: #e5e5e5;
+  background: #1f1f22;
+  border-color: #2f2f33;
 }
 
 .apollo-palette__hint {
   font-size: 11px;
-  color: #a3a3a3;
+  color: #52525b;
   margin-top: 20px;
   line-height: 1.4;
 }
 
-/* ---------- Custom node ---------- */
+/* ---------- Custom node (dark cards) ---------- */
 .apollo-node {
-  background: #ffffff;
-  border: 1.5px solid #e5e5e5;
+  background: #18181b;
+  border: 1.5px solid #2f2f33;
   border-radius: 10px;
   min-width: 190px;
   padding: 10px 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   position: relative;
 }
 
 .apollo-node--selected {
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
-}
-
-.apollo-node__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.apollo-node__icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.apollo-node__icon--sm {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.apollo-node__title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #171717;
-}
-
-.apollo-node__subtitle {
-  font-size: 10px;
-  color: #a3a3a3;
-}
-
-.apollo-node__branch-label {
-  position: absolute;
-  right: -34px;
-  font-size: 9px;
-  color: #a3a3a3;
-}
-
-.apollo-node__branch-label--true {
-  top: 30%;
-}
-
-.apollo-node__branch-label--false {
-  top: 65%;
-}
-
-.apollo-handle {
-  width: 8px !important;
-  height: 8px !important;
-  background: #a3a3a3 !important;
-  border: 2px solid #fff !important;
-}
-
-.apollo-handle--true {
-  background: #16a34a !important;
-}
-
-.apollo-handle--false {
-  background: #dc2626 !important;
-}
-
-/* ---------- Config panel ---------- */
-.apollo-config {
-  background: #ffffff;
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.apollo-config__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  position: relative;
-}
-
-.apollo-config__title {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.apollo-config__id {
-  font-size: 10px;
-  color: #a3a3a3;
-}
-
-.apollo-config__close {
-  position: absolute;
-  right: 0;
-  top: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: #a3a3a3;
-  font-size: 14px;
-}
-
-.apollo-config__label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: #525252;
-  margin: 12px 0 4px;
-}
-
-.apollo-config__input {
-  width: 100%;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  background: #fafafa;
-}
-
-.apollo-config__delete {
-  width: 100%;
-  margin-top: 24px;
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #dc2626;
-  border-radius: 8px;
-  padding: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* ---------- Debug de execução ---------- */
-.apollo-editor__exec-select {
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 12px;
-  font-family: inherit;
-  background: #fff;
-  color: #171717;
-  max-width: 220px;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px #7c3aed33;
 }
 
 .apollo-node--debug-success {
   border-color: #16a34a !important;
-  box-shadow: 0 0 0 2px #16a34a22;
+  box-shadow: 0 0 0 2px #16a34a33;
 }
 
 .apollo-node--debug-error {
   border-color: #dc2626 !important;
-  box-shadow: 0 0 0 2px #dc262622;
+  box-shadow: 0 0 0 2px #dc262633;
 }
 
 .apollo-node__debug-badge {
@@ -323,17 +188,149 @@
   font-weight: 700;
 }
 
-.apollo-node__debug-badge--success {
-  background: #16a34a;
+.apollo-node__debug-badge--success { background: #16a34a; }
+.apollo-node__debug-badge--error { background: #dc2626; }
+
+.apollo-node__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.apollo-node__debug-badge--error {
-  background: #dc2626;
+.apollo-node__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.apollo-node__icon--sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.apollo-node__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5f5f5;
+}
+
+.apollo-node__subtitle {
+  font-size: 10px;
+  color: #71717a;
+}
+
+.apollo-node__branch-label {
+  position: absolute;
+  right: -34px;
+  font-size: 9px;
+  color: #71717a;
+}
+
+.apollo-node__branch-label--true { top: 30%; }
+.apollo-node__branch-label--false { top: 65%; }
+
+.apollo-handle {
+  width: 9px !important;
+  height: 9px !important;
+  background: #71717a !important;
+  border: 2px solid #18181b !important;
+}
+
+.apollo-handle--true { background: #16a34a !important; }
+.apollo-handle--false { background: #dc2626 !important; }
+
+/* ---------- Config panel (dark, right side) ---------- */
+.apollo-config {
+  background: #151517;
+  border-left: 1px solid #232326;
+  padding: 16px;
+  overflow-y: auto;
+  grid-row: 1 / 3;
+}
+
+.apollo-config__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.apollo-config__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.apollo-config__id {
+  font-size: 10px;
+  color: #52525b;
+}
+
+.apollo-config__close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #71717a;
+  font-size: 14px;
+}
+
+.apollo-config__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin: 12px 0 4px;
+}
+
+.apollo-config__input {
+  width: 100%;
+  border: 1px solid #2f2f33;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: #1f1f22;
+  color: #f5f5f5;
+  box-sizing: border-box;
+}
+
+.apollo-config__delete {
+  width: 100%;
+  margin-top: 24px;
+  border: 1px solid #dc262655;
+  background: #dc262615;
+  color: #f87171;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.apollo-editor__exec-select {
+  border: 1px solid #2f2f33;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: #1f1f22;
+  color: #f5f5f5;
+  max-width: 220px;
 }
 
 .apollo-config__debug {
-  background: #fafafa;
-  border: 1px solid #e5e5e5;
+  background: #1f1f22;
+  border: 1px solid #2f2f33;
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 16px;
@@ -347,28 +344,21 @@
   margin-bottom: 8px;
 }
 
-.apollo-config__debug-title--success {
-  color: #16a34a;
-}
+.apollo-config__debug-title--success { color: #4ade80; }
+.apollo-config__debug-title--error { color: #f87171; }
 
-.apollo-config__debug-title--error {
-  color: #dc2626;
-}
-
-.apollo-config__debug-row {
-  margin-bottom: 8px;
-}
+.apollo-config__debug-row { margin-bottom: 8px; }
 
 .apollo-config__debug-label {
   font-size: 10px;
-  color: #a3a3a3;
+  color: #71717a;
   text-transform: uppercase;
   margin-bottom: 3px;
 }
 
 .apollo-config__debug-json {
-  background: #fff;
-  border: 1px solid #e5e5e5;
+  background: #0d0d0f;
+  border: 1px solid #2f2f33;
   border-radius: 6px;
   padding: 8px;
   font-size: 11px;
@@ -377,10 +367,53 @@
   word-break: break-word;
   max-height: 140px;
   overflow-y: auto;
-  color: #171717;
+  color: #d4d4d8;
 }
 
-.apollo-config__debug-time {
-  font-size: 10.5px;
-  color: #737373;
+.apollo-config__debug-time { font-size: 10.5px; color: #71717a; }
+
+/* ---------- Bottom execution panel ---------- */
+.apollo-execpanel {
+  grid-column: 2;
+  grid-row: 2;
+  background: #151517;
+  border-top: 1px solid #232326;
+  padding: 14px 20px;
+  max-height: 220px;
+  overflow-y: auto;
 }
+
+.apollo-execpanel__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f5f5f5;
+  margin-bottom: 10px;
+}
+
+.apollo-execpanel__empty {
+  font-size: 12.5px;
+  color: #71717a;
+}
+
+.apollo-execpanel__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+.apollo-execpanel__item:hover { background: #1f1f22; }
+
+.apollo-execpanel__status {
+  font-size: 10.5px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.apollo-execpanel__status--success { background: #16a34a22; color: #4ade80; }
+.apollo-execpanel__status--failed { background: #dc262622; color: #f87171; }
+.apollo-execpanel__status--pending { background: #ca8a0422; color: #facc15; }

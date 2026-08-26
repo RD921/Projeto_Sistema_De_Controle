@@ -1,19 +1,25 @@
 const pool = require("../config/db");
 const ml = require("../services/mercadolivreService");
+
 exports.getAuthUrl = (req, res) => {
   try {
-    const url = ml.getAuthUrl();
+    const url = ml.getAuthUrl(req.tenant_id);
     res.json({ url });
   } catch (err) {
     res.status(500).json({ error: "Erro ao gerar URL de autorizacao", details: err.message });
   }
 };
+
 exports.handleCallback = async (req, res) => {
+  const frontendUrl = process.env.CORS_ORIGIN || "http://localhost:5173";
   try {
-    const { code } = req.query;
-    if (!code) return res.status(400).json({ error: "Codigo de autorizacao ausente" });
+    const { code, state } = req.query;
+    if (!code) return res.redirect(`${frontendUrl}/integracoes/canais-venda?erro=codigo_ausente`);
+
+    const tenantId = state ? parseInt(state, 10) : null;
     const tokenData = await ml.exchangeCodeForToken(code);
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+
     const [existing] = await pool.query(
       "SELECT id FROM integrations WHERE marketplace = 'mercadolivre'"
     );
@@ -28,11 +34,23 @@ exports.handleCallback = async (req, res) => {
         [process.env.ML_APP_ID, process.env.ML_CLIENT_SECRET, tokenData.access_token, tokenData.refresh_token, expiresAt, tokenData.user_id]
       );
     }
-    res.json({ message: "Mercado Livre conectado com sucesso", seller_id: tokenData.user_id });
+
+    if (tenantId) {
+      await pool.query(
+        `INSERT INTO tenant_integrations (tenant_id, integration_id, status, credenciais, connected_at)
+         VALUES (?, 'mercadolivre', 'connected', ?, NOW())
+         ON DUPLICATE KEY UPDATE status = 'connected', credenciais = VALUES(credenciais), connected_at = NOW()`,
+        [tenantId, JSON.stringify({ seller_id: tokenData.user_id })]
+      );
+    }
+
+    res.redirect(`${frontendUrl}/integracoes/canais-venda?conectado=mercadolivre`);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao autenticar com Mercado Livre", details: err.message });
+    console.error("Erro no callback do Mercado Livre:", err.message);
+    res.redirect(`${frontendUrl}/integracoes/canais-venda?erro=falha_conexao`);
   }
 };
+
 exports.getIntegrations = async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -43,6 +61,7 @@ exports.getIntegrations = async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar integracoes", details: err.message });
   }
 };
+
 exports.disconnectIntegration = async (req, res) => {
   try {
     const { marketplace } = req.params;
@@ -52,6 +71,7 @@ exports.disconnectIntegration = async (req, res) => {
     res.status(500).json({ error: "Erro ao desativar integracao", details: err.message });
   }
 };
+
 exports.syncOrders = async (req, res) => {
   try {
     const { token, sellerId } = await ml.getValidToken();
@@ -86,6 +106,7 @@ exports.syncOrders = async (req, res) => {
     res.status(500).json({ error: "Erro ao sincronizar pedidos", details: err.message });
   }
 };
+
 exports.getMarketplaceOrders = async (req, res) => {
   try {
     const marketplace = req.params.marketplace || "mercadolivre";
@@ -104,6 +125,7 @@ exports.getMarketplaceOrders = async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar pedidos do marketplace", details: err.message });
   }
 };
+
 exports.publishProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -127,6 +149,7 @@ exports.publishProduct = async (req, res) => {
     res.status(500).json({ error: "Erro ao publicar produto", details: err.message });
   }
 };
+
 exports.syncProductStock = async (req, res) => {
   try {
     const { token } = await ml.getValidToken();
@@ -150,6 +173,7 @@ exports.syncProductStock = async (req, res) => {
     res.status(500).json({ error: "Erro ao sincronizar estoque", details: err.message });
   }
 };
+
 exports.searchMLCategories = async (req, res) => {
   try {
     const { q } = req.query;

@@ -9,11 +9,12 @@ import Orders from "./pages/Orders";
 import Customers from "./pages/Customers";
 import Marketing from "./pages/Marketing";
 import Assistente from "./pages/Assistente";
-import Integracoes from "./pages/Integracoes";
 import Automacoes from "./pages/Automacoes";
 import AutomationEditorPage from "./pages/AutomationEditorPage";
 import Layout from "./components/Layout";
 import Onboarding from "./pages/Onboarding";
+import LojaModulos from "./pages/LojaModulos";
+import IntegracoesHub from "./pages/IntegracoesHub";
 
 function PrivateRoute({ children }) {
   return localStorage.getItem("token") ? children : <Navigate to="/login" />;
@@ -26,6 +27,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
+
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Modulos />} />
           <Route path="central-controle" element={<CentralControle />} />
@@ -34,10 +37,11 @@ export default function App() {
           <Route path="customers" element={<Customers />} />
           <Route path="marketing" element={<Marketing />} />
           <Route path="assistente" element={<Assistente />} />
-          <Route path="integracoes" element={<Integracoes />} />
+          <Route path="integracoes" element={<Navigate to="/integracoes/canais-venda" replace />} />
+          <Route path="integracoes/:categoria" element={<IntegracoesHub />} />
           <Route path="automacoes" element={<Automacoes />} />
           <Route path="automacoes/:id/editor" element={<AutomationEditorPage />} />
-          <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
+          <Route path="loja-modulos" element={<LojaModulos />} />
         </Route>
       </Routes>
     </BrowserRouter>
