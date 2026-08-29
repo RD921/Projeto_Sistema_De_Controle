@@ -138,7 +138,8 @@ export default function Layout() {
   const isEcommerce = ["/products", "/orders", "/customers"].includes(location.pathname);
   const isIntegracoes = location.pathname.startsWith("/integracoes");
   const isMarketing = location.pathname === "/marketing";
-  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes;
+  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro;
+  const isFinanceiro = location.pathname === "/financeiro";
 
   const centralLinks = [{ to: "/central-controle", label: t.dashboard, icon: "📊" }];
   const ecommerceLinks = [
@@ -152,10 +153,11 @@ export default function Layout() {
     { to: "/integracoes/logistica", label: t.logistica, icon: "🚚" },
     { to: "/integracoes/fiscal", label: t.fiscal, icon: "📄" },
     { to: "/integracoes/pagamentos", label: t.pagamentos, icon: "💳" },
+    { to: "/financeiro", label: "Financeiro", icon: "💰" },
   ];
 
-  const linksAtivos = isCentral ? centralLinks : isMarketing ? marketingLinks : isIntegracoes ? integracoesLinks : ecommerceLinks;
-  const tituloSecao = isCentral ? t.central : isMarketing ? t.marketing : isIntegracoes ? t.integracoes : t.ecommerce;
+  const linksAtivos = isCentral ? centralLinks : isMarketing ? marketingLinks : isIntegracoes ? integracoesLinks : isFinanceiro ? financeiroLinks : ecommerceLinks;
+const tituloSecao = isCentral ? t.central : isMarketing ? t.marketing : isIntegracoes ? t.integracoes : isFinanceiro ? "Financeiro" : t.ecommerce;
 
   const resultadosBusca = buscaTexto.trim()
     ? MODULOS_BUSCA.filter(m => m.label.toLowerCase().includes(buscaTexto.toLowerCase()))

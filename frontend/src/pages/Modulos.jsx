@@ -12,12 +12,18 @@ const modulosPorIdioma = {
     dicaTexto: "Explore os módulos e descubra como o Apollo pode otimizar seu tempo e aumentar seus resultados.",
     dicaBtn: "✨ Ver novidades",
     acessar: "Acessar módulo",
-    modulos: [
+    tituloInstalados: "MÓDULOS INSTALADOS",
+    nativos: [
       { id: "central", nome: "Central de Controle", descricao: "Visão geral, métricas e insights do seu negócio.", icon: "📊", cor: "#8b5cf6", bg: "#f3f0ff" },
-      { id: "ecommerce", nome: "E-commerce", descricao: "Gerencie seus produtos, pedidos e clientes em um só lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff" },
+      { id: "automacoes", nome: "Automações", descricao: "Crie fluxos inteligentes e automatize processos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
+      { id: "financeiro", nome: "Financeiro", descricao: "Gerencie receitas, despesas, relatórios e fluxo de caixa.", icon: "💰", cor: "#10b981", bg: "#ecfdf5" },
+      { id: "integracoes", nome: "Integrações", descricao: "Conecte Bling, Mercado Livre e outras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+    ],
+    instalaveis: [
+      { id: "ecommerce", nome: "E-commerce", descricao: "Gerencie seus produtos, pedidos e clientes em um só lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff", moduloId: "produtos" },
       { id: "marketing", nome: "Marketing", descricao: "Captação, funis de vendas e automação de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
-      { id: "automacoes", nome: "Automações", descricao: "Crie fluxos inteligentes e automatize processos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb", moduloId: "automacoes" },
-      { id: "integracoes", nome: "Integrações", descricao: "Conecte Bling, Mercado Livre e outras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff", moduloId: "integracoes" },
+      { id: "atendimento", nome: "Atendimento", descricao: "Centralize conversas e ofereça suporte de qualidade.", icon: "🎧", cor: "#f59e0b", bg: "#fffbeb", moduloId: "atendimento" },
+      { id: "logistica", nome: "Logística", descricao: "Gerencie envios, transportadoras e rastreamentos.", icon: "🚚", cor: "#3b82f6", bg: "#eff6ff", moduloId: "logistica" },
     ],
   },
   en: {
@@ -29,12 +35,18 @@ const modulosPorIdioma = {
     dicaTexto: "Explore the modules and discover how Apollo can optimize your time and boost your results.",
     dicaBtn: "✨ See what's new",
     acessar: "Open module",
-    modulos: [
+    tituloInstalados: "INSTALLED MODULES",
+    nativos: [
       { id: "central", nome: "Control Center", descricao: "Overview, metrics and insights for your business.", icon: "📊", cor: "#8b5cf6", bg: "#f3f0ff" },
-      { id: "ecommerce", nome: "E-commerce", descricao: "Manage your products, orders and customers in one place.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff" },
+      { id: "automacoes", nome: "Automations", descricao: "Create smart flows and automate processes.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
+      { id: "financeiro", nome: "Finance", descricao: "Manage revenue, expenses, reports and cash flow.", icon: "💰", cor: "#10b981", bg: "#ecfdf5" },
+      { id: "integracoes", nome: "Integrations", descricao: "Connect Bling, Mercado Livre and other platforms.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+    ],
+    instalaveis: [
+      { id: "ecommerce", nome: "E-commerce", descricao: "Manage your products, orders and customers in one place.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff", moduloId: "produtos" },
       { id: "marketing", nome: "Marketing", descricao: "Lead capture, sales funnels and marketing automation.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
-      { id: "automacoes", nome: "Automations", descricao: "Create smart flows and automate processes.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb", moduloId: "automacoes" },
-      { id: "integracoes", nome: "Integrations", descricao: "Connect Bling, Mercado Livre and other platforms.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff", moduloId: "integracoes" },
+      { id: "atendimento", nome: "Support", descricao: "Centralize conversations and provide quality support.", icon: "🎧", cor: "#f59e0b", bg: "#fffbeb", moduloId: "atendimento" },
+      { id: "logistica", nome: "Logistics", descricao: "Manage shipments, carriers and tracking.", icon: "🚚", cor: "#3b82f6", bg: "#eff6ff", moduloId: "logistica" },
     ],
   },
   es: {
@@ -46,12 +58,18 @@ const modulosPorIdioma = {
     dicaTexto: "Explora los módulos y descubre cómo Apollo puede optimizar tu tiempo y aumentar tus resultados.",
     dicaBtn: "✨ Ver novedades",
     acessar: "Abrir módulo",
-    modulos: [
+    tituloInstalados: "MÓDULOS INSTALADOS",
+    nativos: [
       { id: "central", nome: "Centro de Control", descricao: "Visión general, métricas e insights de tu negocio.", icon: "📊", cor: "#8b5cf6", bg: "#f3f0ff" },
-      { id: "ecommerce", nome: "E-commerce", descricao: "Gestiona tus productos, pedidos y clientes en un solo lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff" },
+      { id: "automacoes", nome: "Automatizaciones", descricao: "Crea flujos inteligentes y automatiza procesos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
+      { id: "financeiro", nome: "Financiero", descricao: "Gestiona ingresos, gastos, informes y flujo de caja.", icon: "💰", cor: "#10b981", bg: "#ecfdf5" },
+      { id: "integracoes", nome: "Integraciones", descricao: "Conecta Bling, Mercado Libre y otras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+    ],
+    instalaveis: [
+      { id: "ecommerce", nome: "E-commerce", descricao: "Gestiona tus productos, pedidos y clientes en un solo lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff", moduloId: "produtos" },
       { id: "marketing", nome: "Marketing", descricao: "Captación, embudos de ventas y automatización de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
-      { id: "automacoes", nome: "Automatizaciones", descricao: "Crea flujos inteligentes y automatiza procesos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb", moduloId: "automacoes" },
-      { id: "integracoes", nome: "Integraciones", descricao: "Conecta Bling, Mercado Libre y otras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff", moduloId: "integracoes" },
+      { id: "atendimento", nome: "Atención", descricao: "Centraliza conversaciones y ofrece soporte de calidad.", icon: "🎧", cor: "#f59e0b", bg: "#fffbeb", moduloId: "atendimento" },
+      { id: "logistica", nome: "Logística", descricao: "Gestiona envíos, transportistas y rastreos.", icon: "🚚", cor: "#3b82f6", bg: "#eff6ff", moduloId: "logistica" },
     ],
   },
 };
@@ -126,6 +144,9 @@ export default function Modulos() {
     if (id === "marketing") navigate("/marketing");
     if (id === "automacoes") navigate("/automacoes");
     if (id === "integracoes") navigate("/integracoes");
+    if (id === "financeiro") navigate("/financeiro");
+    if (id === "atendimento") navigate("/loja-modulos"); // ainda sem página própria
+    if (id === "logistica") navigate("/loja-modulos"); // ainda sem página própria
   };
 
   return (
@@ -154,13 +175,27 @@ export default function Modulos() {
           </div>
         </div>
 
-        {/* CARDS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18, marginBottom: 20 }}>
-          {t.modulos.map(mod => (
+        {/* MÓDULOS NATIVOS — sempre no topo, sem selo */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18, marginBottom: 28 }}>
+          {t.nativos.map(mod => (
             <ModuloCard
               key={mod.id} mod={mod} cor={cor} acessarLabel={t.acessar}
               onClick={() => irPara(mod.id)}
-              statusModulo={mod.moduloId && modulosInstalados ? (modulosInstalados[mod.moduloId] ? "instalado" : "nao_instalado") : null}
+              statusModulo={null}
+            />
+          ))}
+        </div>
+
+        {/* MÓDULOS INSTALADOS — instaláveis, com selo */}
+        <p style={{ color: "#7c3aed", fontSize: 11.5, fontWeight: 700, letterSpacing: "0.08em", margin: "0 0 14px" }}>
+          ● {t.tituloInstalados}
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18, marginBottom: 20 }}>
+          {t.instalaveis.map(mod => (
+            <ModuloCard
+              key={mod.id} mod={mod} cor={cor} acessarLabel={t.acessar}
+              onClick={() => irPara(mod.id)}
+              statusModulo={modulosInstalados ? (modulosInstalados[mod.moduloId] ? "instalado" : "nao_instalado") : null}
             />
           ))}
         </div>
