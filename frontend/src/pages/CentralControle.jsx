@@ -1,6 +1,5 @@
-// frontend/src/pages/CentralControle.jsx
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useParams, useOutletContext } from "react-router-dom";
 import api from "../api";
 import AutomationEditor from "../components/automation/AutomationEditor";
 
@@ -13,45 +12,23 @@ const estadosSimulados = [
   { uf: "BA", nome: "Bahia", cidades: [{ nome: "Salvador", acessos: 290 }] },
 ];
 
-// Definição das áreas — cada uma com cor e ícone próprios
-const AREAS = [
-  { id: "resumo", label: "Resumo", icon: "📊", cor: "#a78bfa" },
-  { id: "financeiro", label: "Financeiro", icon: "💰", cor: "#4ade80" },
-  { id: "clientes", label: "Clientes", icon: "👥", cor: "#38bdf8" },
-  { id: "pedidos", label: "Pedidos", icon: "🛒", cor: "#f59e0b" },
-  { id: "produtos", label: "Produtos", icon: "📦", cor: "#f472b6" },
-  { id: "marketing", label: "Marketing", icon: "📣", cor: "#fb7185" },
-  { id: "integracoes", label: "Integrações", icon: "🔗", cor: "#60a5fa" },
-  { id: "automacoes", label: "Automações", icon: "⚡", cor: "#facc15" },
-];
-
-function SectionHeader({ area, sub, cor }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: `${area.cor}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
-        {area.icon}
-      </div>
-      <h2 style={{ color: cor.text, fontSize: 18, fontWeight: 700, margin: 0 }}>{area.label}</h2>
-    </div>
-  );
-}
-
-function Block({ area, cor, sub, children }) {
-  return (
-    <div id={area.id} style={{
-      marginBottom: 40, scrollMarginTop: 60,
-      background: cor.card, border: `1px solid ${cor.border}`, borderLeft: `3px solid ${area.cor}`,
-      borderRadius: 18, padding: "26px 26px 22px",
-    }}>
-      <SectionHeader area={area} cor={cor} />
-      <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 20px" }}>{sub}</p>
-      {children}
-    </div>
-  );
-}
+const AREAS = {
+  resumo: { label: "Resumo", icon: "📊", cor: "#a78bfa", sub: "Visão consolidada de todas as áreas — clique nos cards para detalhes." },
+  financeiro: { label: "Financeiro", icon: "💰", cor: "#4ade80", sub: "Para onde está indo o seu faturamento." },
+  clientes: { label: "Clientes", icon: "👥", cor: "#38bdf8", sub: "Base de clientes, recorrência e captação por região." },
+  pedidos: { label: "Pedidos", icon: "🛒", cor: "#f59e0b", sub: "Status e volume de pedidos." },
+  produtos: { label: "Produtos", icon: "📦", cor: "#f472b6", sub: "Desempenho de vendas e avaliações." },
+  marketing: { label: "Marketing", icon: "📣", cor: "#fb7185", sub: "Alcance da loja e engajamento (dados simulados marcados abaixo)." },
+  integracoes: { label: "Integrações", icon: "🔗", cor: "#60a5fa", sub: "Status das conexões externas — gerencie em Integrações." },
+  automacoes: { label: "Automações", icon: "⚡", cor: "#facc15", sub: "Apollo Automation Engine — motor próprio, sem depender do n8n." },
+};
 
 export default function CentralControle() {
   const { cor } = useOutletContext();
+  const { secao } = useParams();
+  const secaoAtiva = secao || "resumo";
+  const area = AREAS[secaoAtiva] || AREAS.resumo;
+
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -123,174 +100,157 @@ export default function CentralControle() {
   const clickCard = { ...cardStyle, cursor: "pointer", transition: "all 0.2s" };
   const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 };
 
-  const irPara = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-
   return (
     <div>
       {/* CABEÇALHO */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <h1 style={{ color: cor.text, fontSize: 26, fontWeight: 700, margin: 0 }}>Olá, {nome}! 👋</h1>
-          <p style={{ color: cor.textMuted, margin: "4px 0 0", fontSize: 14 }}>Central de Controle — visão completa do seu negócio.</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: `${area.cor}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
+          {area.icon}
         </div>
-        <div style={{ background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 10, padding: "8px 16px", color: cor.textMuted, fontSize: 13 }}>
-          📅 Hoje
-        </div>
+        <h1 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{area.label}</h1>
       </div>
-
-      {/* NAVEGAÇÃO RÁPIDA ENTRE ÁREAS */}
-      <div style={{
-        display: "flex", gap: 8, overflowX: "auto", marginBottom: 28,
-        background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 14, padding: 10,
-      }}>
-        {AREAS.map(a => (
-          <button key={a.id} onClick={() => irPara(a.id)} style={{
-            display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
-            background: "none", border: `1px solid ${cor.border}`, borderRadius: 10,
-            padding: "7px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: "inherit",
-            color: cor.textMuted, transition: "all 0.2s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = a.cor; e.currentTarget.style.color = cor.text; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = cor.border; e.currentTarget.style.color = cor.textMuted; }}>
-            <span>{a.icon}</span> {a.label}
-          </button>
-        ))}
-      </div>
+      <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 24px" }}>{area.sub}</p>
 
       {/* ═══ RESUMO ═══ */}
-      <Block area={AREAS[0]} cor={cor} sub="Visão consolidada de todas as áreas — clique nos cards para detalhes.">
-        <div style={kpiGrid}>
-          <div style={clickCard} onClick={() => setModal("faturamento")}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>💰 Faturamento</p>
-            <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</h2>
-            <p style={{ color: "#a78bfa", fontSize: 11, marginTop: 6 }}>Ver gestão financeira →</p>
+      {secaoAtiva === "resumo" && (
+        <div>
+          <div style={kpiGrid}>
+            <div style={clickCard} onClick={() => setModal("faturamento")}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>💰 Faturamento</p>
+              <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</h2>
+              <p style={{ color: "#a78bfa", fontSize: 11, marginTop: 6 }}>Ver gestão financeira →</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🛒 Pedidos</p>
+              <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{orders.length}</h2>
+            </div>
+            <div style={clickCard} onClick={() => setModal("clientes")}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👥 Clientes</p>
+              <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{stats?.clientes ?? clientes.length}</h2>
+              <p style={{ color: "#38bdf8", fontSize: 11, marginTop: 6 }}>Ver lista completa →</p>
+            </div>
+            <div style={clickCard} onClick={() => setModal("produtos")}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📦 Produtos Vendidos</p>
+              <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{pagos + enviados}</h2>
+              <p style={{ color: "#f472b6", fontSize: 11, marginTop: 6 }}>Ver ranking →</p>
+            </div>
           </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🛒 Pedidos</p>
-            <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{orders.length}</h2>
-          </div>
-          <div style={clickCard} onClick={() => setModal("clientes")}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👥 Clientes</p>
-            <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{stats?.clientes ?? clientes.length}</h2>
-            <p style={{ color: "#38bdf8", fontSize: 11, marginTop: 6 }}>Ver lista completa →</p>
-          </div>
-          <div style={clickCard} onClick={() => setModal("produtos")}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📦 Produtos Vendidos</p>
-            <h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{pagos + enviados}</h2>
-            <p style={{ color: "#f472b6", fontSize: 11, marginTop: 6 }}>Ver ranking →</p>
-          </div>
-        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
-          <div style={cardStyle}>
-            <p style={{ color: cor.text, fontWeight: 600, margin: "0 0 4px", fontSize: 13 }}>Faturamento — últimos 7 dias</p>
-            <p style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: "0 0 14px" }}>R$ {receita.toFixed(2)}</p>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90 }}>
-              {[40, 55, 35, 70, 50, 85, 95].map((h, i) => (
-                <div key={i} style={{ flex: 1, height: `${h}%`, background: i === 6 ? "#a78bfa" : "#a78bfa33", borderRadius: "4px 4px 0 0" }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
+            <div style={cardStyle}>
+              <p style={{ color: cor.text, fontWeight: 600, margin: "0 0 4px", fontSize: 13 }}>Faturamento — últimos 7 dias</p>
+              <p style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: "0 0 14px" }}>R$ {receita.toFixed(2)}</p>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90 }}>
+                {[40, 55, 35, 70, 50, 85, 95].map((h, i) => (
+                  <div key={i} style={{ flex: 1, height: `${h}%`, background: i === 6 ? "#a78bfa" : "#a78bfa33", borderRadius: "4px 4px 0 0" }} />
+                ))}
+              </div>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.text, fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Pedidos por Status</p>
+              {[
+                { label: "Pendentes", v: pendentes, c: "#fbbf24" },
+                { label: "Enviados", v: enviados, c: "#10b981" },
+                { label: "Entregues/Pagos", v: pagos, c: "#3b82f6" },
+                { label: "Cancelados", v: cancelados, c: "#f87171" },
+              ].map(s => (
+                <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${cor.border}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.c }} />
+                    <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{s.label}</span>
+                  </div>
+                  <span style={{ color: cor.text, fontWeight: 600, fontSize: 12.5 }}>{s.v}</span>
+                </div>
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══ FINANCEIRO ═══ */}
+      {secaoAtiva === "financeiro" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Bruta</p>
+              <p style={{ color: cor.text, fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Lucro Estimado ({margemLucroMedia}%)</p>
+              <p style={{ color: "#4ade80", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {lucroEstimado.toFixed(2)}</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Impostos Est. ({impostoMedio}%)</p>
+              <p style={{ color: "#f87171", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {impostoEstimado.toFixed(2)}</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Frete Estimado (8%)</p>
+              <p style={{ color: "#fbbf24", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {freteMedia.toFixed(2)}</p>
+            </div>
+          </div>
           <div style={cardStyle}>
-            <p style={{ color: cor.text, fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Pedidos por Status</p>
-            {[
-              { label: "Pendentes", v: pendentes, c: "#fbbf24" },
-              { label: "Enviados", v: enviados, c: "#10b981" },
-              { label: "Entregues/Pagos", v: pagos, c: "#3b82f6" },
-              { label: "Cancelados", v: cancelados, c: "#f87171" },
-            ].map(s => (
-              <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${cor.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.c }} />
-                  <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{s.label}</span>
+            <p style={{ color: cor.text, fontWeight: 600, marginBottom: 12, fontSize: 13 }}>Margem por produto (top 5)</p>
+            {produtosComVendas.slice(0, 5).map(p => (
+              <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}` }}>
+                <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
+                <span style={{ color: "#a78bfa", fontSize: 12.5, fontWeight: 600 }}>~{margemLucroMedia}% margem</span>
+              </div>
+            ))}
+            <p style={{ color: "#fbbf24", fontSize: 11.5, marginTop: 12 }}>⚠️ Margem, imposto e frete são estimativas fixas. Cadastre custo real por produto para valores precisos.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CLIENTES ═══ */}
+      {secaoAtiva === "clientes" && (
+        <div>
+          <div style={kpiGrid}>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👥 Cadastrados</p>
+              <h2 style={{ color: "#38bdf8", fontSize: 21, fontWeight: 700 }}>{totalClientesCadastrados}</h2>
+            </div>
+            <div style={clickCard} onClick={() => setModal("novosClientes")}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🆕 Novos (7 dias)</p>
+              <h2 style={{ color: "#4ade80", fontSize: 21, fontWeight: 700 }}>{clientesNovosUltimos7d}</h2>
+              <p style={{ color: "#4ade80", fontSize: 11, marginTop: 6 }}>Ver por região →</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🔁 Recorrentes</p>
+              <h2 style={{ color: "#a78bfa", fontSize: 21, fontWeight: 700 }}>{clientesRecorrentes}</h2>
+            </div>
+            <div style={clickCard} onClick={() => setModal("conversao")}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📊 Taxa Recorrência</p>
+              <h2 style={{ color: "#f59e0b", fontSize: 21, fontWeight: 700 }}>{taxaRecorrencia}%</h2>
+              <p style={{ color: "#f59e0b", fontSize: 11, marginTop: 6 }}>Ver conversão →</p>
+            </div>
+          </div>
+          <div style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, margin: 0 }}>Últimos clientes cadastrados</p>
+              <button onClick={() => setModal("clientes")} style={{ background: "none", border: "none", color: "#38bdf8", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Ver todos →</button>
+            </div>
+            {clientes.length === 0 ? (
+              <p style={{ color: cor.textMuted, fontSize: 12.5 }}>Nenhum cliente cadastrado.</p>
+            ) : clientes.slice(0, 5).map(c => (
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#38bdf822", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#38bdf8", fontWeight: 700 }}>
+                    {c.nome?.[0]?.toUpperCase() || "?"}
+                  </div>
+                  <div>
+                    <p style={{ color: cor.text, fontSize: 12.5, margin: 0 }}>{c.nome}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.email}</p>
+                  </div>
                 </div>
-                <span style={{ color: cor.text, fontWeight: 600, fontSize: 12.5 }}>{s.v}</span>
+                <span style={{ color: "#4ade80", fontSize: 10.5, background: "#052e16", padding: "2px 8px", borderRadius: 20 }}>Ativo</span>
               </div>
             ))}
           </div>
         </div>
-      </Block>
-
-      {/* ═══ FINANCEIRO ═══ */}
-      <Block area={AREAS[1]} cor={cor} sub="Para onde está indo o seu faturamento.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Bruta</p>
-            <p style={{ color: cor.text, fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</p>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Lucro Estimado ({margemLucroMedia}%)</p>
-            <p style={{ color: "#4ade80", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {lucroEstimado.toFixed(2)}</p>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Impostos Est. ({impostoMedio}%)</p>
-            <p style={{ color: "#f87171", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {impostoEstimado.toFixed(2)}</p>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Frete Estimado (8%)</p>
-            <p style={{ color: "#fbbf24", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {freteMedia.toFixed(2)}</p>
-          </div>
-        </div>
-        <div style={cardStyle}>
-          <p style={{ color: cor.text, fontWeight: 600, marginBottom: 12, fontSize: 13 }}>Margem por produto (top 5)</p>
-          {produtosComVendas.slice(0, 5).map(p => (
-            <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}` }}>
-              <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
-              <span style={{ color: "#a78bfa", fontSize: 12.5, fontWeight: 600 }}>~{margemLucroMedia}% margem</span>
-            </div>
-          ))}
-          <p style={{ color: "#fbbf24", fontSize: 11.5, marginTop: 12 }}>⚠️ Margem, imposto e frete são estimativas fixas. Cadastre custo real por produto para valores precisos.</p>
-        </div>
-      </Block>
-
-      {/* ═══ CLIENTES ═══ */}
-      <Block area={AREAS[2]} cor={cor} sub="Base de clientes, recorrência e captação por região.">
-        <div style={kpiGrid}>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👥 Cadastrados</p>
-            <h2 style={{ color: "#38bdf8", fontSize: 21, fontWeight: 700 }}>{totalClientesCadastrados}</h2>
-          </div>
-          <div style={clickCard} onClick={() => setModal("novosClientes")}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🆕 Novos (7 dias)</p>
-            <h2 style={{ color: "#4ade80", fontSize: 21, fontWeight: 700 }}>{clientesNovosUltimos7d}</h2>
-            <p style={{ color: "#4ade80", fontSize: 11, marginTop: 6 }}>Ver por região →</p>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🔁 Recorrentes</p>
-            <h2 style={{ color: "#a78bfa", fontSize: 21, fontWeight: 700 }}>{clientesRecorrentes}</h2>
-          </div>
-          <div style={clickCard} onClick={() => setModal("conversao")}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📊 Taxa Recorrência</p>
-            <h2 style={{ color: "#f59e0b", fontSize: 21, fontWeight: 700 }}>{taxaRecorrencia}%</h2>
-            <p style={{ color: "#f59e0b", fontSize: 11, marginTop: 6 }}>Ver conversão →</p>
-          </div>
-        </div>
-        <div style={cardStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, margin: 0 }}>Últimos clientes cadastrados</p>
-            <button onClick={() => setModal("clientes")} style={{ background: "none", border: "none", color: "#38bdf8", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Ver todos →</button>
-          </div>
-          {clientes.length === 0 ? (
-            <p style={{ color: cor.textMuted, fontSize: 12.5 }}>Nenhum cliente cadastrado.</p>
-          ) : clientes.slice(0, 5).map(c => (
-            <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#38bdf822", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#38bdf8", fontWeight: 700 }}>
-                  {c.nome?.[0]?.toUpperCase() || "?"}
-                </div>
-                <div>
-                  <p style={{ color: cor.text, fontSize: 12.5, margin: 0 }}>{c.nome}</p>
-                  <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.email}</p>
-                </div>
-              </div>
-              <span style={{ color: "#4ade80", fontSize: 10.5, background: "#052e16", padding: "2px 8px", borderRadius: 20 }}>Ativo</span>
-            </div>
-          ))}
-        </div>
-      </Block>
+      )}
 
       {/* ═══ PEDIDOS ═══ */}
-      <Block area={AREAS[3]} cor={cor} sub="Status e volume de pedidos.">
+      {secaoAtiva === "pedidos" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
           {[
             { label: "Total", v: orders.length, c: "#f59e0b" },
@@ -304,70 +264,74 @@ export default function CentralControle() {
             </div>
           ))}
         </div>
-      </Block>
+      )}
 
       {/* ═══ PRODUTOS ═══ */}
-      <Block area={AREAS[4]} cor={cor} sub="Desempenho de vendas e avaliações.">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <p style={{ color: cor.textMuted, fontSize: 12.5, margin: 0 }}>{produtos.length} produtos cadastrados</p>
-          <button onClick={() => setModal("produtos")} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f472b6", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-            Ver ranking completo →
-          </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <div style={cardStyle}>
-            <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>🏆 Mais Vendidos</p>
-            {maisVendidos.slice(0, 3).map(p => (
-              <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
-                <span style={{ color: "#4ade80", fontSize: 12.5, fontWeight: 600 }}>{p.vendidos} vendas</span>
-              </div>
-            ))}
+      {secaoAtiva === "produtos" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <p style={{ color: cor.textMuted, fontSize: 12.5, margin: 0 }}>{produtos.length} produtos cadastrados</p>
+            <button onClick={() => setModal("produtos")} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f472b6", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+              Ver ranking completo →
+            </button>
           </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>⭐ Mais Avaliados</p>
-            {maisAvaliados.slice(0, 3).map(p => (
-              <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
-                <span style={{ color: "#fbbf24", fontSize: 12.5, fontWeight: 600 }}>{p.avaliacao} ★</span>
-              </div>
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={cardStyle}>
+              <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>🏆 Mais Vendidos</p>
+              {maisVendidos.slice(0, 3).map(p => (
+                <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                  <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
+                  <span style={{ color: "#4ade80", fontSize: 12.5, fontWeight: 600 }}>{p.vendidos} vendas</span>
+                </div>
+              ))}
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>⭐ Mais Avaliados</p>
+              {maisAvaliados.slice(0, 3).map(p => (
+                <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                  <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
+                  <span style={{ color: "#fbbf24", fontSize: 12.5, fontWeight: 600 }}>{p.avaliacao} ★</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </Block>
+      )}
 
       {/* ═══ MARKETING ═══ */}
-      <Block area={AREAS[5]} cor={cor} sub="Alcance da loja e engajamento (dados simulados marcados abaixo).">
-        <div style={{ background: cor.bg, border: "1px solid #2d2000", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 14 }}>⚠️</span>
-          <p style={{ color: "#fbbf24", fontSize: 12, margin: 0 }}>Dados de acessos são simulados. Configuração de IA de marketing continua no módulo Marketing.</p>
+      {secaoAtiva === "marketing" && (
+        <div>
+          <div style={{ background: cor.bg, border: "1px solid #2d2000", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 14 }}>⚠️</span>
+            <p style={{ color: "#fbbf24", fontSize: 12, margin: 0 }}>Dados de acessos são simulados. Configuração de IA de marketing continua no módulo Marketing.</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👁️ Acessos</p>
+              <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{totalAcessos.toLocaleString("pt-BR")}</h2>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🎯 Conversão</p>
+              <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{orders.length > 0 ? ((pagos / orders.length) * 100).toFixed(1) : "0.0"}%</h2>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📍 Estados alcançados</p>
+              <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{estadosSimulados.length}</h2>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🏙️ Cidades ativas</p>
+              <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{estadosSimulados.flatMap(e => e.cidades).length}</h2>
+            </div>
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👁️ Acessos</p>
-            <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{totalAcessos.toLocaleString("pt-BR")}</h2>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🎯 Conversão</p>
-            <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{orders.length > 0 ? ((pagos / orders.length) * 100).toFixed(1) : "0.0"}%</h2>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📍 Estados alcançados</p>
-            <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{estadosSimulados.length}</h2>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🏙️ Cidades ativas</p>
-            <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{estadosSimulados.flatMap(e => e.cidades).length}</h2>
-          </div>
-        </div>
-      </Block>
+      )}
 
       {/* ═══ INTEGRAÇÕES ═══ */}
-      <Block area={AREAS[6]} cor={cor} sub="Status das conexões externas — gerencie em Integrações.">
+      {secaoAtiva === "integracoes" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {[
-            { nome: "Bling ERP", cor2: "#0066cc", icon: "🔵" },
-            { nome: "Mercado Livre", cor2: "#fee600", icon: "🟡" },
+            { nome: "Bling ERP", icon: "🔵" },
+            { nome: "Mercado Livre", icon: "🟡" },
           ].map(i => (
             <div key={i.nome} style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -381,11 +345,11 @@ export default function CentralControle() {
             </div>
           ))}
         </div>
-      </Block>
+      )}
 
       {/* ═══ AUTOMAÇÕES ═══ */}
-      <Block area={AREAS[7]} cor={cor} sub="Apollo Automation Engine — motor próprio, sem depender do n8n.">
-        {automacaoSelecionada ? (
+      {secaoAtiva === "automacoes" && (
+        automacaoSelecionada ? (
           <div>
             <button
               onClick={() => setAutomacaoSelecionada(null)}
@@ -437,10 +401,10 @@ export default function CentralControle() {
               </div>
             )}
           </>
-        )}
-      </Block>
+        )
+      )}
 
-      {/* ═══════════════════ MODAIS (inalterados) ═══════════════════ */}
+      {/* ═══ MODAIS (inalterados) ═══ */}
       {modal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModal(null)} />

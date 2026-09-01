@@ -32,11 +32,13 @@ export default function App() {
 
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Modulos />} />
-          <Route path="central-controle" element={<CentralControle />} />
+          <Route path="central-controle" element={<Navigate to="/central-controle/resumo" replace />} />
+          <Route path="central-controle/:secao" element={<CentralControle />} /> 
           <Route path="products" element={<Products />} />
           <Route path="orders" element={<Orders />} />
           <Route path="customers" element={<Customers />} />
-          <Route path="marketing" element={<Marketing />} />
+          <Route path="marketing" element={<Navigate to="/marketing/visao-geral" replace />} />
+          <Route path="marketing/:secao" element={<Marketing />} />
           <Route path="assistente" element={<Assistente />} />
           <Route path="integracoes" element={<Navigate to="/integracoes/canais-venda" replace />} />
           <Route path="integracoes/:categoria" element={<IntegracoesHub />} />

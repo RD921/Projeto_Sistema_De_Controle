@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api";
 
-const tabs = ["Visão Geral", "Alcance & Métricas", "Copy com IA", "Lead Scoring", "Scripts IA"];
+const SECOES = {
+  "visao-geral": "Visão Geral",
+  "alcance-metricas": "Alcance & Métricas",
+  "copy-ia": "Copy com IA",
+  "lead-scoring": "Lead Scoring",
+  "scripts-ia": "Scripts IA",
+};
 
 const estadosSimulados = [
   { uf: "SP", nome: "São Paulo", cidades: [{ nome: "São Paulo", acessos: 1240 }, { nome: "Campinas", acessos: 380 }, { nome: "Santos", acessos: 210 }] },
@@ -13,7 +20,11 @@ const estadosSimulados = [
 ];
 
 export default function Marketing() {
-  const [tab, setTab] = useState("Visão Geral");
+  const { secao } = useParams();
+  const secaoAtiva = secao || "visao-geral";
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [stats, setStats] = useState(null);
   const [clientes, setClientes] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -32,12 +43,65 @@ export default function Marketing() {
   const [scripts, setScripts] = useState([]);
   const [loadingScripts, setLoadingScripts] = useState(false);
 
+  const [googleConectado, setGoogleConectado] = useState(false);
+  const [modalImagensAberto, setModalImagensAberto] = useState(false);
+  const [imagensGoogle, setImagensGoogle] = useState([]);
+  const [carregandoImagens, setCarregandoImagens] = useState(false);
+  const [imagemSelecionada, setImagemSelecionada] = useState(null);
+  const [aviso, setAviso] = useState(null);
+
   useEffect(() => {
     const tid = localStorage.getItem("tenant_id") || 1;
     api.get(`/tenants/${tid}/stats`).then(r => setStats(r.data)).catch(() => {});
     api.get("/customers").then(r => setClientes(r.data.data || [])).catch(() => {});
     api.get("/orders").then(r => setOrders(r.data.data || [])).catch(() => {});
+    api.get("/google/status").then(r => setGoogleConectado(r.data.conectado)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const conectado = searchParams.get("conectado");
+    const erroParam = searchParams.get("erro");
+    if (conectado === "google") {
+      setAviso({ tipo: "sucesso", texto: "Google conectado com sucesso!" });
+      setGoogleConectado(true);
+      searchParams.delete("conectado");
+      setSearchParams(searchParams, { replace: true });
+    }
+    if (erroParam) {
+      setAviso({ tipo: "erro", texto: "Não foi possível conectar ao Google." });
+      searchParams.delete("erro");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), 5000);
+    return () => clearTimeout(t);
+  }, [aviso]);
+
+  const conectarGoogle = async () => {
+    try {
+      const res = await api.get("/google/auth");
+      window.location.href = res.data.url;
+    } catch (err) {
+      alert("Erro ao iniciar conexão com Google: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const abrirSeletorImagens = async () => {
+    setModalImagensAberto(true);
+    setCarregandoImagens(true);
+    try {
+      const res = await api.get("/google/imagens");
+      setImagensGoogle(res.data || []);
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao buscar imagens do Google.");
+      setModalImagensAberto(false);
+    } finally {
+      setCarregandoImagens(false);
+    }
+  };
 
   const gerarCopy = async () => {
     if (!produto || !publico) return;
@@ -71,12 +135,10 @@ export default function Marketing() {
   const cardStyle = { background: "#111", border: "1px solid #222", borderRadius: 12, padding: 24 };
   const inputStyle = { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#fff", fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
 
-  const receita = orders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const pedidosPagos = orders.filter(o => o.status === "pago").length;
   const pedidosPendentes = orders.filter(o => o.status === "pendente").length;
   const pedidosCancelados = orders.filter(o => o.status === "cancelado").length;
   const totalOrders = orders.length || 1;
-  const ticketMedio = orders.length > 0 ? receita / orders.length : 0;
 
   const tempCor = { quente: "#f87171", morno: "#fbbf24", frio: "#60a5fa" };
 
@@ -94,39 +156,37 @@ export default function Marketing() {
 
   return (
     <div>
-      <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>Marketing com IA</h1>
-      <p style={{ color: "#555", marginBottom: 24, fontSize: 14 }}>Powered by Gemini AI</p>
+      <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 24 }}>{SECOES[secaoAtiva]}</h1>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 32, background: "#111", borderRadius: 10, padding: 4, border: "1px solid #222", flexWrap: "wrap" }}>
-        {tabs.map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: "8px 16px", borderRadius: 8, border: "none",
-            background: tab === t ? "#fff" : "none",
-            color: tab === t ? "#000" : "#555",
-            cursor: "pointer", fontSize: 13, fontWeight: tab === t ? 600 : 400,
-            fontFamily: "sans-serif", transition: "all 0.2s",
-          }}>{t}</button>
-        ))}
-      </div>
+      {aviso && (
+        <div style={{
+          marginBottom: 18, padding: "12px 16px", borderRadius: 10, fontSize: 13.5,
+          background: aviso.tipo === "sucesso" ? "#16a34a15" : "#dc262615",
+          color: aviso.tipo === "sucesso" ? "#4ade80" : "#f87171",
+          border: `1px solid ${aviso.tipo === "sucesso" ? "#16a34a40" : "#dc262640"}`,
+        }}>
+          {aviso.texto}
+        </div>
+      )}
 
-      {tab === "Visão Geral" && (
+      {secaoAtiva === "visao-geral" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-            {[
-              { label: "Total Clientes", value: stats?.clientes ?? "-", cor: "#38bdf8" },
-              { label: "Receita Total", value: `R$ ${receita.toFixed(2)}`, cor: "#4ade80" },
-              { label: "Ticket Médio", value: `R$ ${ticketMedio.toFixed(2)}`, cor: "#f59e0b" },
-              { label: "Taxa Conversão", value: `${((pedidosPagos / totalOrders) * 100).toFixed(1)}%`, cor: "#a78bfa" },
-            ].map(c => (
-              <div key={c.label} style={cardStyle}>
-                <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>{c.label}</p>
-                <h2 style={{ color: c.cor, fontSize: 26, fontWeight: 700 }}>{c.value}</h2>
-              </div>
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 24 }}>
+            <div style={cardStyle}>
+              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Total Clientes</p>
+              <h2 style={{ color: "#38bdf8", fontSize: 26, fontWeight: 700 }}>{stats?.clientes ?? totalClientesCadastrados}</h2>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Taxa Conversão</p>
+              <h2 style={{ color: "#a78bfa", fontSize: 26, fontWeight: 700 }}>{((pedidosPagos / totalOrders) * 100).toFixed(1)}%</h2>
+            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={cardStyle}>
-              <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>Status dos Pedidos</h3>
+            <div style={{ ...cardStyle, cursor: "pointer" }} onClick={() => navigate("/orders")}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ color: "#fff", fontSize: 15, margin: 0 }}>Status dos Pedidos</h3>
+                <span style={{ color: "#555", fontSize: 12 }}>Ver todos →</span>
+              </div>
               {[
                 { label: "Pagos", value: pedidosPagos, cor: "#4ade80" },
                 { label: "Pendentes", value: pedidosPendentes, cor: "#fbbf24" },
@@ -143,8 +203,11 @@ export default function Marketing() {
                 </div>
               ))}
             </div>
-            <div style={cardStyle}>
-              <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>Últimos Clientes</h3>
+            <div style={{ ...cardStyle, cursor: "pointer" }} onClick={() => navigate("/customers")}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ color: "#fff", fontSize: 15, margin: 0 }}>Clientes</h3>
+                <span style={{ color: "#555", fontSize: 12 }}>Ver todos →</span>
+              </div>
               {clientes.slice(0, 5).map(c => (
                 <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
                   <div>
@@ -159,7 +222,7 @@ export default function Marketing() {
         </div>
       )}
 
-      {tab === "Alcance & Métricas" && (
+      {secaoAtiva === "alcance-metricas" && (
         <div>
           <div style={{ background: "#1a1a1a", border: "1px solid #2d2000", borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 16 }}>⚠️</span>
@@ -230,7 +293,7 @@ export default function Marketing() {
         </div>
       )}
 
-      {tab === "Copy com IA" && (
+      {secaoAtiva === "copy-ia" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={cardStyle}>
             <h3 style={{ color: "#fff", marginBottom: 8, fontSize: 15 }}>🤖 Gerador de Copy com IA</h3>
@@ -254,6 +317,26 @@ export default function Marketing() {
                   <option>SMS</option>
                 </select>
               </div>
+
+              <div>
+                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Imagem (opcional)</label>
+                {!googleConectado ? (
+                  <button onClick={conectarGoogle} style={{ width: "100%", background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
+                    🔗 Conectar Google Drive/Fotos
+                  </button>
+                ) : imagemSelecionada ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <img src={imagemSelecionada.thumbnail} alt={imagemSelecionada.nome} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: "1px solid #333" }} />
+                    <span style={{ color: "#888", fontSize: 12, flex: 1 }}>{imagemSelecionada.nome}</span>
+                    <button onClick={() => setImagemSelecionada(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12 }}>Remover</button>
+                  </div>
+                ) : (
+                  <button onClick={abrirSeletorImagens} style={{ width: "100%", background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
+                    🖼️ Escolher imagem do Google
+                  </button>
+                )}
+              </div>
+
               <button onClick={gerarCopy} disabled={loadingCopy || !produto || !publico} style={{
                 background: produto && publico ? "#a78bfa" : "#333", color: "#fff",
                 border: "none", borderRadius: 8, padding: "12px", fontSize: 14,
@@ -286,7 +369,7 @@ export default function Marketing() {
         </div>
       )}
 
-      {tab === "Lead Scoring" && (
+      {secaoAtiva === "lead-scoring" && (
         <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
@@ -332,7 +415,7 @@ export default function Marketing() {
         </div>
       )}
 
-      {tab === "Scripts IA" && (
+      {secaoAtiva === "scripts-ia" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={cardStyle}>
             <h3 style={{ color: "#fff", marginBottom: 8, fontSize: 15 }}>🎭 Gerador de Scripts com IA</h3>
@@ -378,6 +461,36 @@ export default function Marketing() {
                 <p style={{ color: "#444", fontSize: 14 }}>Scripts gerados pela IA aparecerão aqui</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {modalImagensAberto && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModalImagensAberto(false)} />
+          <div style={{ position: "relative", background: "#111", border: "1px solid #222", borderRadius: 16, padding: 24, width: "100%", maxWidth: 560, maxHeight: "70vh", overflowY: "auto" }}>
+            <h2 style={{ color: "#fff", fontSize: 16, marginBottom: 16 }}>Escolher imagem</h2>
+            {carregandoImagens ? (
+              <p style={{ color: "#555", fontSize: 13 }}>Carregando imagens...</p>
+            ) : imagensGoogle.length === 0 ? (
+              <p style={{ color: "#555", fontSize: 13 }}>Nenhuma imagem encontrada no Drive ou Fotos.</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10 }}>
+                {imagensGoogle.map(img => (
+                  <img
+                    key={`${img.origem}-${img.id}`}
+                    src={img.thumbnail}
+                    alt={img.nome}
+                    title={img.nome}
+                    onClick={() => { setImagemSelecionada(img); setModalImagensAberto(false); }}
+                    style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid #222" }}
+                  />
+                ))}
+              </div>
+            )}
+            <button onClick={() => setModalImagensAberto(false)} style={{ marginTop: 16, background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontFamily: "sans-serif" }}>
+              Fechar
+            </button>
           </div>
         </div>
       )}

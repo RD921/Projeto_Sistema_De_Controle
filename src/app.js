@@ -19,6 +19,7 @@ const onboardingRoutes  = require("./routes/onboardingRoutes");
 const moduleRoutes = require("./routes/moduleRoutes");
 const integrationCatalogRoutes = require("./routes/integrationCatalogRoutes");
 const financeiroRoutes = require("./routes/financeiroRoutes");
+const googleRoutes = require("./routes/googleRoutes");
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/api/onboarding",   onboardingRoutes);
 app.use("/api/modules", moduleRoutes);
 app.use("/api/integrations-catalog", integrationCatalogRoutes);
 app.use("/api/financeiro", financeiroRoutes);
+app.use("/api/google", googleRoutes);
 
 app.get("/", (req, res) => res.json({ status: "ok", version: "3.0" }));
 

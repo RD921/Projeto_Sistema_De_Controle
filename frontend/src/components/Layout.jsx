@@ -21,6 +21,7 @@ const traducoes = {
     semNotificacoes: "Nenhuma notificação nova",
     canaisVenda: "Canais de Venda e Marketplaces", logistica: "Logística e Frete",
     fiscal: "Emissão de Nota Fiscal", pagamentos: "Gateways de Pagamento",
+    financeiro: "Financeiro",
   },
   en: {
     modulos: "Modules", ecommerce: "E-commerce", marketing: "Marketing", central: "Control Center", integracoes: "Integrations",
@@ -34,6 +35,7 @@ const traducoes = {
     semNotificacoes: "No new notifications",
     canaisVenda: "Sales Channels & Marketplaces", logistica: "Logistics & Shipping",
     fiscal: "Invoice Issuance", pagamentos: "Payment Gateways",
+    financeiro: "Finance",
   },
   es: {
     modulos: "Módulos", ecommerce: "E-commerce", marketing: "Marketing", central: "Centro de Control", integracoes: "Integraciones",
@@ -47,6 +49,7 @@ const traducoes = {
     semNotificacoes: "Sin notificaciones nuevas",
     canaisVenda: "Canales de Venta y Marketplaces", logistica: "Logística y Envío",
     fiscal: "Emisión de Factura", pagamentos: "Pasarelas de Pago",
+    financeiro: "Financiero",
   },
 };
 
@@ -58,6 +61,7 @@ const MODULOS_BUSCA = [
   { label: "Clientes", path: "/customers", icon: "👥" },
   { label: "Marketing", path: "/marketing", icon: "📣" },
   { label: "Integrações", path: "/integracoes/canais-venda", icon: "🔗" },
+  { label: "Financeiro", path: "/financeiro", icon: "💰" },
   { label: "Assistente Aria", path: "/assistente", icon: "🤖" },
 ];
 
@@ -134,30 +138,45 @@ export default function Layout() {
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br/>");
 
-  const isCentral = location.pathname === "/central-controle";
+  const isCentral = location.pathname.startsWith("/central-controle");
   const isEcommerce = ["/products", "/orders", "/customers"].includes(location.pathname);
   const isIntegracoes = location.pathname.startsWith("/integracoes");
-  const isMarketing = location.pathname === "/marketing";
-  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro;
+  const isMarketing = location.pathname.startsWith("/marketing");
   const isFinanceiro = location.pathname === "/financeiro";
+  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro;
 
-  const centralLinks = [{ to: "/central-controle", label: t.dashboard, icon: "📊" }];
+  const centralLinks = [
+  { to: "/central-controle/resumo", label: "Resumo", icon: "📊" },
+  { to: "/central-controle/financeiro", label: "Financeiro", icon: "💰" },
+  { to: "/central-controle/clientes", label: "Clientes", icon: "👥" },
+  { to: "/central-controle/pedidos", label: "Pedidos", icon: "🛒" },
+  { to: "/central-controle/produtos", label: "Produtos", icon: "📦" },
+  { to: "/central-controle/marketing", label: "Marketing", icon: "📣" },
+  { to: "/central-controle/integracoes", label: "Integrações", icon: "🔗" },
+  { to: "/central-controle/automacoes", label: "Automações", icon: "⚡" },
+];
   const ecommerceLinks = [
     { to: "/products", label: t.produtos, icon: "📦" },
     { to: "/orders", label: t.pedidos, icon: "🛒" },
     { to: "/customers", label: t.clientes, icon: "👥" },
   ];
-  const marketingLinks = [{ to: "/marketing", label: t.visaoGeral, icon: "📣" }];
+  const marketingLinks = [
+  { to: "/marketing/visao-geral", label: "Visão Geral", icon: "📊" },
+  { to: "/marketing/alcance-metricas", label: "Alcance & Métricas", icon: "📍" },
+  { to: "/marketing/copy-ia", label: "Copy com IA", icon: "🤖" },
+  { to: "/marketing/lead-scoring", label: "Lead Scoring", icon: "🎯" },
+  { to: "/marketing/scripts-ia", label: "Scripts IA", icon: "🎭" },
+];
   const integracoesLinks = [
     { to: "/integracoes/canais-venda", label: t.canaisVenda, icon: "🛒" },
     { to: "/integracoes/logistica", label: t.logistica, icon: "🚚" },
     { to: "/integracoes/fiscal", label: t.fiscal, icon: "📄" },
     { to: "/integracoes/pagamentos", label: t.pagamentos, icon: "💳" },
-    { to: "/financeiro", label: "Financeiro", icon: "💰" },
   ];
+  const financeiroLinks = [{ to: "/financeiro", label: t.financeiro, icon: "💰" }];
 
   const linksAtivos = isCentral ? centralLinks : isMarketing ? marketingLinks : isIntegracoes ? integracoesLinks : isFinanceiro ? financeiroLinks : ecommerceLinks;
-const tituloSecao = isCentral ? t.central : isMarketing ? t.marketing : isIntegracoes ? t.integracoes : isFinanceiro ? "Financeiro" : t.ecommerce;
+  const tituloSecao = isCentral ? t.central : isMarketing ? t.marketing : isIntegracoes ? t.integracoes : isFinanceiro ? t.financeiro : t.ecommerce;
 
   const resultadosBusca = buscaTexto.trim()
     ? MODULOS_BUSCA.filter(m => m.label.toLowerCase().includes(buscaTexto.toLowerCase()))
