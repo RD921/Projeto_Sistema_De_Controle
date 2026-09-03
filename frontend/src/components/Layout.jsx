@@ -15,8 +15,6 @@ const traducoes = {
     clientes: "Clientes", sair: "Sair",
     visaoGeral: "Visão Geral",
     ariaOnline: "● Online agora", ariaPlaceholder: "Digite uma mensagem...",
-    sugestoes: ["Como aumentar vendas?", "Ver meus pedidos", "Dicas de marketing"],
-    fechar: "✕ Fechar", expandir: "⛶", limpar: "↺",
     tema: "Tema", idioma: "Idioma", buscar: "Buscar em tudo...",
     semNotificacoes: "Nenhuma notificação nova",
     canaisVenda: "Canais de Venda e Marketplaces", logistica: "Logística e Frete",
@@ -29,8 +27,6 @@ const traducoes = {
     clientes: "Customers", sair: "Logout",
     visaoGeral: "Overview",
     ariaOnline: "● Online now", ariaPlaceholder: "Type a message...",
-    sugestoes: ["How to increase sales?", "View my orders", "Marketing tips"],
-    fechar: "✕ Close", expandir: "⛶", limpar: "↺",
     tema: "Theme", idioma: "Language", buscar: "Search everything...",
     semNotificacoes: "No new notifications",
     canaisVenda: "Sales Channels & Marketplaces", logistica: "Logistics & Shipping",
@@ -43,8 +39,6 @@ const traducoes = {
     clientes: "Clientes", sair: "Salir",
     visaoGeral: "Visión General",
     ariaOnline: "● En línea ahora", ariaPlaceholder: "Escribe un mensaje...",
-    sugestoes: ["¿Cómo aumentar ventas?", "Ver mis pedidos", "Tips de marketing"],
-    fechar: "✕ Cerrar", expandir: "⛶", limpar: "↺",
     tema: "Tema", idioma: "Idioma", buscar: "Buscar en todo...",
     semNotificacoes: "Sin notificaciones nuevas",
     canaisVenda: "Canales de Venta y Marketplaces", logistica: "Logística y Envío",
@@ -52,18 +46,6 @@ const traducoes = {
     financeiro: "Financiero",
   },
 };
-
-// Módulos disponíveis para busca global e navegação por atalho
-const MODULOS_BUSCA = [
-  { label: "Central de Controle", path: "/central-controle", icon: "📊" },
-  { label: "Produtos", path: "/products", icon: "📦" },
-  { label: "Pedidos", path: "/orders", icon: "🛒" },
-  { label: "Clientes", path: "/customers", icon: "👥" },
-  { label: "Marketing", path: "/marketing", icon: "📣" },
-  { label: "Integrações", path: "/integracoes/canais-venda", icon: "🔗" },
-  { label: "Financeiro", path: "/financeiro", icon: "💰" },
-  { label: "Assistente Aria", path: "/assistente", icon: "🤖" },
-];
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -84,6 +66,7 @@ export default function Layout() {
   const [buscaTexto, setBuscaTexto] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
+  const [modulosInstalados, setModulosInstalados] = useState({});
   const bottomRef = useRef(null);
   const buscaInputRef = useRef(null);
 
@@ -100,7 +83,14 @@ export default function Layout() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens]);
 
-  // Atalho Ctrl+K para abrir busca global
+  useEffect(() => {
+    api.get("/modules").then(r => {
+      const mapa = {};
+      (r.data || []).forEach(m => { mapa[m.id] = m.instalado; });
+      setModulosInstalados(mapa);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -142,45 +132,76 @@ export default function Layout() {
   const isEcommerce = ["/products", "/orders", "/customers"].includes(location.pathname);
   const isIntegracoes = location.pathname.startsWith("/integracoes");
   const isMarketing = location.pathname.startsWith("/marketing");
-  const isFinanceiro = location.pathname === "/financeiro";
-  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro;
+  const isFinanceiro = location.pathname.startsWith("/financeiro");
+  const isAutomacoes = location.pathname.startsWith("/automacoes") && !location.pathname.includes("/editor");
+  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes;
 
   const centralLinks = [
-  { to: "/central-controle/resumo", label: "Resumo", icon: "📊" },
-  { to: "/central-controle/financeiro", label: "Financeiro", icon: "💰" },
-  { to: "/central-controle/clientes", label: "Clientes", icon: "👥" },
-  { to: "/central-controle/pedidos", label: "Pedidos", icon: "🛒" },
-  { to: "/central-controle/produtos", label: "Produtos", icon: "📦" },
-  { to: "/central-controle/marketing", label: "Marketing", icon: "📣" },
-  { to: "/central-controle/integracoes", label: "Integrações", icon: "🔗" },
-  { to: "/central-controle/automacoes", label: "Automações", icon: "⚡" },
-];
+    { to: "/central-controle/resumo", label: "Resumo", icon: "📊" },
+    ...(modulosInstalados.financeiro ? [{ to: "/central-controle/financeiro", label: "Financeiro", icon: "💰" }] : []),
+    ...(modulosInstalados.ecommerce ? [{ to: "/central-controle/ecommerce", label: "E-commerce", icon: "🛒" }] : []),
+    ...(modulosInstalados.marketing ? [{ to: "/central-controle/marketing", label: "Marketing", icon: "📣" }] : []),
+    ...(modulosInstalados.integracoes ? [{ to: "/central-controle/integracoes", label: "Integrações", icon: "🔗" }] : []),
+    ...(modulosInstalados.automacoes ? [{ to: "/central-controle/automacoes", label: "Automações", icon: "⚡" }] : []),
+  ];
   const ecommerceLinks = [
     { to: "/products", label: t.produtos, icon: "📦" },
     { to: "/orders", label: t.pedidos, icon: "🛒" },
     { to: "/customers", label: t.clientes, icon: "👥" },
   ];
   const marketingLinks = [
-  { to: "/marketing/visao-geral", label: "Visão Geral", icon: "📊" },
-  { to: "/marketing/alcance-metricas", label: "Alcance & Métricas", icon: "📍" },
-  { to: "/marketing/copy-ia", label: "Copy com IA", icon: "🤖" },
-  { to: "/marketing/lead-scoring", label: "Lead Scoring", icon: "🎯" },
-  { to: "/marketing/scripts-ia", label: "Scripts IA", icon: "🎭" },
-];
+    { to: "/marketing/visao-geral", label: "Visão Geral", icon: "📊" },
+    { to: "/marketing/alcance-metricas", label: "Alcance & Métricas", icon: "📍" },
+    { to: "/marketing/copy-ia", label: "Copy com IA", icon: "🤖" },
+    { to: "/marketing/lead-scoring", label: "Lead Scoring", icon: "🎯" },
+    { to: "/marketing/scripts-ia", label: "Scripts IA", icon: "🎭" },
+  ];
   const integracoesLinks = [
     { to: "/integracoes/canais-venda", label: t.canaisVenda, icon: "🛒" },
     { to: "/integracoes/logistica", label: t.logistica, icon: "🚚" },
     { to: "/integracoes/fiscal", label: t.fiscal, icon: "📄" },
     { to: "/integracoes/pagamentos", label: t.pagamentos, icon: "💳" },
   ];
-  const financeiroLinks = [{ to: "/financeiro", label: t.financeiro, icon: "💰" }];
+  const financeiroLinks = [
+  { to: "/financeiro/resumo", label: "Resumo", icon: "💰" },
+  { to: "/financeiro/fiscal", label: "Fiscal e Contábil", icon: "🧾" },
+  { to: "/financeiro/contabilidade", label: "Contabilidade", icon: "📚" },
+];
+  const automacoesLinks = [
+    { to: "/automacoes/minhas", label: "Minhas Automações", icon: "⚡" },
+    { to: "/automacoes/templates-ia", label: "Templates da IA", icon: "🤖" },
+    { to: "/automacoes/execucoes", label: "Execuções", icon: "▶️" },
+    { to: "/automacoes/eventos", label: "Eventos", icon: "📡" },
+    { to: "/automacoes/logs", label: "Logs", icon: "📋" },
+  ];
 
-  const linksAtivos = isCentral ? centralLinks : isMarketing ? marketingLinks : isIntegracoes ? integracoesLinks : isFinanceiro ? financeiroLinks : ecommerceLinks;
-  const tituloSecao = isCentral ? t.central : isMarketing ? t.marketing : isIntegracoes ? t.integracoes : isFinanceiro ? t.financeiro : t.ecommerce;
+  const linksAtivos = isCentral ? centralLinks
+    : isMarketing ? marketingLinks
+    : isIntegracoes ? integracoesLinks
+    : isFinanceiro ? financeiroLinks
+    : isAutomacoes ? automacoesLinks
+    : ecommerceLinks;
+
+  const tituloSecao = isCentral ? t.central
+    : isMarketing ? t.marketing
+    : isIntegracoes ? t.integracoes
+    : isFinanceiro ? t.financeiro
+    : isAutomacoes ? "Automações"
+    : t.ecommerce;
+
+  const MODULOS_TODOS = [
+    { id: "central", label: "Central de Controle", path: "/central-controle/resumo", icon: "📊", sempre: true },
+    { id: "ecommerce", label: "E-commerce", path: "/products", icon: "🛒" },
+    { id: "marketing", label: "Marketing", path: "/marketing/visao-geral", icon: "📣" },
+    { id: "integracoes", label: "Integrações", path: "/integracoes/canais-venda", icon: "🔗", sempre: true },
+    { id: "financeiro", label: "Financeiro", path: "/financeiro", icon: "💰", sempre: true },
+    { id: "automacoes", label: "Automações", path: "/automacoes/minhas", icon: "⚡", sempre: true },
+    { id: "assistente", label: "Assistente Aria", path: "/assistente", icon: "🤖", sempre: true },
+  ];
 
   const resultadosBusca = buscaTexto.trim()
-    ? MODULOS_BUSCA.filter(m => m.label.toLowerCase().includes(buscaTexto.toLowerCase()))
-    : MODULOS_BUSCA;
+    ? MODULOS_TODOS.filter(m => m.label.toLowerCase().includes(buscaTexto.toLowerCase()))
+    : MODULOS_TODOS.filter(m => m.sempre || modulosInstalados[m.id]);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: "sans-serif", position: "relative", background: cor.bg, transition: "all 0.3s" }}>
@@ -197,6 +218,16 @@ export default function Layout() {
               {sidebarColapsada ? "»" : "«"}
             </button>
           </div>
+
+          <button onClick={() => navigate("/")} title="Voltar para o painel" style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "none", border: "none", color: cor.textMuted, cursor: "pointer",
+            fontSize: 12.5, fontFamily: "inherit", padding: sidebarColapsada ? "8px 0" : "8px 20px",
+            justifyContent: sidebarColapsada ? "center" : "flex-start", marginBottom: 8,
+          }}>
+            <span>←</span>
+            {!sidebarColapsada && "Voltar para o painel"}
+          </button>
 
           {!sidebarColapsada && (
             <h2 style={{ marginBottom: 8, fontSize: 11, padding: "0 20px", color: cor.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
@@ -225,10 +256,8 @@ export default function Layout() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-        {/* HEADER */}
         <div style={{ height: 52, background: cor.header, borderBottom: `1px solid ${cor.border}`, display: "flex", alignItems: "center", padding: "0 20px", gap: 12, transition: "all 0.3s", position: "sticky", top: 0, zIndex: 50 }}>
 
-          {/* BUSCA GLOBAL */}
           <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
             <button onClick={() => { setBuscaAberta(true); setTimeout(() => buscaInputRef.current?.focus(), 50); }}
               style={{
@@ -243,7 +272,6 @@ export default function Layout() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
 
-            {/* TEMA */}
             <div style={{ position: "relative" }}>
               <button onClick={() => { setShowTema(!showTema); setShowIdioma(false); setNotifOpen(false); setPerfilOpen(false); }}
                 style={{ display: "flex", alignItems: "center", gap: 6, background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, color: cor.textMuted, fontFamily: "sans-serif" }}>
@@ -266,7 +294,6 @@ export default function Layout() {
               )}
             </div>
 
-            {/* IDIOMA */}
             <div style={{ position: "relative" }}>
               <button onClick={() => { setShowIdioma(!showIdioma); setShowTema(false); setNotifOpen(false); setPerfilOpen(false); }}
                 style={{ display: "flex", alignItems: "center", gap: 6, background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, color: cor.textMuted, fontFamily: "sans-serif" }}>
@@ -288,7 +315,6 @@ export default function Layout() {
               )}
             </div>
 
-            {/* NOTIFICAÇÕES */}
             <div style={{ position: "relative" }}>
               <button onClick={() => { setNotifOpen(!notifOpen); setShowTema(false); setShowIdioma(false); setPerfilOpen(false); }}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, width: 32, height: 32, cursor: "pointer", position: "relative", color: cor.textMuted }}>
@@ -302,7 +328,6 @@ export default function Layout() {
               )}
             </div>
 
-            {/* PERFIL */}
             <div style={{ position: "relative" }}>
               <button onClick={() => { setPerfilOpen(!perfilOpen); setShowTema(false); setShowIdioma(false); setNotifOpen(false); }}
                 style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
@@ -334,7 +359,6 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* MODAL DE BUSCA GLOBAL */}
       {buscaAberta && (
         <div style={{ position: "fixed", inset: 0, zIndex: 600, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "12vh" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setBuscaAberta(false)} />
@@ -364,7 +388,6 @@ export default function Layout() {
         </div>
       )}
 
-      {/* BOTÃO FLUTUANTE ARIA */}
       <div
         onMouseEnter={() => setAriaHover(true)}
         onMouseLeave={() => setAriaHover(false)}
@@ -410,16 +433,6 @@ export default function Layout() {
               <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: 0 }}>Aria</p>
               <p style={{ color: "#4ade80", fontSize: 11, margin: 0 }}>{t.ariaOnline}</p>
             </div>
-            <button onClick={() => navigate("/assistente")} title="Expandir"
-              style={{ background: "none", border: "1px solid #333", color: "#555", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontFamily: "sans-serif" }}
-              onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#fff"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = "#555"; e.currentTarget.style.borderColor = "#333"; }}>
-              {t.expandir}
-            </button>
-            <button onClick={() => setMensagens([{ role: "assistant", text: "Olá! Sou a Aria 👋 Como posso te ajudar?" }])}
-              style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 14 }}>
-              {t.limpar}
-            </button>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -449,17 +462,6 @@ export default function Layout() {
               </div>
             )}
             <div ref={bottomRef} />
-          </div>
-
-          <div style={{ padding: "6px 14px", display: "flex", gap: 6, overflowX: "auto", borderTop: "1px solid #1a1a1a" }}>
-            {t.sugestoes.map(s => (
-              <button key={s} onClick={() => enviarMensagem(s)}
-                style={{ background: "#1a1a1a", border: "1px solid #222", borderRadius: 20, padding: "4px 10px", color: "#888", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "sans-serif", flexShrink: 0 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#a78bfa"; e.currentTarget.style.color = "#fff"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#222"; e.currentTarget.style.color = "#888"; }}>
-                {s}
-              </button>
-            ))}
           </div>
 
           <div style={{ padding: "10px 14px", borderTop: "1px solid #222", display: "flex", gap: 8 }}>

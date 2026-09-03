@@ -145,3 +145,37 @@ exports.excluirLancamento = async (req, res) => {
     res.status(500).json({ error: "Erro ao excluir lançamento", details: err.message });
   }
 };
+
+exports.getDadosFiscais = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM company_fiscal_data WHERE tenant_id = ?",
+      [req.tenant_id]
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar dados fiscais", details: err.message });
+  }
+};
+
+exports.salvarDadosFiscais = async (req, res) => {
+  try {
+    const campos = [
+      "cnpj", "razao_social", "nome_fantasia", "inscricao_estadual", "inscricao_municipal",
+      "regime_tributario", "natureza_juridica", "cnaes", "cep", "endereco", "numero",
+      "complemento", "bairro", "cidade", "estado", "pais",
+      "contador_nome", "contador_email", "contador_telefone", "contador_crc",
+    ];
+    const valores = campos.map(c => req.body[c] ?? null);
+
+    await pool.query(
+      `INSERT INTO company_fiscal_data (tenant_id, ${campos.join(", ")})
+       VALUES (?, ${campos.map(() => "?").join(", ")})
+       ON DUPLICATE KEY UPDATE ${campos.map(c => `${c} = VALUES(${c})`).join(", ")}`,
+      [req.tenant_id, ...valores]
+    );
+    res.json({ message: "Dados fiscais salvos com sucesso" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao salvar dados fiscais", details: err.message });
+  }
+};

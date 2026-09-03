@@ -1,6 +1,7 @@
 const axios = require("axios");
+
 const GEMINI_URL =
-"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 
 async function chamarGemini(prompt, tentativas = 3) {
   for (let i = 0; i < tentativas; i++) {
@@ -24,6 +25,25 @@ async function chamarGemini(prompt, tentativas = 3) {
         throw err;
       }
     }
+  }
+}
+
+async function chamarGeminiComFerramentas(contents, tools) {
+  try {
+    const response = await axios.post(
+      GEMINI_URL,
+      { contents, tools: [{ functionDeclarations: tools }] },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
+        },
+      }
+    );
+    return response.data.candidates?.[0]?.content;
+  } catch (err) {
+    console.error("[GEMINI TOOLS ERROR]", JSON.stringify(err.response?.data || err.message, null, 2));
+    throw err;
   }
 }
 
@@ -92,3 +112,4 @@ Responda a última mensagem do usuário:`;
 };
 
 exports.chamarGemini = chamarGemini;
+exports.chamarGeminiComFerramentas = chamarGeminiComFerramentas;

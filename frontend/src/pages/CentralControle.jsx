@@ -15,9 +15,7 @@ const estadosSimulados = [
 const AREAS = {
   resumo: { label: "Resumo", icon: "📊", cor: "#a78bfa", sub: "Visão consolidada de todas as áreas — clique nos cards para detalhes." },
   financeiro: { label: "Financeiro", icon: "💰", cor: "#4ade80", sub: "Para onde está indo o seu faturamento." },
-  clientes: { label: "Clientes", icon: "👥", cor: "#38bdf8", sub: "Base de clientes, recorrência e captação por região." },
-  pedidos: { label: "Pedidos", icon: "🛒", cor: "#f59e0b", sub: "Status e volume de pedidos." },
-  produtos: { label: "Produtos", icon: "📦", cor: "#f472b6", sub: "Desempenho de vendas e avaliações." },
+  ecommerce: { label: "E-commerce", icon: "🛒", cor: "#6366f1", sub: "Clientes, pedidos e produtos em um só lugar." },
   marketing: { label: "Marketing", icon: "📣", cor: "#fb7185", sub: "Alcance da loja e engajamento (dados simulados marcados abaixo)." },
   integracoes: { label: "Integrações", icon: "🔗", cor: "#60a5fa", sub: "Status das conexões externas — gerencie em Integrações." },
   automacoes: { label: "Automações", icon: "⚡", cor: "#facc15", sub: "Apollo Automation Engine — motor próprio, sem depender do n8n." },
@@ -36,6 +34,7 @@ export default function CentralControle() {
   const [modal, setModal] = useState(null);
   const [automations, setAutomations] = useState([]);
   const [automacaoSelecionada, setAutomacaoSelecionada] = useState(null);
+  const [abaEcommerce, setAbaEcommerce] = useState("clientes");
 
   useEffect(() => {
     const tid = localStorage.getItem("tenant_id") || 1;
@@ -46,7 +45,6 @@ export default function CentralControle() {
     api.get("/automations").then(r => setAutomations(r.data || [])).catch(() => {});
   }, []);
 
-  const nome = "Rodrigo";
   const receita = orders.reduce((a, o) => a + Number(o.total || 0), 0);
   const pagos = orders.filter(o => o.status === "pago").length;
   const pendentes = orders.filter(o => o.status === "pendente").length;
@@ -102,7 +100,6 @@ export default function CentralControle() {
 
   return (
     <div>
-      {/* CABEÇALHO */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: `${area.cor}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
           {area.icon}
@@ -111,7 +108,6 @@ export default function CentralControle() {
       </div>
       <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 24px" }}>{area.sub}</p>
 
-      {/* ═══ RESUMO ═══ */}
       {secaoAtiva === "resumo" && (
         <div>
           <div style={kpiGrid}>
@@ -167,7 +163,6 @@ export default function CentralControle() {
         </div>
       )}
 
-      {/* ═══ FINANCEIRO ═══ */}
       {secaoAtiva === "financeiro" && (
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
@@ -201,104 +196,121 @@ export default function CentralControle() {
         </div>
       )}
 
-      {/* ═══ CLIENTES ═══ */}
-      {secaoAtiva === "clientes" && (
+      {secaoAtiva === "ecommerce" && (
         <div>
-          <div style={kpiGrid}>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👥 Cadastrados</p>
-              <h2 style={{ color: "#38bdf8", fontSize: 21, fontWeight: 700 }}>{totalClientesCadastrados}</h2>
-            </div>
-            <div style={clickCard} onClick={() => setModal("novosClientes")}>
-              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🆕 Novos (7 dias)</p>
-              <h2 style={{ color: "#4ade80", fontSize: 21, fontWeight: 700 }}>{clientesNovosUltimos7d}</h2>
-              <p style={{ color: "#4ade80", fontSize: 11, marginTop: 6 }}>Ver por região →</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🔁 Recorrentes</p>
-              <h2 style={{ color: "#a78bfa", fontSize: 21, fontWeight: 700 }}>{clientesRecorrentes}</h2>
-            </div>
-            <div style={clickCard} onClick={() => setModal("conversao")}>
-              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📊 Taxa Recorrência</p>
-              <h2 style={{ color: "#f59e0b", fontSize: 21, fontWeight: 700 }}>{taxaRecorrencia}%</h2>
-              <p style={{ color: "#f59e0b", fontSize: 11, marginTop: 6 }}>Ver conversão →</p>
-            </div>
-          </div>
-          <div style={cardStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, margin: 0 }}>Últimos clientes cadastrados</p>
-              <button onClick={() => setModal("clientes")} style={{ background: "none", border: "none", color: "#38bdf8", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Ver todos →</button>
-            </div>
-            {clientes.length === 0 ? (
-              <p style={{ color: cor.textMuted, fontSize: 12.5 }}>Nenhum cliente cadastrado.</p>
-            ) : clientes.slice(0, 5).map(c => (
-              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#38bdf822", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#38bdf8", fontWeight: 700 }}>
-                    {c.nome?.[0]?.toUpperCase() || "?"}
-                  </div>
-                  <div>
-                    <p style={{ color: cor.text, fontSize: 12.5, margin: 0 }}>{c.nome}</p>
-                    <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.email}</p>
-                  </div>
-                </div>
-                <span style={{ color: "#4ade80", fontSize: 10.5, background: "#052e16", padding: "2px 8px", borderRadius: 20 }}>Ativo</span>
-              </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            {[
+              { id: "clientes", label: "👥 Clientes" },
+              { id: "pedidos", label: "🛒 Pedidos" },
+              { id: "produtos", label: "📦 Produtos" },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setAbaEcommerce(tab.id)} style={{
+                background: abaEcommerce === tab.id ? cor.text : "none",
+                color: abaEcommerce === tab.id ? cor.bg : cor.textMuted,
+                border: `1px solid ${cor.border}`, borderRadius: 8, padding: "7px 16px",
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              }}>
+                {tab.label}
+              </button>
             ))}
           </div>
-        </div>
-      )}
 
-      {/* ═══ PEDIDOS ═══ */}
-      {secaoAtiva === "pedidos" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-          {[
-            { label: "Total", v: orders.length, c: "#f59e0b" },
-            { label: "Pendentes", v: pendentes, c: "#fbbf24" },
-            { label: "Pagos", v: pagos, c: "#4ade80" },
-            { label: "Cancelados", v: cancelados, c: "#f87171" },
-          ].map(s => (
-            <div key={s.label} style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>{s.label}</p>
-              <h2 style={{ color: s.c, fontSize: 21, fontWeight: 700 }}>{s.v}</h2>
+          {abaEcommerce === "clientes" && (
+            <div>
+              <div style={kpiGrid}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>👥 Cadastrados</p>
+                  <h2 style={{ color: "#38bdf8", fontSize: 21, fontWeight: 700 }}>{totalClientesCadastrados}</h2>
+                </div>
+                <div style={clickCard} onClick={() => setModal("novosClientes")}>
+                  <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🆕 Novos (7 dias)</p>
+                  <h2 style={{ color: "#4ade80", fontSize: 21, fontWeight: 700 }}>{clientesNovosUltimos7d}</h2>
+                  <p style={{ color: "#4ade80", fontSize: 11, marginTop: 6 }}>Ver por região →</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>🔁 Recorrentes</p>
+                  <h2 style={{ color: "#a78bfa", fontSize: 21, fontWeight: 700 }}>{clientesRecorrentes}</h2>
+                </div>
+                <div style={clickCard} onClick={() => setModal("conversao")}>
+                  <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>📊 Taxa Recorrência</p>
+                  <h2 style={{ color: "#f59e0b", fontSize: 21, fontWeight: 700 }}>{taxaRecorrencia}%</h2>
+                  <p style={{ color: "#f59e0b", fontSize: 11, marginTop: 6 }}>Ver conversão →</p>
+                </div>
+              </div>
+              <div style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, margin: 0 }}>Últimos clientes cadastrados</p>
+                  <button onClick={() => setModal("clientes")} style={{ background: "none", border: "none", color: "#38bdf8", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Ver todos →</button>
+                </div>
+                {clientes.length === 0 ? (
+                  <p style={{ color: cor.textMuted, fontSize: 12.5 }}>Nenhum cliente cadastrado.</p>
+                ) : clientes.slice(0, 5).map(c => (
+                  <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#38bdf822", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#38bdf8", fontWeight: 700 }}>
+                        {c.nome?.[0]?.toUpperCase() || "?"}
+                      </div>
+                      <div>
+                        <p style={{ color: cor.text, fontSize: 12.5, margin: 0 }}>{c.nome}</p>
+                        <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.email}</p>
+                      </div>
+                    </div>
+                    <span style={{ color: "#4ade80", fontSize: 10.5, background: "#052e16", padding: "2px 8px", borderRadius: 20 }}>Ativo</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* ═══ PRODUTOS ═══ */}
-      {secaoAtiva === "produtos" && (
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <p style={{ color: cor.textMuted, fontSize: 12.5, margin: 0 }}>{produtos.length} produtos cadastrados</p>
-            <button onClick={() => setModal("produtos")} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f472b6", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-              Ver ranking completo →
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div style={cardStyle}>
-              <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>🏆 Mais Vendidos</p>
-              {maisVendidos.slice(0, 3).map(p => (
-                <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
-                  <span style={{ color: "#4ade80", fontSize: 12.5, fontWeight: 600 }}>{p.vendidos} vendas</span>
+          {abaEcommerce === "pedidos" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+              {[
+                { label: "Total", v: orders.length, c: "#f59e0b" },
+                { label: "Pendentes", v: pendentes, c: "#fbbf24" },
+                { label: "Pagos", v: pagos, c: "#4ade80" },
+                { label: "Cancelados", v: cancelados, c: "#f87171" },
+              ].map(s => (
+                <div key={s.label} style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 8 }}>{s.label}</p>
+                  <h2 style={{ color: s.c, fontSize: 21, fontWeight: 700 }}>{s.v}</h2>
                 </div>
               ))}
             </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>⭐ Mais Avaliados</p>
-              {maisAvaliados.slice(0, 3).map(p => (
-                <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
-                  <span style={{ color: "#fbbf24", fontSize: 12.5, fontWeight: 600 }}>{p.avaliacao} ★</span>
+          )}
+
+          {abaEcommerce === "produtos" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <p style={{ color: cor.textMuted, fontSize: 12.5, margin: 0 }}>{produtos.length} produtos cadastrados</p>
+                <button onClick={() => setModal("produtos")} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f472b6", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  Ver ranking completo →
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>🏆 Mais Vendidos</p>
+                  {maisVendidos.slice(0, 3).map(p => (
+                    <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                      <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
+                      <span style={{ color: "#4ade80", fontSize: 12.5, fontWeight: 600 }}>{p.vendidos} vendas</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>⭐ Mais Avaliados</p>
+                  {maisAvaliados.slice(0, 3).map(p => (
+                    <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                      <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
+                      <span style={{ color: "#fbbf24", fontSize: 12.5, fontWeight: 600 }}>{p.avaliacao} ★</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* ═══ MARKETING ═══ */}
       {secaoAtiva === "marketing" && (
         <div>
           <div style={{ background: cor.bg, border: "1px solid #2d2000", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
@@ -326,7 +338,6 @@ export default function CentralControle() {
         </div>
       )}
 
-      {/* ═══ INTEGRAÇÕES ═══ */}
       {secaoAtiva === "integracoes" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {[
@@ -347,7 +358,6 @@ export default function CentralControle() {
         </div>
       )}
 
-      {/* ═══ AUTOMAÇÕES ═══ */}
       {secaoAtiva === "automacoes" && (
         automacaoSelecionada ? (
           <div>
@@ -404,7 +414,6 @@ export default function CentralControle() {
         )
       )}
 
-      {/* ═══ MODAIS (inalterados) ═══ */}
       {modal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModal(null)} />

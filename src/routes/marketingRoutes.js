@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
 const gemini = require("../services/geminiService");
+const ariaChat = require("../services/ai/AriaChatService");
 const pool = require("../config/db");
 
 router.post("/copy", auth, async (req, res) => {
@@ -62,10 +63,10 @@ router.post("/chat", auth, async (req, res) => {
     const { mensagens } = req.body;
     if (!mensagens || mensagens.length === 0)
       return res.status(400).json({ error: "Mensagens são obrigatórias" });
-    const resposta = await gemini.chat(mensagens);
+    const resposta = await ariaChat.chat(req.tenant_id, mensagens);
     res.json({ resposta });
   } catch (err) {
-    console.error("[CHAT ERROR]", err.message);
+    console.error("[ARIA CHAT ERROR]", err.message);
     res.status(500).json({ error: "Erro no chat", details: err.message });
   }
 });

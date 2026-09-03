@@ -9,5 +9,7 @@ router.get("/lancamentos", auth, ctrl.listarLancamentos);
 router.post("/lancamentos", auth, ctrl.criarLancamento);
 router.post("/lancamentos/:id/pagar", auth, ctrl.marcarPago);
 router.delete("/lancamentos/:id", auth, ctrl.excluirLancamento);
+router.get("/fiscal", auth, ctrl.getDadosFiscais);
+router.post("/fiscal", auth, ctrl.salvarDadosFiscais);
 
 module.exports = router;

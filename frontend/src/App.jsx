@@ -42,10 +42,12 @@ export default function App() {
           <Route path="assistente" element={<Assistente />} />
           <Route path="integracoes" element={<Navigate to="/integracoes/canais-venda" replace />} />
           <Route path="integracoes/:categoria" element={<IntegracoesHub />} />
-          <Route path="automacoes" element={<Automacoes />} />
+          <Route path="automacoes" element={<Navigate to="/automacoes/minhas" replace />} />
+          <Route path="automacoes/:secao" element={<Automacoes />} />
           <Route path="automacoes/:id/editor" element={<AutomationEditorPage />} />
           <Route path="loja-modulos" element={<LojaModulos />} />
-          <Route path="financeiro" element={<Financeiro />} />
+          <Route path="financeiro" element={<Navigate to="/financeiro/resumo" replace />} />
+          <Route path="financeiro/:secao" element={<Financeiro />} />
         </Route>
       </Routes>
     </BrowserRouter>
