@@ -21,6 +21,10 @@ const integrationCatalogRoutes = require("./routes/integrationCatalogRoutes");
 const financeiroRoutes = require("./routes/financeiroRoutes");
 const googleRoutes = require("./routes/googleRoutes");
 const contabilidadeRoutes = require("./routes/contabilidadeRoutes");
+const obrigacoesRoutes = require("./routes/obrigacoesRoutes");
+const documentosRoutes = require("./routes/documentosRoutes");
+const bancosRoutes = require("./routes/bancosRoutes");
+const centrosCustoRoutes = require("./routes/centrosCustoRoutes");
 
 const app = express();
 
@@ -49,6 +53,10 @@ app.use("/api/integrations-catalog", integrationCatalogRoutes);
 app.use("/api/financeiro", financeiroRoutes);
 app.use("/api/google", googleRoutes);
 app.use("/api/contabilidade", contabilidadeRoutes);
+app.use("/api/obrigacoes", obrigacoesRoutes);
+app.use("/api/documentos", documentosRoutes);
+app.use("/api/bancos", bancosRoutes);
+app.use("/api/centros-custo", centrosCustoRoutes);
 
 app.get("/", (req, res) => res.json({ status: "ok", version: "3.0" }));
 

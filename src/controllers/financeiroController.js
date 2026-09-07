@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 
-// Resumo: receita de pedidos pagos + receita manual - despesas, no período informado.
+// ── RESUMO ──
+
 exports.resumo = async (req, res) => {
   try {
     const { de, ate } = req.query;
@@ -42,7 +43,8 @@ exports.resumo = async (req, res) => {
   }
 };
 
-// Fluxo de caixa: agrupa por dia os pedidos pagos + lançamentos manuais pagos, últimos 30 dias por padrão.
+// ── FLUXO DE CAIXA ──
+
 exports.fluxoCaixa = async (req, res) => {
   try {
     const dias = parseInt(req.query.dias) || 30;
@@ -80,6 +82,8 @@ exports.fluxoCaixa = async (req, res) => {
   }
 };
 
+// ── LANÇAMENTOS ──
+
 exports.listarLancamentos = async (req, res) => {
   try {
     const { tipo, status } = req.query;
@@ -99,20 +103,45 @@ exports.listarLancamentos = async (req, res) => {
 
 exports.criarLancamento = async (req, res) => {
   try {
-    const { tipo, categoria, descricao, valor, data_vencimento } = req.body;
-    if (!tipo || !descricao || !valor || !data_vencimento) {
-      return res.status(400).json({ error: "tipo, descricao, valor e data_vencimento são obrigatórios" });
+    const {
+      tipo, categoria, descricao, valor, data_vencimento,
+      entidade_nome, entidade_documento, forma_pagamento,
+      total_parcelas, requer_aprovacao, cost_center_id,
+    } = req.body;
+
+    if (!tipo || !descricao || !valor || !data_vencimento || !cost_center_id) {
+      return res.status(400).json({ error: "tipo, descricao, valor, data_vencimento e cost_center_id são obrigatórios" });
     }
     if (!["receita", "despesa"].includes(tipo)) {
       return res.status(400).json({ error: "tipo deve ser 'receita' ou 'despesa'" });
     }
 
-    const [result] = await pool.query(
-      `INSERT INTO financial_entries (tenant_id, tipo, categoria, descricao, valor, data_vencimento, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'pendente')`,
-      [req.tenant_id, tipo, categoria || "outros", descricao, valor, data_vencimento]
-    );
-    res.status(201).json({ id: result.insertId, message: "Lançamento criado" });
+    const numParcelas = parseInt(total_parcelas) || 1;
+    const valorParcela = (Number(valor) / numParcelas).toFixed(2);
+    const aprovacaoInicial = requer_aprovacao ? "pendente" : "nao_requer";
+    const grupoId = numParcelas > 1 ? require("crypto").randomUUID() : null;
+
+    const idsGerados = [];
+    for (let i = 1; i <= numParcelas; i++) {
+      const dataParcela = new Date(data_vencimento);
+      dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
+
+      const [result] = await pool.query(
+        `INSERT INTO financial_entries
+          (tenant_id, tipo, categoria, cost_center_id, descricao, entidade_nome, entidade_documento,
+           valor, data_vencimento, parcela_atual, total_parcelas, grupo_parcelamento,
+           forma_pagamento, status, aprovacao_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?)`,
+        [
+          req.tenant_id, tipo, categoria || "outros", cost_center_id, descricao, entidade_nome || null, entidade_documento || null,
+          valorParcela, dataParcela.toISOString().slice(0, 10), i, numParcelas, grupoId,
+          forma_pagamento || null, aprovacaoInicial,
+        ]
+      );
+      idsGerados.push(result.insertId);
+    }
+
+    res.status(201).json({ ids: idsGerados, message: numParcelas > 1 ? `${numParcelas} parcelas criadas` : "Lançamento criado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar lançamento", details: err.message });
   }
@@ -145,6 +174,68 @@ exports.excluirLancamento = async (req, res) => {
     res.status(500).json({ error: "Erro ao excluir lançamento", details: err.message });
   }
 };
+
+exports.aprovarLancamento = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.query(
+      "UPDATE financial_entries SET aprovacao_status = 'aprovado', aprovado_por = ?, aprovado_em = NOW() WHERE id = ? AND tenant_id = ?",
+      [req.user?.id || null, id, req.tenant_id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+    res.json({ message: "Lançamento aprovado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao aprovar lançamento", details: err.message });
+  }
+};
+
+exports.rejeitarLancamento = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.query(
+      "UPDATE financial_entries SET aprovacao_status = 'rejeitado', aprovado_por = ?, aprovado_em = NOW() WHERE id = ? AND tenant_id = ?",
+      [req.user?.id || null, id, req.tenant_id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+    res.json({ message: "Lançamento rejeitado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao rejeitar lançamento", details: err.message });
+  }
+};
+
+exports.contasAPagar = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM financial_entries
+       WHERE tenant_id = ? AND tipo = 'despesa'
+       ORDER BY data_vencimento ASC`,
+      [req.tenant_id]
+    );
+    const totalPendente = rows.filter(r => r.status !== "pago").reduce((a, r) => a + Number(r.valor), 0);
+    const totalVencido = rows.filter(r => r.status !== "pago" && new Date(r.data_vencimento) < new Date()).reduce((a, r) => a + Number(r.valor), 0);
+    res.json({ lancamentos: rows, total_pendente: totalPendente.toFixed(2), total_vencido: totalVencido.toFixed(2) });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar contas a pagar", details: err.message });
+  }
+};
+
+exports.contasAReceber = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM financial_entries
+       WHERE tenant_id = ? AND tipo = 'receita'
+       ORDER BY data_vencimento ASC`,
+      [req.tenant_id]
+    );
+    const totalPendente = rows.filter(r => r.status !== "pago").reduce((a, r) => a + Number(r.valor), 0);
+    const totalAtrasado = rows.filter(r => r.status !== "pago" && new Date(r.data_vencimento) < new Date()).reduce((a, r) => a + Number(r.valor), 0);
+    res.json({ lancamentos: rows, total_pendente: totalPendente.toFixed(2), total_atrasado: totalAtrasado.toFixed(2) });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar contas a receber", details: err.message });
+  }
+};
+
+// ── FISCAL (cadastro da empresa) ──
 
 exports.getDadosFiscais = async (req, res) => {
   try {

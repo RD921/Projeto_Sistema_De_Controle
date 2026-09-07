@@ -67,6 +67,7 @@ export default function Layout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [modulosInstalados, setModulosInstalados] = useState({});
+  const [contabilExpandido, setContabilExpandido] = useState(false);
   const bottomRef = useRef(null);
   const buscaInputRef = useRef(null);
 
@@ -162,11 +163,30 @@ export default function Layout() {
     { to: "/integracoes/fiscal", label: t.fiscal, icon: "📄" },
     { to: "/integracoes/pagamentos", label: t.pagamentos, icon: "💳" },
   ];
+
+  const contabilidadeSubLinks = [
+  { to: "/financeiro/contabilidade/plano-contas", label: "Plano de Contas", icon: "📚" },
+  { to: "/financeiro/contabilidade/lancamentos", label: "Lançamentos", icon: "✍️" },
+  { to: "/financeiro/contabilidade/diario", label: "Livro Diário", icon: "📓" },
+  { to: "/financeiro/contabilidade/razao", label: "Livro Razão", icon: "📖" },
+  { to: "/financeiro/contabilidade/balancete", label: "Balancete", icon: "📊" },
+  { to: "/financeiro/contabilidade/dre", label: "DRE", icon: "📈" },
+  { to: "/financeiro/contabilidade/balanco", label: "Balanço", icon: "⚖️" },
+];
+
   const financeiroLinks = [
   { to: "/financeiro/resumo", label: "Resumo", icon: "💰" },
   { to: "/financeiro/fiscal", label: "Fiscal e Contábil", icon: "🧾" },
-  { to: "/financeiro/contabilidade", label: "Contabilidade", icon: "📚" },
+  { to: "/financeiro/contabilidade", label: "Contabilidade", icon: "📗" },
+  { to: "/financeiro/contas-pagar", label: "Contas a Pagar", icon: "📤" },
+  { to: "/financeiro/contas-receber", label: "Contas a Receber", icon: "📥" },
+  { to: "/financeiro/centros-custo", label: "Centros de Custo", icon: "🏷️" },
+  { to: "/financeiro/bancos", label: "Bancos", icon: "🏦" },
+  { to: "/financeiro/conciliacao", label: "Conciliação Bancária", icon: "🔄" },
+  { to: "/financeiro/obrigacoes", label: "Obrigações Fiscais", icon: "📅" },
+  { to: "/financeiro/documentos", label: "Documentos", icon: "🗂️" },
 ];
+
   const automacoesLinks = [
     { to: "/automacoes/minhas", label: "Minhas Automações", icon: "⚡" },
     { to: "/automacoes/templates-ia", label: "Templates da IA", icon: "🤖" },
@@ -235,22 +255,70 @@ export default function Layout() {
             </h2>
           )}
 
-          {linksAtivos.map((n) => (
-            <NavLink key={n.label} to={n.to} title={sidebarColapsada ? n.label : undefined}
-              style={({ isActive }) => ({
-                display: "flex", alignItems: "center", gap: 10,
-                padding: sidebarColapsada ? "10px 0" : "10px 20px 10px 28px",
-                justifyContent: sidebarColapsada ? "center" : "flex-start",
-                color: isActive ? cor.text : cor.textMuted,
-                textDecoration: "none", fontSize: 14,
-                background: isActive ? cor.card : "transparent",
-                borderLeft: isActive && !sidebarColapsada ? `2px solid ${cor.text}` : "2px solid transparent",
-                transition: "all 0.15s",
-              })}>
-              <span style={{ fontSize: 15 }}>{n.icon}</span>
-              {!sidebarColapsada && n.label}
-            </NavLink>
-          ))}
+          {linksAtivos.map((n) => {
+            if (isFinanceiro && n.to === "/financeiro/contabilidade") {
+              const contabilAtivo = location.pathname.startsWith("/financeiro/contabilidade");
+              return (
+                <div key="contabilidade-grupo">
+                  <div
+                    onClick={() => {
+                      setContabilExpandido(!contabilExpandido);
+                      if (!contabilAtivo) navigate("/financeiro/contabilidade/plano-contas");
+                    }}
+                    title={sidebarColapsada ? n.label : undefined}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                      padding: sidebarColapsada ? "10px 0" : "10px 20px 10px 28px",
+                      justifyContent: sidebarColapsada ? "center" : "flex-start",
+                      color: contabilAtivo ? cor.text : cor.textMuted,
+                      fontSize: 14,
+                      background: contabilAtivo ? cor.card : "transparent",
+                      borderLeft: contabilAtivo && !sidebarColapsada ? `2px solid ${cor.text}` : "2px solid transparent",
+                      transition: "all 0.15s",
+                    }}>
+                    <span style={{ fontSize: 15 }}>{n.icon}</span>
+                    {!sidebarColapsada && (
+                      <>
+                        <span style={{ flex: 1 }}>{n.label}</span>
+                        <span style={{ fontSize: 10, transform: contabilExpandido ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▶</span>
+                      </>
+                    )}
+                  </div>
+                  {!sidebarColapsada && contabilExpandido && contabilidadeSubLinks.map(sub => (
+                    <NavLink key={sub.to} to={sub.to}
+                      style={({ isActive }) => ({
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 20px 8px 46px",
+                        color: isActive ? cor.text : cor.textMuted,
+                        textDecoration: "none", fontSize: 13,
+                        background: isActive ? cor.card : "transparent",
+                        borderLeft: isActive ? `2px solid ${cor.text}` : "2px solid transparent",
+                        transition: "all 0.15s",
+                      })}>
+                      <span style={{ fontSize: 13 }}>{sub.icon}</span>
+                      {sub.label}
+                    </NavLink>
+                  ))}
+                </div>
+              );
+            }
+            return (
+              <NavLink key={n.label} to={n.to} title={sidebarColapsada ? n.label : undefined}
+                style={({ isActive }) => ({
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: sidebarColapsada ? "10px 0" : "10px 20px 10px 28px",
+                  justifyContent: sidebarColapsada ? "center" : "flex-start",
+                  color: isActive ? cor.text : cor.textMuted,
+                  textDecoration: "none", fontSize: 14,
+                  background: isActive ? cor.card : "transparent",
+                  borderLeft: isActive && !sidebarColapsada ? `2px solid ${cor.text}` : "2px solid transparent",
+                  transition: "all 0.15s",
+                })}>
+                <span style={{ fontSize: 15 }}>{n.icon}</span>
+                {!sidebarColapsada && n.label}
+              </NavLink>
+            );
+          })}
         </aside>
       )}
 

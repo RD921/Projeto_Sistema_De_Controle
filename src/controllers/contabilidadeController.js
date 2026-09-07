@@ -113,9 +113,10 @@ exports.detalharLancamento = async (req, res) => {
     if (!entry) return res.status(404).json({ error: "Lançamento não encontrado" });
 
     const [linhas] = await pool.query(
-      `SELECT l.id, l.tipo, l.valor, c.id AS conta_id, c.codigo, c.nome
+      `SELECT l.id, l.tipo, l.valor, c.id AS conta_id, c.codigo, c.nome, cc.id AS cost_center_id, cc.nome AS cost_center_nome
        FROM accounting_entry_lines l
        JOIN chart_of_accounts c ON c.id = l.conta_id
+       LEFT JOIN cost_centers cc ON cc.id = l.cost_center_id
        WHERE l.entry_id = ?
        ORDER BY l.tipo DESC, l.id`,
       [id]
@@ -136,6 +137,13 @@ exports.criarLancamento = async (req, res) => {
       return res.status(400).json({ error: "data, historico e ao menos 2 linhas (débito e crédito) são obrigatórios" });
     }
 
+    for (const linha of linhas) {
+      if (!linha.cost_center_id) {
+        conn.release();
+        return res.status(400).json({ error: "Todas as linhas do lançamento precisam de um centro de custo" });
+      }
+    }
+
     const totalDebito = linhas.filter(l => l.tipo === "debito").reduce((a, l) => a + Number(l.valor || 0), 0);
     const totalCredito = linhas.filter(l => l.tipo === "credito").reduce((a, l) => a + Number(l.valor || 0), 0);
 
@@ -152,7 +160,6 @@ exports.criarLancamento = async (req, res) => {
       });
     }
 
-    // valida que todas as contas existem, pertencem ao tenant e são analíticas
     const contaIds = linhas.map(l => l.conta_id);
     const [contas] = await conn.query(
       `SELECT id, nivel FROM chart_of_accounts WHERE id IN (?) AND tenant_id = ?`,
@@ -179,8 +186,8 @@ exports.criarLancamento = async (req, res) => {
 
     for (const linha of linhas) {
       await conn.query(
-        `INSERT INTO accounting_entry_lines (entry_id, conta_id, tipo, valor) VALUES (?, ?, ?, ?)`,
-        [entryId, linha.conta_id, linha.tipo, linha.valor]
+        `INSERT INTO accounting_entry_lines (entry_id, conta_id, cost_center_id, tipo, valor) VALUES (?, ?, ?, ?, ?)`,
+        [entryId, linha.conta_id, linha.cost_center_id, linha.tipo, linha.valor]
       );
     }
 
@@ -208,7 +215,7 @@ exports.excluirLancamento = async (req, res) => {
   }
 };
 
-// ── BALANCETE (saldo por conta analítica, dentro de um período) ──
+// ── BALANCETE ──
 
 exports.balancete = async (req, res) => {
   try {
@@ -239,7 +246,6 @@ exports.balancete = async (req, res) => {
       const mov = mapaMovimento[c.id] || { total_debito: 0, total_credito: 0 };
       const debito = Number(mov.total_debito);
       const credito = Number(mov.total_credito);
-      // saldo respeita a natureza da conta: devedora aumenta com débito, credora aumenta com crédito
       const saldo = c.natureza === "devedora" ? (debito - credito) : (credito - debito);
       return { ...c, total_debito: debito.toFixed(2), total_credito: credito.toFixed(2), saldo: saldo.toFixed(2) };
     });
@@ -250,7 +256,7 @@ exports.balancete = async (req, res) => {
   }
 };
 
-// ── DRE (Demonstrativo de Resultado do Exercício) ──
+// ── DRE ──
 
 exports.dre = async (req, res) => {
   try {
@@ -258,7 +264,6 @@ exports.dre = async (req, res) => {
     const dataDe = de || "1970-01-01";
     const dataAte = ate || "2999-12-31";
 
-    // Movimenta apenas contas de RECEITA e DESPESA (as únicas relevantes pro DRE)
     const [linhas] = await pool.query(
       `SELECT c.id, c.codigo, c.nome, c.tipo, c.natureza,
          SUM(CASE WHEN l.tipo = 'debito' THEN l.valor ELSE 0 END) AS total_debito,
@@ -345,8 +350,6 @@ exports.balancoPatrimonial = async (req, res) => {
       else { patrimonioLiquido.push(item); totalPL += saldo; }
     });
 
-    // Somando o resultado do exercício (receitas - despesas ainda não fechadas) ao Patrimônio Líquido,
-    // já que ele ainda não foi apurado/encerrado numa conta própria.
     const [[resultadoRow]] = await pool.query(
       `SELECT
          SUM(CASE WHEN c.tipo = 'receita' AND l.tipo = 'credito' THEN l.valor
@@ -381,5 +384,90 @@ exports.balancoPatrimonial = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Erro ao gerar balanço patrimonial", details: err.message });
+  }
+};
+
+// ── LIVRO DIÁRIO ──
+
+exports.livroDiario = async (req, res) => {
+  try {
+    const { de, ate } = req.query;
+    const dataDe = de || "1970-01-01";
+    const dataAte = ate || "2999-12-31";
+
+    const [entries] = await pool.query(
+      `SELECT id, data, historico, documento FROM accounting_entries
+       WHERE tenant_id = ? AND data BETWEEN ? AND ?
+       ORDER BY data ASC, id ASC`,
+      [req.tenant_id, dataDe, dataAte]
+    );
+
+    if (entries.length === 0) return res.json([]);
+
+    const ids = entries.map(e => e.id);
+    const [linhas] = await pool.query(
+      `SELECT l.entry_id, l.tipo, l.valor, c.codigo, c.nome
+       FROM accounting_entry_lines l
+       JOIN chart_of_accounts c ON c.id = l.conta_id
+       WHERE l.entry_id IN (?)
+       ORDER BY l.tipo DESC, c.codigo`,
+      [ids]
+    );
+
+    const linhasPorEntry = {};
+    linhas.forEach(l => {
+      if (!linhasPorEntry[l.entry_id]) linhasPorEntry[l.entry_id] = [];
+      linhasPorEntry[l.entry_id].push(l);
+    });
+
+    const resultado = entries.map(e => ({
+      ...e,
+      linhas: linhasPorEntry[e.id] || [],
+    }));
+
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao gerar livro diário", details: err.message });
+  }
+};
+
+// ── LIVRO RAZÃO ──
+
+exports.livroRazao = async (req, res) => {
+  try {
+    const { conta_id, de, ate } = req.query;
+    if (!conta_id) return res.status(400).json({ error: "conta_id é obrigatório" });
+
+    const dataDe = de || "1970-01-01";
+    const dataAte = ate || "2999-12-31";
+
+    const [[conta]] = await pool.query(
+      "SELECT id, codigo, nome, natureza FROM chart_of_accounts WHERE id = ? AND tenant_id = ?",
+      [conta_id, req.tenant_id]
+    );
+    if (!conta) return res.status(404).json({ error: "Conta não encontrada" });
+
+    const [movimentos] = await pool.query(
+      `SELECT e.id AS entry_id, e.data, e.historico, e.documento, l.tipo, l.valor
+       FROM accounting_entry_lines l
+       JOIN accounting_entries e ON e.id = l.entry_id
+       WHERE l.conta_id = ? AND e.tenant_id = ? AND e.data BETWEEN ? AND ?
+       ORDER BY e.data ASC, e.id ASC`,
+      [conta_id, req.tenant_id, dataDe, dataAte]
+    );
+
+    let saldoAcumulado = 0;
+    const linhasComSaldo = movimentos.map(m => {
+      const valor = Number(m.valor);
+      const efeito = conta.natureza === "devedora"
+        ? (m.tipo === "debito" ? valor : -valor)
+        : (m.tipo === "credito" ? valor : -valor);
+      saldoAcumulado += efeito;
+      return { ...m, saldo_acumulado: saldoAcumulado.toFixed(2) };
+    });
+
+    res.json({ conta, movimentos: linhasComSaldo, saldo_final: saldoAcumulado.toFixed(2) });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao gerar livro razão", details: err.message });
   }
 };
