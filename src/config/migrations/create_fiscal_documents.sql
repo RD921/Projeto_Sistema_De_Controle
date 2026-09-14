@@ -1,0 +1,21 @@
+CREATE TABLE fiscal_documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  tipo ENUM('nfe','nfce','nfse') NOT NULL,
+  status ENUM('rascunho','aguardando_certificado','emitida','cancelada','erro') NOT NULL DEFAULT 'rascunho',
+  customer_id INT NULL,
+  municipio_codigo_ibge VARCHAR(10) NULL,
+  numero INT NULL,
+  serie INT NULL DEFAULT 1,
+  natureza_operacao VARCHAR(255) NOT NULL DEFAULT 'Venda de mercadoria',
+  itens JSON NOT NULL,
+  valor_total DECIMAL(10,2) NOT NULL,
+  chave_acesso VARCHAR(44) NULL,
+  xml_rascunho TEXT NULL,
+  motivo_cancelamento VARCHAR(255) NULL,
+  observacoes TEXT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+);
