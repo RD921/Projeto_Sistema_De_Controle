@@ -234,6 +234,7 @@ const trocarEmpresa = async (tenantId) => {
   { to: "/financeiro/fechamento", label: "Fechamento do Mês", icon: "🔒" },
   { to: "/financeiro/governanca", label: "Governança e Auditoria", icon: "🛡️" },
   { to: "/financeiro/fiscal", label: "Fiscal e Contábil", icon: "🧾" },
+  { to: "/financeiro/notas-fiscais", label: "Notas Fiscais", icon: "📜" },
   { to: "/financeiro/contabilidade", label: "Contabilidade", icon: "📗" },
   { to: "/financeiro/contas-pagar", label: "Contas a Pagar", icon: "📤" },
   { to: "/financeiro/contas-receber", label: "Contas a Receber", icon: "📥" },

@@ -271,6 +271,19 @@ export default function Financeiro() {
   const [costCenterGuia, setCostCenterGuia] = useState("");
   const [historicoFiscal, setHistoricoFiscal] = useState([]);
 
+// ── Notas Fiscais ──
+const [notasFiscais, setNotasFiscais] = useState([]);
+const [loadingNotasFiscais, setLoadingNotasFiscais] = useState(true);
+const [customersNF, setCustomersNF] = useState([]);
+const [modalNotaFiscalAberto, setModalNotaFiscalAberto] = useState(false);
+const [formNotaFiscal, setFormNotaFiscal] = useState({
+  tipo: "nfe", customer_id: "", municipio_codigo_ibge: "", natureza_operacao: "Venda de mercadoria",
+  itens: [{ descricao: "", quantidade: 1, valor_unitario: "" }], observacoes: "",
+});
+const [salvandoNotaFiscal, setSalvandoNotaFiscal] = useState(false);
+const [erroNotaFiscal, setErroNotaFiscal] = useState("");
+const [xmlVisualizado, setXmlVisualizado] = useState(null);
+
 // ── Contratos ──
 const [contratos, setContratos] = useState([]);
 const [loadingContratos, setLoadingContratos] = useState(true);
@@ -1278,6 +1291,111 @@ const nomeTipoCenario = (tipo) => {
       alert(err.response?.data?.error || "Erro ao excluir.");
     }
   };
+
+const carregarNotasFiscais = () => {
+  setLoadingNotasFiscais(true);
+  api.get("/fiscal-documents").then(r => setNotasFiscais(r.data || [])).catch(() => {}).finally(() => setLoadingNotasFiscais(false));
+};
+
+useEffect(() => {
+  if (secaoAtiva !== "notas-fiscais") return;
+  carregarNotasFiscais();
+  api.get("/customers").then(r => setCustomersNF(r.data.data || r.data || [])).catch(() => {});
+}, [secaoAtiva]);
+
+const abrirModalNotaFiscal = () => {
+  setFormNotaFiscal({
+    tipo: "nfe", customer_id: "", municipio_codigo_ibge: "", natureza_operacao: "Venda de mercadoria",
+    itens: [{ descricao: "", quantidade: 1, valor_unitario: "" }], observacoes: "",
+  });
+  setErroNotaFiscal("");
+  setModalNotaFiscalAberto(true);
+};
+
+const atualizarItemNF = (idx, campo, valor) => {
+  setFormNotaFiscal(prev => {
+    const itens = [...prev.itens];
+    itens[idx] = { ...itens[idx], [campo]: valor };
+    return { ...prev, itens };
+  });
+};
+
+const adicionarItemNF = () => {
+  setFormNotaFiscal(prev => ({ ...prev, itens: [...prev.itens, { descricao: "", quantidade: 1, valor_unitario: "" }] }));
+};
+
+const removerItemNF = (idx) => {
+  setFormNotaFiscal(prev => ({ ...prev, itens: prev.itens.filter((_, i) => i !== idx) }));
+};
+
+const salvarNotaFiscal = async (e) => {
+  e.preventDefault();
+  if (formNotaFiscal.tipo === "nfse" && !formNotaFiscal.municipio_codigo_ibge) {
+    setErroNotaFiscal("Codigo IBGE do municipio e obrigatorio para NFS-e.");
+    return;
+  }
+  if (formNotaFiscal.itens.some(i => !i.descricao || !i.valor_unitario)) {
+    setErroNotaFiscal("Preencha descricao e valor unitario de todos os itens.");
+    return;
+  }
+  setSalvandoNotaFiscal(true);
+  setErroNotaFiscal("");
+  try {
+    await api.post("/fiscal-documents", {
+      ...formNotaFiscal,
+      customer_id: formNotaFiscal.customer_id || undefined,
+      itens: formNotaFiscal.itens.map(i => ({ ...i, quantidade: Number(i.quantidade), valor_unitario: Number(i.valor_unitario) })),
+    });
+    setModalNotaFiscalAberto(false);
+    carregarNotasFiscais();
+  } catch (err) {
+    setErroNotaFiscal(err.response?.data?.error || "Erro ao criar documento fiscal.");
+  } finally {
+    setSalvandoNotaFiscal(false);
+  }
+};
+
+const gerarXmlNotaFiscal = async (id) => {
+  try {
+    const r = await api.post(`/fiscal-documents/${id}/gerar-xml`);
+    setXmlVisualizado(r.data.xml);
+    carregarNotasFiscais();
+  } catch (err) {
+    alert(err.response?.data?.error || "Erro ao gerar XML.");
+  }
+};
+
+const cancelarNotaFiscal = async (id) => {
+  const motivo = prompt("Motivo do cancelamento (opcional):");
+  try {
+    await api.post(`/fiscal-documents/${id}/cancelar`, { motivo });
+    carregarNotasFiscais();
+  } catch (err) {
+    alert(err.response?.data?.error || "Erro ao cancelar.");
+  }
+};
+
+const excluirNotaFiscal = async (id) => {
+  if (!confirm("Excluir este documento fiscal?")) return;
+  try {
+    await api.delete(`/fiscal-documents/${id}`);
+    carregarNotasFiscais();
+  } catch (err) {
+    alert(err.response?.data?.error || "Erro ao excluir.");
+  }
+};
+
+const corStatusNF = (status) => {
+  const cores = { rascunho: "#6e6e73", aguardando_certificado: "#f59e0b", emitida: "#16a34a", cancelada: "#dc2626", erro: "#dc2626" };
+  return cores[status] || "#6e6e73";
+};
+
+const labelStatusNF = (status) => {
+  const labels = { rascunho: "Rascunho", aguardando_certificado: "Aguardando certificado", emitida: "Emitida", cancelada: "Cancelada", erro: "Erro" };
+  return labels[status] || status;
+};
+
+const labelTipoNF = (tipo) => ({ nfe: "NF-e", nfce: "NFC-e", nfse: "NFS-e" }[tipo] || tipo);
 
   const carregarContratos = () => {
   setLoadingContratos(true);
@@ -5003,6 +5121,138 @@ const corStatusContrato = (status) => {
                     {salvandoVinculo ? "Salvando..." : "Salvar Vínculo"}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+            {secaoAtiva === "notas-fiscais" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h1 style={{ color: cor.text, fontWeight: 700, margin: 0 }}>Notas Fiscais</h1>
+              <p style={{ color: cor.textMuted, fontSize: 13, margin: "6px 0 0" }}>
+                Fundação de emissão (NF-e, NFC-e, NFS-e). Gera rascunho e XML estrutural — a transmissão real para a SEFAZ exige certificado digital configurado (ainda não disponível).
+              </p>
+            </div>
+            <button onClick={abrirModalNotaFiscal} style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "sans-serif" }}>
+              + Novo Documento Fiscal
+            </button>
+          </div>
+
+          {loadingNotasFiscais ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>
+          ) : notasFiscais.length === 0 ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum documento fiscal criado ainda.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {notasFiscais.map(nf => (
+                <div key={nf.id} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: cor.bg, color: cor.textMuted, flexShrink: 0 }}>
+                    {labelTipoNF(nf.tipo)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: cor.text, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{nf.customer_nome || "Consumidor não identificado"}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>{nf.natureza_operacao} · criado em {new Date(nf.created_at).toLocaleDateString("pt-BR")}</p>
+                  </div>
+                  <p style={{ color: cor.text, fontWeight: 700, fontSize: 14, margin: 0, flexShrink: 0 }}>{formatarMoeda(nf.valor_total)}</p>
+                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: corStatusNF(nf.status) + "22", color: corStatusNF(nf.status), flexShrink: 0 }}>
+                    {labelStatusNF(nf.status)}
+                  </span>
+                  {nf.status === "rascunho" && (
+                    <button onClick={() => gerarXmlNotaFiscal(nf.id)} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0 }}>
+                      Gerar XML
+                    </button>
+                  )}
+                  {nf.xml_rascunho && (
+                    <button onClick={() => setXmlVisualizado(nf.xml_rascunho)} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0 }}>
+                      Ver XML
+                    </button>
+                  )}
+                  {nf.status !== "emitida" && nf.status !== "cancelada" && (
+                    <button onClick={() => cancelarNotaFiscal(nf.id)} style={{ background: "none", border: "1px solid #f59e0b55", color: "#f59e0b", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0 }}>
+                      Cancelar
+                    </button>
+                  )}
+                  {nf.status !== "emitida" && (
+                    <button onClick={() => excluirNotaFiscal(nf.id)} style={{ background: "none", border: "1px solid #dc262655", color: "#dc2626", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0 }}>
+                      Excluir
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {modalNotaFiscalAberto && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModalNotaFiscalAberto(false)} />
+              <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto" }}>
+                <h2 style={{ color: cor.text, marginBottom: 18, fontSize: 17 }}>Novo Documento Fiscal</h2>
+                <form onSubmit={salvarNotaFiscal}>
+                  <label style={labelStyle}>Tipo</label>
+                  <select value={formNotaFiscal.tipo} onChange={e => setFormNotaFiscal({ ...formNotaFiscal, tipo: e.target.value })} style={inputStyle}>
+                    <option value="nfe">NF-e (produtos)</option>
+                    <option value="nfce">NFC-e (consumidor final)</option>
+                    <option value="nfse">NFS-e (serviços)</option>
+                  </select>
+
+                  <label style={labelStyle}>Cliente (opcional)</label>
+                  <select value={formNotaFiscal.customer_id} onChange={e => setFormNotaFiscal({ ...formNotaFiscal, customer_id: e.target.value })} style={inputStyle}>
+                    <option value="">Consumidor não identificado</option>
+                    {customersNF.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+
+                  {formNotaFiscal.tipo === "nfse" && (
+                    <>
+                      <label style={labelStyle}>Código IBGE do município (obrigatório para NFS-e)</label>
+                      <input value={formNotaFiscal.municipio_codigo_ibge} onChange={e => setFormNotaFiscal({ ...formNotaFiscal, municipio_codigo_ibge: e.target.value })} style={inputStyle} placeholder="Ex: 3205002 (Vila Velha/ES)" />
+                    </>
+                  )}
+
+                  <label style={labelStyle}>Natureza da operação</label>
+                  <input value={formNotaFiscal.natureza_operacao} onChange={e => setFormNotaFiscal({ ...formNotaFiscal, natureza_operacao: e.target.value })} style={inputStyle} />
+
+                  <p style={{ color: cor.text, fontWeight: 600, fontSize: 13, margin: "12px 0 8px" }}>Itens</p>
+                  {formNotaFiscal.itens.map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                      <input value={item.descricao} onChange={e => atualizarItemNF(idx, "descricao", e.target.value)} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} placeholder="Descrição" />
+                      <input type="number" value={item.quantidade} onChange={e => atualizarItemNF(idx, "quantidade", e.target.value)} style={{ ...inputStyle, marginBottom: 0, width: 70, flexShrink: 0 }} placeholder="Qtd" />
+                      <input type="number" step="0.01" value={item.valor_unitario} onChange={e => atualizarItemNF(idx, "valor_unitario", e.target.value)} style={{ ...inputStyle, marginBottom: 0, width: 100, flexShrink: 0 }} placeholder="Valor unit." />
+                      {formNotaFiscal.itens.length > 1 && (
+                        <button type="button" onClick={() => removerItemNF(idx)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 16, flexShrink: 0 }}>×</button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={adicionarItemNF} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 11.5, fontFamily: "inherit", marginBottom: 14 }}>
+                    + item
+                  </button>
+
+                  <label style={labelStyle}>Observações (opcional)</label>
+                  <input value={formNotaFiscal.observacoes} onChange={e => setFormNotaFiscal({ ...formNotaFiscal, observacoes: e.target.value })} style={inputStyle} />
+
+                  {erroNotaFiscal && <p style={{ color: "#dc2626", fontSize: 12.5, marginBottom: 10 }}>{erroNotaFiscal}</p>}
+                  <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                    <button type="button" onClick={() => setModalNotaFiscalAberto(false)} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+                    <button type="submit" disabled={salvandoNotaFiscal} style={{ flex: 1, padding: 11, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
+                      {salvandoNotaFiscal ? "Salvando..." : "Criar Rascunho"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {xmlVisualizado && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setXmlVisualizado(null)} />
+              <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto" }}>
+                <h2 style={{ color: cor.text, marginBottom: 14, fontSize: 17 }}>XML de Rascunho</h2>
+                <pre style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, padding: 14, fontSize: 11.5, color: cor.textMuted, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {xmlVisualizado}
+                </pre>
+                <button onClick={() => setXmlVisualizado(null)} style={{ marginTop: 16, width: "100%", padding: 11, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Fechar</button>
               </div>
             </div>
           )}
