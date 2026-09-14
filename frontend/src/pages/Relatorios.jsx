@@ -3,6 +3,7 @@ import { useOutletContext, useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 
 const SECOES = [
+  { id: "executivo", label: "Executivo" },
   { id: "vendas", label: "Vendas" },
   { id: "clientes", label: "Clientes" },
   { id: "logistica", label: "Logística" },
@@ -18,6 +19,67 @@ function formatarMoeda(valor) {
 function formatarData(iso) {
   if (!iso) return "-";
   return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+// ── Botao de exportar, compartilhado por todas as secoes ──
+const TIPO_POR_SECAO = {
+  vendas: "sales",
+  clientes: "marketing",
+  logistica: "logistics",
+  produtos: "products",
+  marketplaces: "marketplaces",
+  executivo: "executivo",
+};
+
+function BotaoExportar({ cor, secaoAtiva, dataInicio, dataFim }) {
+  const [exportando, setExportando] = useState(false);
+
+  const exportar = async (format) => {
+    const tipo = TIPO_POR_SECAO[secaoAtiva];
+    if (!tipo) return;
+
+    setExportando(true);
+    try {
+      const params = secaoAtiva === "executivo"
+        ? { data_inicio: dataInicio || undefined, data_fim: dataFim || undefined, format }
+        : { start_date: dataInicio || undefined, end_date: dataFim || undefined, format };
+
+      const resposta = await api.get(`/reports/${tipo}/export`, { params, responseType: "blob" });
+
+      const extensao = format === "xlsx" ? "xlsx" : "pdf";
+      const url = window.URL.createObjectURL(new Blob([resposta.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `relatorio_${secaoAtiva}.${extensao}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert("Erro ao exportar relatório. Tente novamente.");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <button
+        onClick={() => exportar("xlsx")}
+        disabled={exportando}
+        style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 14px", fontSize: 12.5, cursor: exportando ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+      >
+        {exportando ? "Exportando..." : "⬇ Excel"}
+      </button>
+      <button
+        onClick={() => exportar("pdf")}
+        disabled={exportando}
+        style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 14px", fontSize: 12.5, cursor: exportando ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+      >
+        {exportando ? "Exportando..." : "⬇ PDF"}
+      </button>
+    </div>
+  );
 }
 
 // ── Filtro de período compartilhado por todas as seções ──
@@ -318,6 +380,105 @@ function RelatorioMarketplaces({ cor, cardStyle, dataInicio, dataFim }) {
   );
 }
 
+function RelatorioExecutivo({ cor, cardStyle, dataInicio, dataFim }) {
+  const [dados, setDados] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get("/bi/executivo", { params: { data_inicio: dataInicio || undefined, data_fim: dataFim || undefined } })
+      .then((r) => setDados(r.data))
+      .catch(() => setDados(null))
+      .finally(() => setLoading(false));
+  }, [dataInicio, dataFim]);
+
+  if (loading) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>;
+  if (!dados) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Erro ao carregar dashboard executivo.</p>;
+
+  return (
+    <div>
+      <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 20 }}>
+        Visão cruzada de Vendas, Financeiro, CRM, Estoque e Marketing numa única página. CRM, Estoque e Marketing refletem o estado atual do negócio (sem filtro de período); Vendas e Financeiro respeitam o filtro acima.
+      </p>
+
+      <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Vendas</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Total de Pedidos</p>
+          <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.vendas.total_pedidos}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita de Vendas</p>
+          <h2 style={{ color: "#16a34a", fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.vendas.receita_total)}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Ticket Médio</p>
+          <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.vendas.ticket_medio)}</h2>
+        </div>
+      </div>
+
+      <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Financeiro</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Total</p>
+          <h2 style={{ color: "#16a34a", fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.financeiro.receita_total)}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Despesas Pagas</p>
+          <h2 style={{ color: "#dc2626", fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.financeiro.despesas_pagas)}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Despesas Pendentes</p>
+          <h2 style={{ color: "#f59e0b", fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.financeiro.despesas_pendentes)}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Saldo</p>
+          <h2 style={{ color: Number(dados.financeiro.saldo) >= 0 ? "#16a34a" : "#dc2626", fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.financeiro.saldo)}</h2>
+        </div>
+      </div>
+
+      <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>CRM</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Taxa de Conversão</p>
+          <h2 style={{ color: "#4ade80", fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.crm.taxa_conversao != null ? dados.crm.taxa_conversao + "%" : "-"}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Ganha</p>
+          <h2 style={{ color: "#16a34a", fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(dados.crm.receita_ganha)}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Pipeline Aberto</p>
+          <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.crm.pipeline_aberto.total_deals} deal(s)</h2>
+          <p style={{ color: cor.textMuted, fontSize: 11, margin: "4px 0 0" }}>{formatarMoeda(dados.crm.pipeline_aberto.valor_total)}</p>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Tarefas Vencidas</p>
+          <h2 style={{ color: dados.crm.tarefas_vencidas > 0 ? "#f87171" : cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.crm.tarefas_vencidas}</h2>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div>
+          <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Estoque</h3>
+          <div style={cardStyle}>
+            <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Produtos com Estoque Baixo</p>
+            <h2 style={{ color: dados.estoque.produtos_estoque_baixo > 0 ? "#f87171" : cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.estoque.produtos_estoque_baixo}</h2>
+          </div>
+        </div>
+        <div>
+          <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Marketing</h3>
+          <div style={cardStyle}>
+            <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Leads / Conversões</p>
+            <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.marketing.total_leads} leads · {dados.marketing.total_conversoes} conv.</h2>
+            <p style={{ color: "#16a34a", fontSize: 11, margin: "4px 0 0" }}>{formatarMoeda(dados.marketing.receita_atribuida)} atribuído</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Relatorios() {
   const { cor } = useOutletContext();
   const { secao } = useParams();
@@ -357,8 +518,12 @@ export default function Relatorios() {
         ))}
       </div>
 
-      <FiltroPeriodo cor={cor} dataInicio={dataInicio} dataFim={dataFim} setDataInicio={setDataInicio} setDataFim={setDataFim} inputStyle={inputStyle} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+        <FiltroPeriodo cor={cor} dataInicio={dataInicio} dataFim={dataFim} setDataInicio={setDataInicio} setDataFim={setDataFim} inputStyle={inputStyle} />
+        <BotaoExportar cor={cor} secaoAtiva={secaoAtiva} dataInicio={dataInicio} dataFim={dataFim} />
+      </div>
 
+      {secaoAtiva === "executivo" && <RelatorioExecutivo cor={cor} cardStyle={cardStyle} dataInicio={dataInicio} dataFim={dataFim} />}
       {secaoAtiva === "vendas" && <RelatorioVendas cor={cor} cardStyle={cardStyle} inputStyle={inputStyle} dataInicio={dataInicio} dataFim={dataFim} />}
       {secaoAtiva === "clientes" && <RelatorioClientes cor={cor} cardStyle={cardStyle} inputStyle={inputStyle} dataInicio={dataInicio} dataFim={dataFim} />}
       {secaoAtiva === "logistica" && <RelatorioLogistica cor={cor} cardStyle={cardStyle} dataInicio={dataInicio} dataFim={dataFim} />}

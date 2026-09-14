@@ -7,4 +7,8 @@ router.get("/marketing",    auth, ctrl.marketingReport);
 router.get("/logistics",    auth, ctrl.logisticsReport);
 router.get("/products",     auth, ctrl.productsReport);
 router.get("/marketplaces", auth, ctrl.marketplacesReport);
+
+const exportCtrl = require("../controllers/exportController");
+router.get("/:tipo/export", auth, exportCtrl.exportar);
+
 module.exports = router;
