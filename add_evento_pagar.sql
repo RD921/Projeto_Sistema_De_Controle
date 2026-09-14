@@ -1,0 +1,1 @@
+﻿INSERT IGNORE INTO event_types (code, label, category, description, module) VALUES ('financial.account_payable.overdue', 'Conta a pagar vencida', 'financeiro', 'Disparado uma unica vez quando uma conta a pagar ultrapassa a data de vencimento sem ter sido paga', 'financeiro');

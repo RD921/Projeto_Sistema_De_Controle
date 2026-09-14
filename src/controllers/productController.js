@@ -45,12 +45,21 @@ exports.createProduct = async (req, res) => {
 };
 exports.updateProduct = async (req, res) => {
   try {
-    const { nome, descricao, preco, estoque, ativo } = req.body || {};
+    // O campo "estoque" nao pode mais ser alterado por esta rota - toda mudanca
+    // de estoque precisa passar por /api/stock/:id/ajustar, que registra o
+    // historico rastreavel (stock_movements) e dispara os eventos corretos.
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, "estoque")) {
+      return res.status(400).json({
+        error: "Alteracao de estoque nao e permitida por esta rota. Use POST /api/stock/:id/ajustar para registrar entrada, saida ou ajuste com motivo.",
+      });
+    }
+
+    const { nome, descricao, preco, ativo } = req.body || {};
     const [existing] = await pool.query("SELECT id FROM products WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (existing.length === 0) return res.status(404).json({ error: "Produto nao encontrado" });
     await pool.query(
-      "UPDATE products SET nome = COALESCE(?, nome), descricao = COALESCE(?, descricao), preco = COALESCE(?, preco), estoque = COALESCE(?, estoque), ativo = COALESCE(?, ativo) WHERE id = ? AND tenant_id = ?",
-      [nome, descricao, preco, estoque, ativo, req.params.id, req.tenant_id]
+      "UPDATE products SET nome = COALESCE(?, nome), descricao = COALESCE(?, descricao), preco = COALESCE(?, preco), ativo = COALESCE(?, ativo) WHERE id = ? AND tenant_id = ?",
+      [nome, descricao, preco, ativo, req.params.id, req.tenant_id]
     );
     res.json({ message: "Produto atualizado com sucesso" });
   } catch (err) {

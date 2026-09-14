@@ -70,6 +70,11 @@ export default function Layout() {
   const [contabilExpandido, setContabilExpandido] = useState(false);
   const bottomRef = useRef(null);
   const buscaInputRef = useRef(null);
+  const [showEmpresas, setShowEmpresas] = useState(false);
+  const [empresas, setEmpresas] = useState([]);
+  const [empresaAtualId, setEmpresaAtualId] = useState(null);
+  const [trocandoEmpresa, setTrocandoEmpresa] = useState(false);
+  const moeda = empresas.find(e => e.id === empresaAtualId)?.moeda || "BRL";
 
   const t = traducoes[idioma];
   const cor = temas[tema];
@@ -109,6 +114,37 @@ export default function Layout() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+useEffect(() => {
+  api.get("/auth/minhas-empresas")
+    .then(r => {
+      setEmpresas(r.data || []);
+      const token = localStorage.getItem("token");
+      let tenantIdAtual = null;
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          tenantIdAtual = payload.tenant_id;
+        } catch {}
+      }
+      const atual = r.data?.find(e => e.id === tenantIdAtual) || r.data?.find(e => e.is_default) || r.data?.[0];
+      if (atual) setEmpresaAtualId(atual.id);
+    })
+    .catch(() => {});
+}, []);
+
+const trocarEmpresa = async (tenantId) => {
+  if (tenantId === empresaAtualId) { setShowEmpresas(false); return; }
+  setTrocandoEmpresa(true);
+  try {
+    const r = await api.post("/auth/trocar-empresa", { tenant_id: tenantId });
+    localStorage.setItem("token", r.data.token);
+    window.location.reload();
+  } catch (err) {
+    alert(err.response?.data?.error || "Erro ao trocar de empresa.");
+    setTrocandoEmpresa(false);
+  }
+};
+
   const enviarMensagem = async (texto) => {
     if (!texto.trim()) return;
     const novasMensagens = [...mensagens, { role: "user", text: texto }];
@@ -135,7 +171,8 @@ export default function Layout() {
   const isMarketing = location.pathname.startsWith("/marketing");
   const isFinanceiro = location.pathname.startsWith("/financeiro");
   const isAutomacoes = location.pathname.startsWith("/automacoes") && !location.pathname.includes("/editor");
-  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes;
+  const isCRM = location.pathname.startsWith("/crm");
+  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes || isCRM;
 
   const centralLinks = [
     { to: "/central-controle/resumo", label: "Resumo", icon: "📊" },
@@ -150,13 +187,22 @@ export default function Layout() {
     { to: "/orders", label: t.pedidos, icon: "🛒" },
     { to: "/customers", label: t.clientes, icon: "👥" },
   ];
-  const marketingLinks = [
+  
+      const marketingLinks = [
     { to: "/marketing/visao-geral", label: "Visão Geral", icon: "📊" },
     { to: "/marketing/alcance-metricas", label: "Alcance & Métricas", icon: "📍" },
+    { to: "/marketing/leads-campanhas", label: "Leads & Campanhas", icon: "🚀" },
+    { to: "/marketing/landing-pages", label: "Landing Pages", icon: "🖥️" },
     { to: "/marketing/copy-ia", label: "Copy com IA", icon: "🤖" },
     { to: "/marketing/lead-scoring", label: "Lead Scoring", icon: "🎯" },
     { to: "/marketing/scripts-ia", label: "Scripts IA", icon: "🎭" },
   ];
+
+  const crmLinks = [
+    { to: "/crm/pipeline", label: "Pipeline", icon: "🎯" },
+    { to: "/crm/dashboard", label: "Dashboard", icon: "📊" },
+  ];
+
   const integracoesLinks = [
     { to: "/integracoes/canais-venda", label: t.canaisVenda, icon: "🛒" },
     { to: "/integracoes/logistica", label: t.logistica, icon: "🚚" },
@@ -176,10 +222,22 @@ export default function Layout() {
 
   const financeiroLinks = [
   { to: "/financeiro/resumo", label: "Resumo", icon: "💰" },
+  { to: "/financeiro/motor-financeiro", label: "Motor Financeiro", icon: "⚙️" },
+  { to: "/financeiro/rentabilidade", label: "Rentabilidade Real", icon: "📈" },
+  { to: "/financeiro/fluxo-preditivo", label: "Fluxo de Caixa Preditivo", icon: "🔮" },
+  { to: "/financeiro/simulador", label: "Simulador de Cenários", icon: "🔮" },
+  { to: "/financeiro/tesouraria", label: "Tesouraria", icon: "🏛️" },
+  { to: "/financeiro/orcamento", label: "Orçamento", icon: "🎯" },
+  { to: "/financeiro/automacao", label: "Automação Financeira", icon: "🤖" },
+  { to: "/financeiro/alertas", label: "Alertas e Riscos", icon: "🚨" },
+  { to: "/financeiro/cartoes", label: "Cartões Corporativos", icon: "💳" },
+  { to: "/financeiro/fechamento", label: "Fechamento do Mês", icon: "🔒" },
+  { to: "/financeiro/governanca", label: "Governança e Auditoria", icon: "🛡️" },
   { to: "/financeiro/fiscal", label: "Fiscal e Contábil", icon: "🧾" },
   { to: "/financeiro/contabilidade", label: "Contabilidade", icon: "📗" },
   { to: "/financeiro/contas-pagar", label: "Contas a Pagar", icon: "📤" },
   { to: "/financeiro/contas-receber", label: "Contas a Receber", icon: "📥" },
+  { to: "/financeiro/contratos", label: "Contratos", icon: "📑" },
   { to: "/financeiro/centros-custo", label: "Centros de Custo", icon: "🏷️" },
   { to: "/financeiro/bancos", label: "Bancos", icon: "🏦" },
   { to: "/financeiro/conciliacao", label: "Conciliação Bancária", icon: "🔄" },
@@ -195,19 +253,21 @@ export default function Layout() {
     { to: "/automacoes/logs", label: "Logs", icon: "📋" },
   ];
 
-  const linksAtivos = isCentral ? centralLinks
+         const linksAtivos = isCentral ? centralLinks
     : isMarketing ? marketingLinks
     : isIntegracoes ? integracoesLinks
     : isFinanceiro ? financeiroLinks
     : isAutomacoes ? automacoesLinks
+    : isCRM ? crmLinks
     : ecommerceLinks;
 
-  const tituloSecao = isCentral ? t.central
+      const tituloSecao = isCentral ? t.central
     : isMarketing ? t.marketing
     : isIntegracoes ? t.integracoes
     : isFinanceiro ? t.financeiro
     : isAutomacoes ? "Automações"
-    : t.ecommerce;
+    : isCRM ? "CRM"
+    : "";
 
   const MODULOS_TODOS = [
     { id: "central", label: "Central de Controle", path: "/central-controle/resumo", icon: "📊", sempre: true },
@@ -217,6 +277,7 @@ export default function Layout() {
     { id: "financeiro", label: "Financeiro", path: "/financeiro", icon: "💰", sempre: true },
     { id: "automacoes", label: "Automações", path: "/automacoes/minhas", icon: "⚡", sempre: true },
     { id: "assistente", label: "Assistente Aria", path: "/assistente", icon: "🤖", sempre: true },
+    { id: "crm", label: "CRM", path: "/crm/pipeline", icon: "💼", sempre: true },
   ];
 
   const resultadosBusca = buscaTexto.trim()
@@ -340,6 +401,27 @@ export default function Layout() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
 
+{empresas.length > 1 && (
+  <div style={{ position: "relative" }}>
+    <button onClick={() => { setShowEmpresas(!showEmpresas); setShowTema(false); setShowIdioma(false); setNotifOpen(false); setPerfilOpen(false); }}
+      disabled={trocandoEmpresa}
+      style={{ display: "flex", alignItems: "center", gap: 6, background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, color: cor.textMuted, fontFamily: "sans-serif" }}>
+      🏢 {empresas.find(e => e.id === empresaAtualId)?.nome || "Empresa"}
+    </button>
+    {showEmpresas && (
+      <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: cor.sidebar, border: `1px solid ${cor.border}`, borderRadius: 10, overflow: "hidden", zIndex: 200, minWidth: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
+        {empresas.map(emp => (
+          <button key={emp.id} onClick={() => trocarEmpresa(emp.id)}
+            style={{ display: "flex", flexDirection: "column", width: "100%", padding: "10px 14px", background: emp.id === empresaAtualId ? cor.card : "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "sans-serif", borderBottom: `1px solid ${cor.border}` }}>
+            <span style={{ fontSize: 13, color: cor.text, fontWeight: emp.id === empresaAtualId ? 600 : 400 }}>{emp.nome}</span>
+            <span style={{ fontSize: 11, color: cor.textMuted }}>{emp.role === "admin" ? "Administrador" : "Usuário"}</span>
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
             <div style={{ position: "relative" }}>
               <button onClick={() => { setShowTema(!showTema); setShowIdioma(false); setNotifOpen(false); setPerfilOpen(false); }}
                 style={{ display: "flex", alignItems: "center", gap: 6, background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, color: cor.textMuted, fontFamily: "sans-serif" }}>
@@ -423,7 +505,7 @@ export default function Layout() {
         </div>
 
         <main style={{ flex: 1, padding: hasSidebar ? 30 : 0, background: cor.bg, transition: "all 0.3s" }}>
-          <Outlet context={{ tema, idioma, cor }} />
+         <Outlet context={{ tema, idioma, cor, moeda }} />
         </main>
       </div>
 

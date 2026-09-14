@@ -15,8 +15,28 @@ async function dispatch(eventType, tenantId, payload = {}) {
 
   for (const automacao of automacoesComTrigger) {
     try {
-      await engine.execute(automacao.id, tenantId, payload);
+      const resultado = await engine.execute(automacao.id, tenantId, payload);
       console.log(`[EVENT] ${eventType} disparou automacao "${automacao.name}" (id ${automacao.id})`);
+
+      // Se essa automacao esta vinculada a uma campanha de marketing e o payload
+      // do evento traz um lead_id, matricula o lead na jornada (visibilidade
+      // de "em qual etapa cada lead esta" sem duplicar o motor de automacao).
+      if (resultado?.executionId) {
+        try {
+          const [[campanha]] = await pool.query(
+            "SELECT id FROM marketing_campaigns WHERE automation_id = ? AND tenant_id = ?",
+            [automacao.id, tenantId]
+          );
+          if (campanha && payload.lead_id) {
+            await pool.query(
+              "INSERT INTO marketing_journey_enrollments (tenant_id, campaign_id, lead_id, execution_id) VALUES (?, ?, ?, ?)",
+              [tenantId, campanha.id, payload.lead_id, resultado.executionId]
+            );
+          }
+        } catch (errEnroll) {
+          console.error(`[EVENT] Erro ao matricular lead na jornada:`, errEnroll.message);
+        }
+      }
     } catch (err) {
       console.error(`[EVENT] Erro ao executar automacao ${automacao.id}:`, err.message);
     }

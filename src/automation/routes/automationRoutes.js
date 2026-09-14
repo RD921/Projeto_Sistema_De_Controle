@@ -5,6 +5,14 @@ const pool = require("../../config/db");
 const engine = require("../engine/AutomationEngine");
 const scheduler = require("../engine/Scheduler");
 
+// Bloqueia a rota se o usuário autenticado não for admin do tenant.
+function exigirAdmin(req, res, next) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ error: "Apenas administradores podem executar esta acao" });
+  }
+  next();
+}
+
 router.get("/", auth, async (req, res) => {
   const [rows] = await pool.query("SELECT * FROM automations WHERE tenant_id = ? ORDER BY created_at DESC", [req.tenant_id]);
   res.json(rows);
@@ -87,18 +95,25 @@ router.put("/:id/definicao", auth, async (req, res) => {
   }
 });
 
-router.post("/:id/activate", auth, async (req, res) => {
+router.post("/:id/activate", auth, exigirAdmin, async (req, res) => {
   const [r] = await pool.query("UPDATE automations SET status = 'active' WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
   if (r.affectedRows === 0) return res.status(404).json({ error: "Automacao nao encontrada" });
   scheduler.reloadAutomation(req.params.id);
   res.json({ message: "Ativada" });
 });
 
-router.post("/:id/pause", auth, async (req, res) => {
+router.post("/:id/pause", auth, exigirAdmin, async (req, res) => {
   const [r] = await pool.query("UPDATE automations SET status = 'paused' WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
   if (r.affectedRows === 0) return res.status(404).json({ error: "Automacao nao encontrada" });
   scheduler.pararJobs(Number(req.params.id));
   res.json({ message: "Pausada" });
+});
+
+router.delete("/:id", auth, exigirAdmin, async (req, res) => {
+  const [r] = await pool.query("DELETE FROM automations WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+  if (r.affectedRows === 0) return res.status(404).json({ error: "Automacao nao encontrada" });
+  scheduler.pararJobs(Number(req.params.id));
+  res.json({ message: "Automacao excluida" });
 });
 
 router.post("/:id/execute", auth, async (req, res) => {
@@ -121,6 +136,26 @@ router.get("/:id/executions", auth, async (req, res) => {
 router.get("/executions/:executionId/logs", auth, async (req, res) => {
   const [rows] = await pool.query("SELECT * FROM automation_logs WHERE execution_id = ? ORDER BY id ASC", [req.params.executionId]);
   res.json(rows);
+});
+
+router.post("/executions/:executionId/approve", auth, exigirAdmin, async (req, res) => {
+  try {
+    const [[execRow]] = await pool.query("SELECT tenant_id FROM automation_executions WHERE id = ?", [req.params.executionId]);
+    if (!execRow || execRow.tenant_id !== req.tenant_id) return res.status(404).json({ error: "Execucao nao encontrada" });
+    res.json(await engine.resume(req.params.executionId, "approved"));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/executions/:executionId/reject", auth, exigirAdmin, async (req, res) => {
+  try {
+    const [[execRow]] = await pool.query("SELECT tenant_id FROM automation_executions WHERE id = ?", [req.params.executionId]);
+    if (!execRow || execRow.tenant_id !== req.tenant_id) return res.status(404).json({ error: "Execucao nao encontrada" });
+    res.json(await engine.resume(req.params.executionId, "rejected"));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 module.exports = router;

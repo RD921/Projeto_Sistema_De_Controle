@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { registrar } = require("../services/auditoriaService");
 
 // ── PLANO DE CONTAS ──
 
@@ -191,6 +192,9 @@ exports.criarLancamento = async (req, res) => {
       );
     }
 
+    await registrar(req.tenant_id, req.user, "criar_lancamento_contabil", "accounting_entry", entryId,
+  `Lançamento "${historico}" — débito/crédito de ${totalDebito.toFixed(2)}`);
+
     await conn.commit();
     conn.release();
     res.status(201).json({ id: entryId, message: "Lançamento contábil registrado" });
@@ -209,6 +213,7 @@ exports.excluirLancamento = async (req, res) => {
       [id, req.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+    await registrar(req.tenant_id, req.user, "excluir_lancamento_contabil", "accounting_entry", id, "Lançamento contábil excluído");
     res.json({ message: "Lançamento excluído" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir lançamento", details: err.message });

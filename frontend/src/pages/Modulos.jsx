@@ -11,12 +11,14 @@ const modulosPorIdioma = {
       { id: "automacoes", nome: "Automações", descricao: "Crie fluxos inteligentes e automatize processos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
       { id: "financeiro", nome: "Financeiro", descricao: "Gerencie receitas, despesas, relatórios e fluxo de caixa.", icon: "💰", cor: "#10b981", bg: "#ecfdf5" },
       { id: "integracoes", nome: "Integrações", descricao: "Conecte Bling, Mercado Livre e outras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+      { id: "relatorios", nome: "Relatórios", descricao: "Vendas, clientes, logística e produtos em um só lugar.", icon: "📈", cor: "#0ea5e9", bg: "#eff6ff" },
     ],
     instalaveis: [
       { id: "ecommerce", nome: "E-commerce", descricao: "Gerencie seus produtos, pedidos e clientes em um só lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff", moduloId: "ecommerce" },
       { id: "marketing", nome: "Marketing", descricao: "Captação, funis de vendas e automação de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
       { id: "atendimento", nome: "Atendimento", descricao: "Centralize conversas e ofereça suporte de qualidade.", icon: "🎧", cor: "#f59e0b", bg: "#fffbeb", moduloId: "atendimento" },
       { id: "logistica", nome: "Logística", descricao: "Gerencie envios, transportadoras e rastreamentos.", icon: "🚚", cor: "#3b82f6", bg: "#eff6ff", moduloId: "logistica" },
+      { id: "crm", nome: "CRM", descricao: "Pipeline de vendas, oportunidades e relacionamento com clientes.", icon: "💼", cor: "#8b5cf6", bg: "#f3f0ff", moduloId: "crm" },
     ],
   },
   en: {
@@ -27,12 +29,14 @@ const modulosPorIdioma = {
       { id: "automacoes", nome: "Automations", descricao: "Create smart flows and automate processes.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
       { id: "financeiro", nome: "Finance", descricao: "Manage revenue, expenses, reports and cash flow.", icon: "💰", cor: "#10b981", bg: "#ecfdf5" },
       { id: "integracoes", nome: "Integrations", descricao: "Connect Bling, Mercado Livre and other platforms.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+      { id: "relatorios", nome: "Reports", descricao: "Sales, customers, logistics and products in one place.", icon: "📈", cor: "#0ea5e9", bg: "#eff6ff" },
     ],
     instalaveis: [
       { id: "ecommerce", nome: "E-commerce", descricao: "Manage your products, orders and customers in one place.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff", moduloId: "ecommerce" },
       { id: "marketing", nome: "Marketing", descricao: "Lead capture, sales funnels and marketing automation.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
       { id: "atendimento", nome: "Support", descricao: "Centralize conversations and provide quality support.", icon: "🎧", cor: "#f59e0b", bg: "#fffbeb", moduloId: "atendimento" },
       { id: "logistica", nome: "Logistics", descricao: "Manage shipments, carriers and tracking.", icon: "🚚", cor: "#3b82f6", bg: "#eff6ff", moduloId: "logistica" },
+      { id: "crm", nome: "CRM", descricao: "Sales pipeline, deals and customer relationship management.", icon: "💼", cor: "#8b5cf6", bg: "#f3f0ff", moduloId: "crm" },
     ],
   },
   es: {
@@ -43,12 +47,14 @@ const modulosPorIdioma = {
       { id: "automacoes", nome: "Automatizaciones", descricao: "Crea flujos inteligentes y automatiza procesos.", icon: "⚡", cor: "#f59e0b", bg: "#fffbeb" },
       { id: "financeiro", nome: "Financiero", descricao: "Gestiona ingresos, gastos, informes y flujo de caja.", icon: "💰", cor: "#10b981", bg: "#ecfdf5" },
       { id: "integracoes", nome: "Integraciones", descricao: "Conecta Bling, Mercado Libre y otras plataformas.", icon: "🔗", cor: "#3b82f6", bg: "#eff6ff" },
+      { id: "relatorios", nome: "Informes", descricao: "Ventas, clientes, logística y productos en un solo lugar.", icon: "📈", cor: "#0ea5e9", bg: "#eff6ff" },
     ],
     instalaveis: [
       { id: "ecommerce", nome: "E-commerce", descricao: "Gestiona tus productos, pedidos y clientes en un solo lugar.", icon: "🛒", cor: "#6366f1", bg: "#eef2ff", moduloId: "ecommerce" },
       { id: "marketing", nome: "Marketing", descricao: "Captación, embudos de ventas y automatización de marketing.", icon: "📣", cor: "#10b981", bg: "#ecfdf5", moduloId: "marketing" },
       { id: "atendimento", nome: "Atención", descricao: "Centraliza conversaciones y ofrece soporte de calidad.", icon: "🎧", cor: "#f59e0b", bg: "#fffbeb", moduloId: "atendimento" },
       { id: "logistica", nome: "Logística", descricao: "Gestiona envíos, transportistas y rastreos.", icon: "🚚", cor: "#3b82f6", bg: "#eff6ff", moduloId: "logistica" },
+      { id: "crm", nome: "CRM", descricao: "Pipeline de ventas, oportunidades y relación con clientes.", icon: "💼", cor: "#8b5cf6", bg: "#f3f0ff", moduloId: "crm" },
     ],
   },
 };
@@ -123,6 +129,8 @@ export default function Modulos() {
     if (id === "financeiro") navigate("/financeiro");
     if (id === "atendimento") navigate("/loja-modulos");
     if (id === "logistica") navigate("/loja-modulos");
+    if (id === "crm") navigate("/crm/pipeline");
+    if (id === "relatorios") navigate("/relatorios/vendas");
   };
 
   const instaladosVisiveis = modulosInstalados

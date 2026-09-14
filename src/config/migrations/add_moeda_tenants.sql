@@ -1,0 +1,2 @@
+ALTER TABLE tenants
+  ADD COLUMN moeda VARCHAR(3) NOT NULL DEFAULT 'BRL' AFTER trial_ends_at;

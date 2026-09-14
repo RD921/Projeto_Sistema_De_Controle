@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api";
+import LandingPageEditor from "../components/marketing/LandingPageEditor";
+
 
 const SECOES = {
   "visao-geral": "Visão Geral",
   "alcance-metricas": "Alcance & Métricas",
+  "leads-campanhas": "Leads & Campanhas",
+  "landing-pages": "Landing Pages",
   "copy-ia": "Copy com IA",
   "lead-scoring": "Lead Scoring",
   "scripts-ia": "Scripts IA",
@@ -50,6 +54,11 @@ export default function Marketing() {
   const [imagemSelecionada, setImagemSelecionada] = useState(null);
   const [aviso, setAviso] = useState(null);
 
+  const [dashboardMkt, setDashboardMkt] = useState(null);
+  const [leadsMkt, setLeadsMkt] = useState([]);
+  const [campanhasMkt, setCampanhasMkt] = useState([]);
+  const [loadingMkt, setLoadingMkt] = useState(false);
+
   useEffect(() => {
     const tid = localStorage.getItem("tenant_id") || 1;
     api.get(`/tenants/${tid}/stats`).then(r => setStats(r.data)).catch(() => {});
@@ -57,6 +66,23 @@ export default function Marketing() {
     api.get("/orders").then(r => setOrders(r.data.data || [])).catch(() => {});
     api.get("/google/status").then(r => setGoogleConectado(r.data.conectado)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (secao !== "leads-campanhas") return;
+    setLoadingMkt(true);
+    Promise.all([
+      api.get("/marketing/dashboard/resumo"),
+      api.get("/marketing/leads"),
+      api.get("/marketing/campaigns"),
+    ])
+      .then(([resDash, resLeads, resCampanhas]) => {
+        setDashboardMkt(resDash.data);
+        setLeadsMkt(resLeads.data || []);
+        setCampanhasMkt(resCampanhas.data || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMkt(false));
+  }, [secao]);
 
   useEffect(() => {
     const conectado = searchParams.get("conectado");
@@ -411,6 +437,87 @@ export default function Marketing() {
             <div style={{ background: "#1a1a1a", border: "1px dashed #333", borderRadius: 10, padding: 40, textAlign: "center" }}>
               <p style={{ color: "#444", fontSize: 14 }}>Clique em "Analisar com IA" para pontuar seus leads</p>
             </div>
+          )}
+        </div>
+      )}
+
+            {secaoAtiva === "landing-pages" && <LandingPageEditor />}
+
+      {secaoAtiva === "leads-campanhas" && (
+        <div>
+          {loadingMkt ? (
+            <p style={{ color: "#555", fontSize: 14 }}>Carregando dados de marketing...</p>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Total de Leads</p>
+                  <h2 style={{ color: "#38bdf8", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.leads?.total ?? 0}</h2>
+                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>score médio: {dashboardMkt?.leads?.score_medio ?? "0.0"}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Campanhas</p>
+                  <h2 style={{ color: "#a78bfa", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.campanhas?.total ?? 0}</h2>
+                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>cadastradas</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Conversões</p>
+                  <h2 style={{ color: "#4ade80", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.conversoes?.total ?? 0}</h2>
+                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>R$ {dashboardMkt?.conversoes?.receita_total_atribuida ?? "0.00"} atribuído</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>ROI Médio</p>
+                  <h2 style={{ color: "#f59e0b", fontSize: 26, fontWeight: 700 }}>
+                    {dashboardMkt?.roi?.medio != null ? `${dashboardMkt.roi.medio}%` : "—"}
+                  </h2>
+                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>
+                    {dashboardMkt?.roi?.melhor_campanha ? `melhor: ${dashboardMkt.roi.melhor_campanha.nome}` : "sem dados"}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={cardStyle}>
+                  <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>👥 Leads Recentes</h3>
+                  {leadsMkt.length === 0 ? (
+                    <p style={{ color: "#444", fontSize: 13 }}>Nenhum lead cadastrado ainda.</p>
+                  ) : (
+                    leadsMkt.slice(0, 10).map(lead => (
+                      <div key={lead.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
+                        <div>
+                          <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{lead.nome}</p>
+                          <p style={{ color: "#555", fontSize: 11, margin: 0 }}>{lead.email || "sem e-mail"} · {lead.status}</p>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <span style={{ color: tempCor[lead.temperatura] || "#888", fontSize: 12, fontWeight: 600 }}>{lead.score}</span>
+                          <p style={{ color: "#555", fontSize: 10, margin: 0 }}>{lead.temperatura}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div style={cardStyle}>
+                  <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>🚀 Campanhas</h3>
+                  {campanhasMkt.length === 0 ? (
+                    <p style={{ color: "#444", fontSize: 13 }}>Nenhuma campanha cadastrada ainda.</p>
+                  ) : (
+                    campanhasMkt.slice(0, 10).map(c => {
+                      const corStatus = { ativa: "#4ade80", pausada: "#fbbf24", rascunho: "#888", finalizada: "#60a5fa", cancelada: "#f87171", agendada: "#a78bfa" };
+                      return (
+                        <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
+                          <div>
+                            <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{c.nome}</p>
+                            <p style={{ color: "#555", fontSize: 11, margin: 0 }}>{c.tipo} {c.segmento_nome ? `· ${c.segmento_nome}` : ""}</p>
+                          </div>
+                          <span style={{ color: corStatus[c.status] || "#888", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>{c.status}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

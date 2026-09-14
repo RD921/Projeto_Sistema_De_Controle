@@ -27,7 +27,7 @@ exports.login = async (req, res) => {
 
 exports.register = async (req, res) => {
   try {
-    const { empresa, email_empresa, nome_admin, email_admin, senha, plano_id } = req.body || {};
+    const { empresa, email_empresa, nome_admin, email_admin, senha, plano_id, moeda } = req.body || {};
     if (!empresa || !email_empresa || !nome_admin || !email_admin || !senha)
       return res.status(400).json({ error: "Todos os campos sao obrigatorios" });
     const [existingTenant] = await pool.query("SELECT id FROM tenants WHERE email = ?", [email_empresa]);
@@ -37,10 +37,13 @@ exports.register = async (req, res) => {
     if (existingUser.length > 0)
       return res.status(409).json({ error: "Email de admin ja cadastrado" });
     const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    const [tenantResult] = await pool.query(
-      "INSERT INTO tenants (nome, email, plan_id, trial_ends_at) VALUES (?, ?, ?, ?)",
-      [empresa, email_empresa, plano_id || 1, trialEnds]
-    );
+    const moedasSuportadas = ["BRL", "USD", "EUR"];
+    const moedaEscolhida = moedasSuportadas.includes(moeda) ? moeda : "BRL";
+
+   const [tenantResult] = await pool.query(
+  "INSERT INTO tenants (nome, email, plan_id, trial_ends_at, moeda) VALUES (?, ?, ?, ?, ?)",
+  [empresa, email_empresa, plano_id || 1, trialEnds, moedaEscolhida]
+);
     const tenantId = tenantResult.insertId;
     const hash = await bcrypt.hash(senha, 10);
     const [userResult] = await pool.query(
@@ -98,5 +101,48 @@ exports.suporte = async (req, res) => {
   } catch (err) {
     console.error("[suporte] erro:", err.message);
     return res.status(500).json({ error: "Erro ao enviar mensagem", details: err.message });
+  }
+};
+
+exports.minhasEmpresas = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT t.id, t.nome, t.email, t.moeda, ut.role, ut.is_default
+       FROM user_tenants ut
+       JOIN tenants t ON t.id = ut.tenant_id
+       WHERE ut.user_id = ? AND t.ativo = 1
+       ORDER BY ut.is_default DESC, t.nome ASC`,
+      [req.user.id]
+    );
+    return res.json(rows);
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao listar empresas", details: err.message });
+  }
+};
+
+exports.trocarEmpresa = async (req, res) => {
+  try {
+    const { tenant_id } = req.body || {};
+    if (!tenant_id) return res.status(400).json({ error: "tenant_id é obrigatório" });
+
+    const [vinculo] = await pool.query(
+      `SELECT ut.role, t.nome FROM user_tenants ut
+       JOIN tenants t ON t.id = ut.tenant_id
+       WHERE ut.user_id = ? AND ut.tenant_id = ? AND t.ativo = 1`,
+      [req.user.id, tenant_id]
+    );
+    if (vinculo.length === 0) {
+      return res.status(403).json({ error: "Você não tem acesso a essa empresa." });
+    }
+
+    const token = jwt.sign(
+      { id: req.user.id, email: req.user.email, role: vinculo[0].role, tenant_id: Number(tenant_id) },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({ message: `Empresa alterada para ${vinculo[0].nome}`, token, tenant_id: Number(tenant_id) });
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao trocar de empresa", details: err.message });
   }
 };

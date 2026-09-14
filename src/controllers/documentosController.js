@@ -88,3 +88,39 @@ exports.excluir = async (req, res) => {
     res.status(500).json({ error: "Erro ao excluir documento", details: err.message });
   }
 };
+
+// Vincula um documento já enviado a um lançamento financeiro (ou desvincula, se null)
+exports.vincular = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { entidade_tipo, entidade_id } = req.body;
+
+    const tiposValidos = ["lancamento_financeiro", "lancamento_contabil", "obrigacao", "fornecedor", "nenhuma"];
+    if (entidade_tipo && !tiposValidos.includes(entidade_tipo)) {
+      return res.status(400).json({ error: "entidade_tipo inválido" });
+    }
+
+    const [result] = await pool.query(
+      "UPDATE financial_documents SET entidade_tipo = ?, entidade_id = ? WHERE id = ? AND tenant_id = ?",
+      [entidade_tipo || "nenhuma", entidade_id || null, id, req.tenant_id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Documento não encontrado" });
+    res.json({ message: "Vínculo atualizado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao vincular documento", details: err.message });
+  }
+};
+
+// Lista os documentos vinculados a uma entidade específica (usado na tela do lançamento)
+exports.porEntidade = async (req, res) => {
+  try {
+    const { tipo, id } = req.params;
+    const [rows] = await pool.query(
+      "SELECT id, nome_original, tipo_documento, mimetype, tamanho_bytes, descricao, created_at FROM financial_documents WHERE tenant_id = ? AND entidade_tipo = ? AND entidade_id = ?",
+      [req.tenant_id, tipo, id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar documentos da entidade", details: err.message });
+  }
+};

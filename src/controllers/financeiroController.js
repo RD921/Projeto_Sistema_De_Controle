@@ -1,4 +1,6 @@
 const pool = require("../config/db");
+const { avaliarLancamento } = require("../services/automacaoFinanceiraService");
+const { registrar } = require("../services/auditoriaService");
 
 // ── RESUMO ──
 
@@ -141,6 +143,11 @@ exports.criarLancamento = async (req, res) => {
       idsGerados.push(result.insertId);
     }
 
+    // Roda o motor de automação em cada parcela criada
+for (const id of idsGerados) {
+  try { await avaliarLancamento(req.tenant_id, id); } catch { /* não bloqueia a criação por erro de automação */ }
+}
+
     res.status(201).json({ ids: idsGerados, message: numParcelas > 1 ? `${numParcelas} parcelas criadas` : "Lançamento criado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar lançamento", details: err.message });
@@ -178,11 +185,30 @@ exports.excluirLancamento = async (req, res) => {
 exports.aprovarLancamento = async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await pool.query(
+    const [[entry]] = await pool.query(
+      "SELECT * FROM financial_entries WHERE id = ? AND tenant_id = ?",
+      [id, req.tenant_id]
+    );
+    if (!entry) return res.status(404).json({ error: "Lançamento não encontrado" });
+
+    const [[alcada]] = await pool.query(
+      "SELECT valor_minimo FROM approval_thresholds WHERE tenant_id = ?",
+      [req.tenant_id]
+    );
+    const limite = Number(alcada?.valor_minimo || 5000);
+
+    if (Number(entry.valor) >= limite && req.user?.role !== "admin") {
+      return res.status(403).json({ error: `Este lançamento (R$ ${entry.valor}) exige aprovação de um administrador, pois está acima da alçada de R$ ${limite}.` });
+    }
+
+    await pool.query(
       "UPDATE financial_entries SET aprovacao_status = 'aprovado', aprovado_por = ?, aprovado_em = NOW() WHERE id = ? AND tenant_id = ?",
       [req.user?.id || null, id, req.tenant_id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+
+    await registrar(req.tenant_id, req.user, "aprovar_lancamento", "financial_entry", id,
+      `Aprovou lançamento "${entry.descricao}" de R$ ${entry.valor}`);
+
     res.json({ message: "Lançamento aprovado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao aprovar lançamento", details: err.message });
@@ -197,6 +223,7 @@ exports.rejeitarLancamento = async (req, res) => {
       [req.user?.id || null, id, req.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+    await registrar(req.tenant_id, req.user, "rejeitar_lancamento", "financial_entry", id, "Lançamento rejeitado");
     res.json({ message: "Lançamento rejeitado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao rejeitar lançamento", details: err.message });
@@ -234,6 +261,8 @@ exports.contasAReceber = async (req, res) => {
     res.status(500).json({ error: "Erro ao listar contas a receber", details: err.message });
   }
 };
+
+
 
 // ── FISCAL (cadastro da empresa) ──
 

@@ -80,7 +80,7 @@ const NODE_TYPES_CONFIG = {
     label: 'If (condição)',
     color: '#9333ea',
     bg: '#f3e8ff',
-    icon: '⑂',
+    icon: '◑',
     category: 'logic',
     defaultConfig: { field: '', operator: 'equals', value: '' },
     fields: [
@@ -93,6 +93,7 @@ const NODE_TYPES_CONFIG = {
       },
       { key: 'value', label: 'Valor de comparação', type: 'text' },
     ],
+    branches: ['true', 'false'],
   },
   log: {
     label: 'Log',
@@ -103,17 +104,150 @@ const NODE_TYPES_CONFIG = {
     defaultConfig: { message: '' },
     fields: [{ key: 'message', label: 'Mensagem (aceita {{$json.x}})', type: 'text' }],
   },
+  switch: {
+    label: 'Switch (multiplas condicoes)',
+    color: '#9333ea',
+    bg: '#f3e8ff',
+    icon: '◆',
+    category: 'logic',
+    defaultConfig: { field: '', defaultBranch: 'default', cases: [] },
+    fields: [
+      { key: 'field', label: 'Campo (ex: {{$json.status}})', type: 'text' },
+      { key: 'cases', label: 'Casos (JSON: [{"value":"x","branch":"nome"}])', type: 'json' },
+      { key: 'defaultBranch', label: 'Branch padrao (se nenhum caso bater)', type: 'text' },
+    ],
+    branches: (config) => [...(config?.cases || []).map((c) => c.branch || c.value), config?.defaultBranch || 'default'],
+  },
+  http_request: {
+    label: 'HTTP Request',
+    color: '#0369a1',
+    bg: '#e0f2fe',
+    icon: '⇄',
+    category: 'integration',
+    defaultConfig: { method: 'GET', url: '', headers: {}, queryParams: {}, body: {}, timeout: 15000, retry: 1 },
+    fields: [
+      { key: 'method', label: 'Metodo', type: 'select', options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
+      { key: 'url', label: 'URL (aceita {{$json.x}})', type: 'text' },
+      { key: 'headers', label: 'Headers (JSON)', type: 'json' },
+      { key: 'queryParams', label: 'Query params (JSON)', type: 'json' },
+      { key: 'body', label: 'Body (JSON, aceita {{$json.x}})', type: 'json' },
+      { key: 'timeout', label: 'Timeout (ms)', type: 'text' },
+      { key: 'retry', label: 'Tentativas', type: 'text' },
+    ],
+    branches: ['success', 'error'],
+  },
+  database: {
+    label: 'Banco de Dados',
+    color: '#0f766e',
+    bg: '#ccfbf1',
+    icon: '▤',
+    category: 'data',
+    defaultConfig: { operation: 'select', table: '', filters: [], fields: {}, limit: 100 },
+    fields: [
+      { key: 'operation', label: 'Operacao', type: 'select', options: ['select', 'insert', 'update', 'delete'] },
+      { key: 'table', label: 'Tabela', type: 'select', options: ['financial_entries', 'cost_centers', 'financial_alerts', 'contracts'] },
+      { key: 'filters', label: 'Filtros (JSON: [{"field":"x","operator":"equals","value":"y"}])', type: 'json' },
+      { key: 'fields', label: 'Campos p/ insert/update (JSON: {"campo":"valor"})', type: 'json' },
+      { key: 'limit', label: 'Limite (select)', type: 'text' },
+    ],
+  },
+  wait: {
+    label: 'Esperar',
+    color: '#a16207',
+    bg: '#fef9c3',
+    icon: '⏱',
+    category: 'logic',
+    defaultConfig: { amount: 1, unit: 'minutes' },
+    fields: [
+      { key: 'amount', label: 'Quantidade', type: 'text' },
+      { key: 'unit', label: 'Unidade', type: 'select', options: ['minutes', 'hours', 'days'] },
+      { key: 'until', label: 'OU data/hora exata ISO (opcional, sobrepoe quantidade)', type: 'text' },
+    ],
+  },
+  human_approval: {
+    label: 'Aprovacao Humana',
+    color: '#be123c',
+    bg: '#ffe4e6',
+    icon: '✓',
+    category: 'logic',
+    defaultConfig: {},
+    fields: [],
+    branches: ['approved', 'rejected'],
+  },
+  finance_create_entry: {
+    label: 'Criar Lancamento',
+    color: '#15803d',
+    bg: '#dcfce7',
+    icon: '$+',
+    category: 'finance',
+    defaultConfig: { tipo: 'receita', categoria: 'outros' },
+    fields: [
+      { key: 'tipo', label: 'Tipo', type: 'select', options: ['receita', 'despesa'] },
+      { key: 'descricao', label: 'Descricao', type: 'text' },
+      { key: 'valor', label: 'Valor', type: 'text' },
+      { key: 'data_vencimento', label: 'Data de vencimento (AAAA-MM-DD)', type: 'text' },
+      { key: 'cost_center_id', label: 'Centro de custo (id)', type: 'text' },
+      { key: 'entidade_nome', label: 'Cliente/Fornecedor (opcional)', type: 'text' },
+      { key: 'categoria', label: 'Categoria', type: 'text' },
+    ],
+  },
+  finance_get_entry: {
+    label: 'Consultar Lancamento',
+    color: '#0e7490',
+    bg: '#cffafe',
+    icon: '$?',
+    category: 'finance',
+    defaultConfig: {},
+    fields: [{ key: 'entry_id', label: 'ID do lancamento (aceita {{$json.x}})', type: 'text' }],
+  },
+  finance_mark_paid: {
+    label: 'Marcar como Pago',
+    color: '#166534',
+    bg: '#dcfce7',
+    icon: '$✓',
+    category: 'finance',
+    defaultConfig: {},
+    fields: [{ key: 'entry_id', label: 'ID do lancamento (aceita {{$json.x}})', type: 'text' }],
+  },
+    for_each: {
+    label: 'For Each (repetir por item)',
+    color: '#c2410c',
+    bg: '#ffedd5',
+    icon: '↻',
+    category: 'logic',
+    defaultConfig: { items: '', itemVar: 'item' },
+    fields: [
+      { key: 'items', label: 'Lista (ex: {{$json.rows}})', type: 'text' },
+      { key: 'itemVar', label: 'Nome da variavel do item atual', type: 'text' },
+    ],
+    branches: ['loop_body', 'done'],
+  },
+    marketing_send_email: {
+    label: 'Enviar Email (Marketing)',
+    color: '#db2777',
+    bg: '#fce7f3',
+    icon: '✉',
+    category: 'marketing',
+    defaultConfig: { to: '', subject: '', html: '', fromName: 'EcomFlow Marketing' },
+    fields: [
+      { key: 'to', label: 'Para (aceita {{$json.x}})', type: 'text' },
+      { key: 'subject', label: 'Assunto', type: 'text' },
+      { key: 'html', label: 'Corpo (HTML, aceita {{$json.x}})', type: 'json' },
+      { key: 'fromName', label: 'Nome do remetente', type: 'text' },
+    ],
+  },
 };
 
 let idCounter = 1;
 const genId = () => `node_${Date.now()}_${idCounter++}`;
+
+
 
 // ============================================================
 // NODE CUSTOMIZADO
 // ============================================================
 function CustomNode({ id, data, selected }) {
   const cfg = NODE_TYPES_CONFIG[data.nodeType] || {};
-  const isIf = data.nodeType === 'if';
   const debugLog = data.debugLog;
 
   const debugClass = debugLog
@@ -121,6 +255,10 @@ function CustomNode({ id, data, selected }) {
       ? 'apollo-node--debug-error'
       : 'apollo-node--debug-success'
     : '';
+
+  const branchList = cfg.branches
+    ? (typeof cfg.branches === 'function' ? cfg.branches(data.config) : cfg.branches)
+    : null;
 
   return (
     <div
@@ -151,25 +289,33 @@ function CustomNode({ id, data, selected }) {
         </div>
       </div>
 
-      {isIf ? (
-        <>
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="true"
-            style={{ top: '35%' }}
-            className="apollo-handle apollo-handle--true"
-          />
-          <span className="apollo-node__branch-label apollo-node__branch-label--true">true</span>
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="false"
-            style={{ top: '70%' }}
-            className="apollo-handle apollo-handle--false"
-          />
-          <span className="apollo-node__branch-label apollo-node__branch-label--false">false</span>
-        </>
+      {branchList ? (
+        branchList.map((branch, i) => {
+          const topPct = branchList.length === 1 ? 50 : 25 + i * (50 / (branchList.length - 1));
+          return (
+            <React.Fragment key={branch}>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={branch}
+                style={{ top: `${topPct}%` }}
+                className="apollo-handle"
+              />
+              <span
+                className="apollo-node__branch-label"
+                style={{
+                  top: `${topPct}%`,
+                  position: 'absolute',
+                  right: -4,
+                  fontSize: 9,
+                  transform: 'translateY(-50%)',
+                }}
+              >
+                {branch}
+              </span>
+            </React.Fragment>
+          );
+        })
       ) : (
         <Handle type="source" position={Position.Right} className="apollo-handle" />
       )}
@@ -190,8 +336,12 @@ function NodePalette() {
 
   const categories = [
     { key: 'trigger', label: 'Gatilhos' },
-    { key: 'logic', label: 'Lógica' },
-    { key: 'action', label: 'Ações' },
+    { key: 'logic', label: 'Logica' },
+    { key: 'action', label: 'Acoes' },
+    { key: 'data', label: 'Dados' },
+    { key: 'integration', label: 'Integracao' },
+    { key: 'finance', label: 'Financeiro' },
+    { key: 'marketing', label: 'Marketing' },
   ];
 
   return (
@@ -222,6 +372,46 @@ function NodePalette() {
       ))}
       <p className="apollo-palette__hint">Arraste um node para o canvas para adicioná-lo.</p>
     </aside>
+  );
+}
+
+// ============================================================
+// CAMPO DE TEXTO JSON (para filtros, headers, body, cases, etc.)
+// ============================================================
+function JsonField({ value, onChange }) {
+  const [text, setText] = useState(() => {
+    try {
+      return JSON.stringify(value ?? {}, null, 2);
+    } catch {
+      return '{}';
+    }
+  });
+  const [error, setError] = useState(null);
+
+  return (
+    <div>
+      <textarea
+        className="apollo-config__input"
+        rows={4}
+        style={{ fontFamily: 'monospace', fontSize: 11, resize: 'vertical' }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => {
+          if (text.trim() === '') {
+            onChange({});
+            setError(null);
+            return;
+          }
+          try {
+            onChange(JSON.parse(text));
+            setError(null);
+          } catch {
+            setError('JSON invalido - alteracao nao foi salva, corrija e clique fora de novo');
+          }
+        }}
+      />
+      {error && <p style={{ color: '#dc2626', fontSize: 10.5, marginTop: 2 }}>{error}</p>}
+    </div>
   );
 }
 
@@ -340,6 +530,11 @@ function ConfigPanel({ node, onChange, onClose, onDelete, eventTypes }) {
                     </option>
                   ))}
             </select>
+          ) : field.type === 'json' ? (
+            <JsonField
+              value={node.data.config?.[field.key]}
+              onChange={(val) => update({ config: { ...node.data.config, [field.key]: val } })}
+            />
           ) : (
             <input
               className="apollo-config__input"
@@ -384,8 +579,6 @@ function EditorCanvas({
   const reactFlowWrapper = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
 
-  // Anota cada node com o log de debug correspondente (se houver
-  // execução selecionada), pra colorir a borda e alimentar o painel.
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => ({
@@ -526,7 +719,7 @@ function EditorCanvas({
           <Background gap={16} color="#e5e5e5" />
           <Controls />
           <MiniMap pannable zoomable />
-                </ReactFlow>
+        </ReactFlow>
       </div>
 
       <div className="apollo-execpanel">
@@ -541,8 +734,15 @@ function EditorCanvas({
               onClick={() => onSelectExecution(String(ex.id))}
               style={{ color: '#d4d4d8' }}
             >
-              <span>#{ex.id} · {new Date(ex.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {ex.duration_ms != null ? `${ex.duration_ms}ms` : '—'}</span>
-              <span className={`apollo-execpanel__status apollo-execpanel__status--${ex.status === 'success' ? 'success' : ex.status === 'failed' ? 'failed' : 'pending'}`}>
+              <span>
+                #{ex.id} · {new Date(ex.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} ·{' '}
+                {ex.duration_ms != null ? `${ex.duration_ms}ms` : '—'}
+              </span>
+              <span
+                className={`apollo-execpanel__status apollo-execpanel__status--${
+                  ex.status === 'success' ? 'success' : ex.status === 'failed' ? 'failed' : 'pending'
+                }`}
+              >
                 {ex.status === 'success' ? '✓ Sucesso' : ex.status === 'failed' ? '✕ Falhou' : ex.status}
               </span>
             </div>
@@ -562,9 +762,9 @@ function EditorCanvas({
 }
 
 // ============================================================
-// WRAPPER — carrega/salva via API, traduz formatos, e agora
-// também carrega o histórico de execuções para o modo debug
-// e o catálogo de eventos (Event Bus universal).
+// WRAPPER — carrega/salva via API, traduz formatos, e também
+// carrega o histórico de execuções para o modo debug e o
+// catálogo de eventos (Event Bus universal).
 // ============================================================
 export default function AutomationEditor({ automationId, apiBaseUrl = '/api/automations', embedded = false }) {
   const [loading, setLoading] = useState(true);
@@ -616,8 +816,6 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
           }))
         );
 
-        // Carrega o histórico de execuções em paralelo, para popular
-        // o seletor de debug na toolbar.
         try {
           const resExec = await fetch(`${apiBaseUrl}/${automationId}/executions`, {
             headers: { Authorization: `Bearer ${getToken()}` },
@@ -630,8 +828,6 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
           // histórico de execuções é opcional; falha aqui não bloqueia o editor
         }
 
-        // Carrega o catálogo de eventos disponíveis (Event Bus universal)
-        // para popular dinamicamente o dropdown do node "event_trigger".
         try {
           const resEvents = await fetch(`http://localhost:3000/api/events/types`, {
             headers: { Authorization: `Bearer ${getToken()}` },
@@ -654,8 +850,6 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
     else setLoading(false);
   }, [automationId, apiBaseUrl]);
 
-  // Ao escolher uma execução no seletor, busca os logs dela e monta
-  // um mapa node_id -> log (para colorir/anotar os nodes no canvas).
   const handleSelectExecution = async (executionId) => {
     setSelectedExecutionId(executionId);
     if (!executionId) {
@@ -670,7 +864,7 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
       const logs = await res.json();
       const map = {};
       for (const l of logs) {
-        map[String(l.node_id)] = l; // última entrada para aquele node vence
+        map[String(l.node_id)] = l;
       }
       setLogsByNode(map);
     } catch (err) {

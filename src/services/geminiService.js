@@ -3,6 +3,10 @@ const axios = require("axios");
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 
+function ehErroTemporario(status) {
+  return status === 429 || status === 503;
+}
+
 async function chamarGemini(prompt, tentativas = 3) {
   for (let i = 0; i < tentativas; i++) {
     try {
@@ -18,8 +22,8 @@ async function chamarGemini(prompt, tentativas = 3) {
       );
       return response.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     } catch (err) {
-      if (err.response?.status === 429 && i < tentativas - 1) {
-        console.log(`[GEMINI] Rate limit, aguardando ${(i + 1) * 5}s...`);
+      if (ehErroTemporario(err.response?.status) && i < tentativas - 1) {
+        console.log(`[GEMINI] Erro ${err.response?.status} (temporario), tentativa ${i + 1}/${tentativas}, aguardando ${(i + 1) * 5}s...`);
         await new Promise(r => setTimeout(r, (i + 1) * 5000));
       } else {
         throw err;
@@ -28,55 +32,62 @@ async function chamarGemini(prompt, tentativas = 3) {
   }
 }
 
-async function chamarGeminiComFerramentas(contents, tools) {
-  try {
-    const response = await axios.post(
-      GEMINI_URL,
-      { contents, tools: [{ functionDeclarations: tools }] },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY,
-        },
+async function chamarGeminiComFerramentas(contents, tools, tentativas = 3) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      const response = await axios.post(
+        GEMINI_URL,
+        { contents, tools: [{ functionDeclarations: tools }] },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": process.env.GEMINI_API_KEY,
+          },
+        }
+      );
+      return response.data.candidates?.[0]?.content;
+    } catch (err) {
+      if (ehErroTemporario(err.response?.status) && i < tentativas - 1) {
+        console.log(`[GEMINI] Erro ${err.response?.status} (temporario) nas ferramentas, tentativa ${i + 1}/${tentativas}, aguardando ${(i + 1) * 5}s...`);
+        await new Promise(r => setTimeout(r, (i + 1) * 5000));
+        continue;
       }
-    );
-    return response.data.candidates?.[0]?.content;
-  } catch (err) {
-    console.error("[GEMINI TOOLS ERROR]", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw err;
+      console.error("[GEMINI TOOLS ERROR]", JSON.stringify(err.response?.data || err.message, null, 2));
+      throw err;
+    }
   }
 }
 
 exports.gerarCopyMarketing = async (produto, publico, canal) => {
-  const prompt = `Você é um especialista em marketing digital para o mercado brasileiro.
+  const prompt = `VocÃª Ã© um especialista em marketing digital para o mercado brasileiro.
 Crie uma mensagem de marketing persuasiva:
-- Produto/Serviço: ${produto}
-- Público-alvo: ${publico}
+- Produto/ServiÃ§o: ${produto}
+- PÃºblico-alvo: ${publico}
 - Canal: ${canal}
-Use gatilhos mentais, seja natural em português brasileiro, máximo 3 parágrafos com CTA claro.
+Use gatilhos mentais, seja natural em portuguÃªs brasileiro, mÃ¡ximo 3 parÃ¡grafos com CTA claro.
 Retorne apenas a mensagem.`;
   return await chamarGemini(prompt);
 };
 
 exports.preverVenda = async (cliente) => {
   const prompt = `Analise este cliente e preveja probabilidade de compra:
-Nome: ${cliente.nome}, Email: ${cliente.email}, Telefone: ${cliente.telefone || "não informado"}
-Responda APENAS em JSON válido:
-{"probabilidade": 75, "classificacao": "quente", "motivo": "explicação", "acao_recomendada": "ação"}
-Classificação: frio, morno ou quente.`;
+Nome: ${cliente.nome}, Email: ${cliente.email}, Telefone: ${cliente.telefone || "nÃ£o informado"}
+Responda APENAS em JSON vÃ¡lido:
+{"probabilidade": 75, "classificacao": "quente", "motivo": "explicaÃ§Ã£o", "acao_recomendada": "aÃ§Ã£o"}
+ClassificaÃ§Ã£o: frio, morno ou quente.`;
   const texto = await chamarGemini(prompt);
   try {
     return JSON.parse(texto.replace(/```json|```/g, "").trim());
   } catch {
-    return { probabilidade: 50, classificacao: "morno", motivo: "Análise indisponível", acao_recomendada: "Fazer contato manual" };
+    return { probabilidade: 50, classificacao: "morno", motivo: "AnÃ¡lise indisponÃ­vel", acao_recomendada: "Fazer contato manual" };
   }
 };
 
 exports.gerarScriptAbordagem = async (persona, produto) => {
-  const prompt = `Crie 3 scripts de abordagem de vendas em português brasileiro:
+  const prompt = `Crie 3 scripts de abordagem de vendas em portuguÃªs brasileiro:
 - Persona: ${persona}
 - Produto: ${produto}
-Responda APENAS em JSON válido:
+Responda APENAS em JSON vÃ¡lido:
 [{"canal": "WhatsApp", "script": "mensagem"}, {"canal": "Email", "script": "mensagem"}, {"canal": "Telefone", "script": "mensagem"}]`;
   const texto = await chamarGemini(prompt);
   try {
@@ -87,10 +98,10 @@ Responda APENAS em JSON válido:
 };
 
 exports.analisarLeadScore = async (leads) => {
-  const prompt = `Analise estes leads e dê pontuação 0-100:
+  const prompt = `Analise estes leads e dÃª pontuaÃ§Ã£o 0-100:
 ${JSON.stringify(leads)}
-Responda APENAS em JSON válido:
-[{"id": 1, "score": 85, "temperatura": "quente", "proxima_acao": "ação"}]
+Responda APENAS em JSON vÃ¡lido:
+[{"id": 1, "score": 85, "temperatura": "quente", "proxima_acao": "aÃ§Ã£o"}]
 Temperatura: frio, morno ou quente.`;
   const texto = await chamarGemini(prompt);
   try {
@@ -101,13 +112,13 @@ Temperatura: frio, morno ou quente.`;
 };
 
 exports.chat = async (mensagens) => {
-  const historico = mensagens.map(m => `${m.role === "user" ? "Usuário" : "Aria"}: ${m.text}`).join("\n");
-  const prompt = `Você é Aria, assistente virtual do EcomFlow, sistema de gestão de e-commerce brasileiro.
-Responda sempre em português brasileiro, de forma natural, amigável e profissional.
-Você conhece os módulos: Dashboard, Produtos, Pedidos, Clientes, Marketing com IA e Automações.
-Histórico da conversa:
+  const historico = mensagens.map(m => `${m.role === "user" ? "UsuÃ¡rio" : "Aria"}: ${m.text}`).join("\n");
+  const prompt = `VocÃª Ã© Aria, assistente virtual do EcomFlow, sistema de gestÃ£o de e-commerce brasileiro.
+Responda sempre em portuguÃªs brasileiro, de forma natural, amigÃ¡vel e profissional.
+VocÃª conhece os mÃ³dulos: Dashboard, Produtos, Pedidos, Clientes, Marketing com IA e AutomaÃ§Ãµes.
+HistÃ³rico da conversa:
 ${historico}
-Responda a última mensagem do usuário:`;
+Responda a Ãºltima mensagem do usuÃ¡rio:`;
   return await chamarGemini(prompt);
 };
 

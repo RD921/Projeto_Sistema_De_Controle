@@ -8,5 +8,7 @@ router.get("/", auth, ctrl.listar);
 router.post("/upload", auth, upload.single("arquivo"), ctrl.upload);
 router.get("/:id/baixar", auth, ctrl.baixar);
 router.delete("/:id", auth, ctrl.excluir);
+router.put("/:id/vincular", auth, ctrl.vincular);
+router.get("/entidade/:tipo/:id", auth, ctrl.porEntidade);
 
 module.exports = router;

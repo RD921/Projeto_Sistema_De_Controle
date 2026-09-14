@@ -5,10 +5,11 @@ import api from "../api";
 export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    empresa: "", email_empresa: "",
-    nome_admin: "", email_admin: "",
-    senha: "", confirmar_senha: "",
-  });
+  empresa: "", email_empresa: "",
+  nome_admin: "", email_admin: "",
+  senha: "", confirmar_senha: "",
+  moeda: "BRL",
+});
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
@@ -100,6 +101,19 @@ export default function Register() {
                 <input name="email_empresa" type="email" value={form.email_empresa} onChange={handleChange} placeholder="contato@suaempresa.com" required style={inputStyle}
                   onFocus={e => e.target.style.borderColor = "#0066cc"} onBlur={e => e.target.style.borderColor = "#d2d2d7"} />
               </div>
+
+<div>
+  <label style={{ fontSize: 13, color: "#6e6e73", marginBottom: 6, display: "block" }}>Em qual moeda sua empresa opera? *</label>
+  <select name="moeda" value={form.moeda} onChange={handleChange} required style={inputStyle}
+    onFocus={e => e.target.style.borderColor = "#0066cc"} onBlur={e => e.target.style.borderColor = "#d2d2d7"}>
+    <option value="BRL">🇧🇷 Real (R$)</option>
+    <option value="USD">🇺🇸 Dólar (US$)</option>
+    <option value="EUR">🇪🇺 Euro (€)</option>
+  </select>
+  <p style={{ fontSize: 11.5, color: "#a1a1a6", marginTop: 6 }}>
+    Essa escolha define a moeda usada em todo o sistema. Obrigações fiscais brasileiras continuam sempre calculadas em Reais, independente dessa opção.
+  </p>
+</div>
 
               <div>
                 <label style={{ fontSize: 13, color: "#6e6e73", marginBottom: 6, display: "block" }}>Seu nome (administrador) *</label>
