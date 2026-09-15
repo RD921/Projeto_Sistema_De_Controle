@@ -538,3 +538,72 @@ exports.alertas = async (req, res) => {
     res.status(500).json({ error: "Erro ao gerar alertas logisticos", details: err.message });
   }
 };
+
+  // ── Simulador Logistico (Secao 31) ──
+// Nao persiste nada no banco por padrao - so calcula o impacto estimado a
+// partir dos dados medios reais ja calculados em indicadores()/custos().
+// Reaproveita os mesmos numeros, nao inventa dado novo.
+exports.simular = async (req, res) => {
+  try {
+    const { tipo, parametros } = req.body;
+    const tenantId = req.tenant_id;
+
+    const [[baseFrete]] = await pool.query(
+      "SELECT COALESCE(AVG(frete_valor), 0) AS frete_medio, COUNT(*) AS total_envios FROM logistics_shipments WHERE tenant_id = ?",
+      [tenantId]
+    );
+    const [[baseCusto]] = await pool.query(
+      "SELECT COALESCE(SUM(frete_valor), 0) AS custo_frete_total FROM logistics_shipments WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const freteMedioAtual = Number(baseFrete.frete_medio);
+    const custoAtualTotal = Number(baseCusto.custo_frete_total);
+    const totalEnviosAtual = baseFrete.total_envios;
+
+    let resultado;
+
+    if (tipo === "troca_transportadora") {
+      const { novo_frete_medio } = parametros;
+      if (novo_frete_medio == null) return res.status(400).json({ error: "novo_frete_medio e obrigatorio para este tipo de simulacao" });
+      const custoEstimadoNovo = Number(novo_frete_medio) * totalEnviosAtual;
+      resultado = {
+        frete_medio_atual: freteMedioAtual.toFixed(2),
+        frete_medio_simulado: Number(novo_frete_medio).toFixed(2),
+        custo_total_atual: custoAtualTotal.toFixed(2),
+        custo_total_simulado: custoEstimadoNovo.toFixed(2),
+        impacto: (custoEstimadoNovo - custoAtualTotal).toFixed(2),
+      };
+    } else if (tipo === "aumento_volume") {
+      const { percentual_aumento } = parametros;
+      if (percentual_aumento == null) return res.status(400).json({ error: "percentual_aumento e obrigatorio" });
+      const novoVolume = Math.round(totalEnviosAtual * (1 + Number(percentual_aumento) / 100));
+      const custoEstimado = freteMedioAtual * novoVolume;
+      resultado = {
+        volume_atual: totalEnviosAtual,
+        volume_simulado: novoVolume,
+        custo_total_atual: custoAtualTotal.toFixed(2),
+        custo_total_simulado: custoEstimado.toFixed(2),
+        impacto: (custoEstimado - custoAtualTotal).toFixed(2),
+      };
+    } else if (tipo === "aumento_frete") {
+      const { percentual_aumento } = parametros;
+      if (percentual_aumento == null) return res.status(400).json({ error: "percentual_aumento e obrigatorio" });
+      const novoFreteMedio = freteMedioAtual * (1 + Number(percentual_aumento) / 100);
+      const custoEstimado = novoFreteMedio * totalEnviosAtual;
+      resultado = {
+        frete_medio_atual: freteMedioAtual.toFixed(2),
+        frete_medio_simulado: novoFreteMedio.toFixed(2),
+        custo_total_atual: custoAtualTotal.toFixed(2),
+        custo_total_simulado: custoEstimado.toFixed(2),
+        impacto: (custoEstimado - custoAtualTotal).toFixed(2),
+      };
+    } else {
+      return res.status(400).json({ error: "tipo deve ser: troca_transportadora, aumento_volume ou aumento_frete" });
+    }
+
+    res.json({ tipo, parametros, resultado, base_real: { frete_medio_atual: freteMedioAtual.toFixed(2), total_envios_atual: totalEnviosAtual } });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao simular cenario logistico", details: err.message });
+  }
+};

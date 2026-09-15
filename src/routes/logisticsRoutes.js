@@ -39,5 +39,6 @@ router.get("/indicadores", auth, ctrl.indicadores);
 router.get("/custos", auth, ctrl.custos);
 router.get("/previsao-ruptura", auth, ctrl.previsaoRuptura);
 router.get("/alertas", auth, ctrl.alertas);
+router.post("/simular", auth, ctrl.simular);
 
 module.exports = router;
