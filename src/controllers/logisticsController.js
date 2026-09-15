@@ -217,3 +217,324 @@ exports.dashboard = async (req, res) => {
     res.status(500).json({ error: "Erro ao gerar dashboard logistico", details: err.message });
   }
 };
+
+// ── Operacao: iniciar/concluir separacao e embalagem ──
+exports.iniciarSeparacao = async (req, res) => {
+  try {
+    await pool.query(
+      "UPDATE logistics_shipments SET status = 'em_separacao', separacao_operador_id = ?, separacao_inicio = NOW() WHERE id = ? AND tenant_id = ?",
+      [req.user?.id || null, req.params.id, req.tenant_id]
+    );
+    await pool.query(
+      "INSERT INTO logistics_tracking_events (tenant_id, shipment_id, evento, descricao) VALUES (?, ?, 'em_separacao', 'Separacao iniciada')",
+      [req.tenant_id, req.params.id]
+    );
+    res.json({ message: "Separacao iniciada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao iniciar separacao", details: err.message });
+  }
+};
+
+exports.concluirSeparacao = async (req, res) => {
+  try {
+    await pool.query(
+      "UPDATE logistics_shipments SET status = 'conferencia', separacao_fim = NOW() WHERE id = ? AND tenant_id = ?",
+      [req.params.id, req.tenant_id]
+    );
+    await pool.query(
+      "INSERT INTO logistics_tracking_events (tenant_id, shipment_id, evento, descricao) VALUES (?, ?, 'conferencia', 'Separacao concluida, aguardando conferencia')",
+      [req.tenant_id, req.params.id]
+    );
+    res.json({ message: "Separacao concluida" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao concluir separacao", details: err.message });
+  }
+};
+
+exports.registrarEmbalagem = async (req, res) => {
+  try {
+    const { dimensoes, peso_kg, volumes, custo } = req.body;
+    await pool.query(
+      `UPDATE logistics_shipments SET status = 'em_embalagem', embalagem_operador_id = ?, embalagem_dimensoes = ?,
+       embalagem_custo = ?, peso_kg = COALESCE(?, peso_kg), volumes = COALESCE(?, volumes)
+       WHERE id = ? AND tenant_id = ?`,
+      [req.user?.id || null, dimensoes || null, custo || null, peso_kg || null, volumes || null, req.params.id, req.tenant_id]
+    );
+    await pool.query(
+      "INSERT INTO logistics_tracking_events (tenant_id, shipment_id, evento, descricao) VALUES (?, ?, 'em_embalagem', 'Embalagem registrada')",
+      [req.tenant_id, req.params.id]
+    );
+    res.json({ message: "Embalagem registrada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao registrar embalagem", details: err.message });
+  }
+};
+
+// ── Painel de Entregas (com filtros) ──
+exports.listarEntregas = async (req, res) => {
+  try {
+    const { filtro } = req.query; // hoje | amanha | atrasadas | entregues
+    let sql = `SELECT s.*, o.total AS pedido_total, c.nome AS customer_nome, cr.nome AS carrier_nome
+               FROM logistics_shipments s
+               JOIN orders o ON o.id = s.order_id
+               LEFT JOIN customers c ON c.id = o.customer_id
+               LEFT JOIN logistics_carriers cr ON cr.id = s.carrier_id
+               WHERE s.tenant_id = ?`;
+    const params = [req.tenant_id];
+
+    if (filtro === "hoje") {
+      sql += " AND s.data_prevista = CURDATE() AND s.status NOT IN ('entregue','cancelado')";
+    } else if (filtro === "amanha") {
+      sql += " AND s.data_prevista = DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND s.status NOT IN ('entregue','cancelado')";
+    } else if (filtro === "atrasadas") {
+      sql += " AND s.data_prevista < CURDATE() AND s.status NOT IN ('entregue','cancelado','devolvido')";
+    } else if (filtro === "entregues") {
+      sql += " AND s.status = 'entregue'";
+    } else {
+      sql += " AND s.status NOT IN ('entregue','cancelado')";
+    }
+    sql += " ORDER BY s.data_prevista ASC";
+
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar entregas", details: err.message });
+  }
+};
+
+// ── Score de Transportadoras (Secao 15 do documento) ──
+// Calcula o score com base em dados reais dos envios (nao em numero fixo cadastrado manualmente).
+exports.scoreTransportadoras = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         cr.id, cr.nome, cr.custo_medio, cr.prazo_medio_dias,
+         COUNT(s.id) AS total_envios,
+         SUM(CASE WHEN s.status = 'entregue' THEN 1 ELSE 0 END) AS entregues,
+         SUM(CASE WHEN s.status = 'entregue' AND s.data_prevista IS NOT NULL AND DATE(s.data_entrega) <= s.data_prevista THEN 1 ELSE 0 END) AS no_prazo,
+         SUM(CASE WHEN s.status IN ('extraviado','devolvido','problema_transporte') THEN 1 ELSE 0 END) AS ocorrencias,
+         COALESCE(AVG(s.frete_valor), 0) AS frete_medio_real
+       FROM logistics_carriers cr
+       LEFT JOIN logistics_shipments s ON s.carrier_id = cr.id AND s.tenant_id = cr.tenant_id
+       WHERE cr.tenant_id = ? AND cr.ativo = TRUE
+       GROUP BY cr.id`,
+      [req.tenant_id]
+    );
+
+    const resultado = rows.map(r => {
+      const totalEnvios = Number(r.total_envios) || 0;
+      const pontualidade = totalEnvios > 0 ? (Number(r.no_prazo) / totalEnvios) * 100 : null;
+      const taxaOcorrencia = totalEnvios > 0 ? (Number(r.ocorrencias) / totalEnvios) * 100 : null;
+
+      let score = null;
+      if (totalEnvios > 0) {
+        score = Number((((pontualidade ?? 0) + (100 - (taxaOcorrencia ?? 0))) / 2).toFixed(1));
+      }
+
+      return {
+        id: r.id,
+        nome: r.nome,
+        total_envios: totalEnvios,
+        pontualidade_pct: pontualidade != null ? Number(pontualidade.toFixed(1)) : null,
+        taxa_ocorrencia_pct: taxaOcorrencia != null ? Number(taxaOcorrencia.toFixed(1)) : null,
+        frete_medio_real: Number(r.frete_medio_real).toFixed(2),
+        score,
+      };
+    });
+
+    resultado.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular score de transportadoras", details: err.message });
+  }
+};
+
+// ── Cotacao/comparacao simples entre transportadoras cadastradas (Secao 13) ──
+exports.compararFretes = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, nome, custo_medio, prazo_medio_dias FROM logistics_carriers WHERE tenant_id = ? AND ativo = TRUE ORDER BY custo_medio ASC",
+      [req.tenant_id]
+    );
+    if (rows.length === 0) {
+      return res.json({ aviso: "Nenhuma transportadora cadastrada com custo/prazo medio definidos.", opcoes: [] });
+    }
+    res.json({ opcoes: rows });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao comparar fretes", details: err.message });
+  }
+};
+
+// ── Indicadores (KPIs) - Secao 30 do documento ──
+exports.indicadores = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+
+    const [[otif]] = await pool.query(
+      `SELECT
+         COUNT(*) AS total_entregues,
+         SUM(CASE WHEN data_prevista IS NOT NULL AND DATE(data_entrega) <= data_prevista THEN 1 ELSE 0 END) AS no_prazo
+       FROM logistics_shipments WHERE tenant_id = ? AND status = 'entregue'`,
+      [tenantId]
+    );
+    const otifPct = otif.total_entregues > 0 ? Number(((otif.no_prazo / otif.total_entregues) * 100).toFixed(1)) : null;
+
+    const [[tempoMedio]] = await pool.query(
+      `SELECT AVG(TIMESTAMPDIFF(HOUR, separacao_inicio, separacao_fim)) AS horas_separacao_media,
+              AVG(TIMESTAMPDIFF(HOUR, created_at, data_despacho)) AS horas_expedicao_media
+       FROM logistics_shipments WHERE tenant_id = ? AND separacao_fim IS NOT NULL`,
+      [tenantId]
+    );
+
+    const [[devolucoes]] = await pool.query(
+      `SELECT COUNT(*) AS total FROM logistics_returns r
+       JOIN logistics_shipments s ON s.id = r.shipment_id
+       WHERE r.tenant_id = ?`,
+      [tenantId]
+    );
+    const [[totalEnvios]] = await pool.query("SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ?", [tenantId]);
+    const taxaDevolucao = totalEnvios.total > 0 ? Number(((devolucoes.total / totalEnvios.total) * 100).toFixed(1)) : null;
+
+    const [[ocorrencias]] = await pool.query(
+      "SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ? AND status IN ('extraviado','problema_transporte')",
+      [tenantId]
+    );
+    const taxaOcorrencia = totalEnvios.total > 0 ? Number(((ocorrencias.total / totalEnvios.total) * 100).toFixed(1)) : null;
+
+    res.json({
+      otif_pct: otifPct,
+      tempo_medio_separacao_horas: tempoMedio.horas_separacao_media != null ? Number(tempoMedio.horas_separacao_media).toFixed(1) : null,
+      tempo_medio_expedicao_horas: tempoMedio.horas_expedicao_media != null ? Number(tempoMedio.horas_expedicao_media).toFixed(1) : null,
+      taxa_devolucao_pct: taxaDevolucao,
+      taxa_ocorrencia_pct: taxaOcorrencia,
+      total_envios: totalEnvios.total,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular indicadores", details: err.message });
+  }
+};
+
+// ── Custo Logistico Real - Secao 27 do documento ──
+exports.custos = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+
+    const [[custoFrete]] = await pool.query(
+      "SELECT COALESCE(SUM(frete_valor), 0) AS total FROM logistics_shipments WHERE tenant_id = ?",
+      [tenantId]
+    );
+    const [[custoEmbalagem]] = await pool.query(
+      "SELECT COALESCE(SUM(embalagem_custo), 0) AS total FROM logistics_shipments WHERE tenant_id = ?",
+      [tenantId]
+    );
+    const [[custoReversa]] = await pool.query(
+      "SELECT COALESCE(SUM(custo_logistica_reversa), 0) AS total FROM logistics_returns WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const custoTotal = Number(custoFrete.total) + Number(custoEmbalagem.total) + Number(custoReversa.total);
+
+    const [porTransportadora] = await pool.query(
+      `SELECT cr.nome, COALESCE(SUM(s.frete_valor), 0) AS custo_frete, COUNT(s.id) AS total_envios
+       FROM logistics_carriers cr
+       LEFT JOIN logistics_shipments s ON s.carrier_id = cr.id
+       WHERE cr.tenant_id = ? GROUP BY cr.id`,
+      [tenantId]
+    );
+
+    res.json({
+      custo_frete_total: Number(custoFrete.total).toFixed(2),
+      custo_embalagem_total: Number(custoEmbalagem.total).toFixed(2),
+      custo_logistica_reversa_total: Number(custoReversa.total).toFixed(2),
+      custo_logistico_total: custoTotal.toFixed(2),
+      por_transportadora: porTransportadora.map(t => ({ ...t, custo_frete: Number(t.custo_frete).toFixed(2) })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular custos logisticos", details: err.message });
+  }
+};
+
+// ── Previsao de Ruptura (Secao 21) ──
+exports.previsaoRuptura = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+    const diasAnalise = 30;
+
+    const [rows] = await pool.query(
+      `SELECT p.id, p.nome, p.estoque,
+              COALESCE(SUM(oi.quantidade), 0) / ? AS venda_media_diaria
+       FROM products p
+       LEFT JOIN order_items oi ON oi.product_id = p.id
+       LEFT JOIN orders o ON o.id = oi.order_id AND o.status != 'cancelado' AND o.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+       WHERE p.tenant_id = ? AND p.ativo = TRUE
+       GROUP BY p.id
+       HAVING venda_media_diaria > 0`,
+      [diasAnalise, diasAnalise, tenantId]
+    );
+
+    const resultado = rows.map(p => {
+      const coberturaDias = Number(p.venda_media_diaria) > 0 ? p.estoque / Number(p.venda_media_diaria) : null;
+      let risco = "baixo";
+      if (coberturaDias !== null) {
+        if (coberturaDias <= 3) risco = "alto";
+        else if (coberturaDias <= 7) risco = "medio";
+      }
+      return {
+        id: p.id,
+        nome: p.nome,
+        estoque_atual: p.estoque,
+        venda_media_diaria: Number(p.venda_media_diaria).toFixed(2),
+        cobertura_dias: coberturaDias != null ? Number(coberturaDias.toFixed(1)) : null,
+        risco,
+      };
+    }).filter(p => p.risco !== "baixo").sort((a, b) => a.cobertura_dias - b.cobertura_dias);
+
+    res.json({ produtos_em_risco: resultado, periodo_analise_dias: diasAnalise });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular previsao de ruptura", details: err.message });
+  }
+};
+
+// ── Alertas Logisticos (Secao 22) ──
+exports.alertas = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+    const alertas = [];
+
+    const [atrasados] = await pool.query(
+      `SELECT s.id, s.order_id, s.data_prevista, c.nome AS customer_nome
+       FROM logistics_shipments s
+       LEFT JOIN orders o ON o.id = s.order_id
+       LEFT JOIN customers c ON c.id = o.customer_id
+       WHERE s.tenant_id = ? AND s.data_prevista < CURDATE() AND s.status NOT IN ('entregue','cancelado','devolvido')`,
+      [tenantId]
+    );
+    atrasados.forEach(a => alertas.push({
+      severidade: "critico", tipo: "pedido_atrasado",
+      titulo: `Envio #${a.id} atrasado`, descricao: `Pedido de ${a.customer_nome || "cliente"} previsto para ${a.data_prevista}`,
+      entidade_id: a.id,
+    }));
+
+    const [rupturaAlta] = await pool.query(
+      `SELECT p.id, p.nome, p.estoque FROM products p WHERE p.tenant_id = ? AND p.ativo = TRUE AND p.estoque <= 5`,
+      [tenantId]
+    );
+    rupturaAlta.forEach(p => alertas.push({
+      severidade: "critico", tipo: "estoque_critico",
+      titulo: `${p.nome} com estoque critico`, descricao: `Apenas ${p.estoque} unidade(s) em estoque`,
+      entidade_id: p.id,
+    }));
+
+    const [[extraviados]] = await pool.query(
+      "SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ? AND status = 'extraviado'",
+      [tenantId]
+    );
+    if (extraviados.total > 0) {
+      alertas.push({ severidade: "critico", tipo: "extravio", titulo: `${extraviados.total} envio(s) extraviado(s)`, descricao: "Requer acao imediata", entidade_id: null });
+    }
+
+    res.json({ total: alertas.length, alertas });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao gerar alertas logisticos", details: err.message });
+  }
+};
