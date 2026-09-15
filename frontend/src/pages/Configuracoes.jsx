@@ -33,132 +33,128 @@ function formatarDataHora(iso) {
 }
 
 // ═══════════════════ NOVA VISÃO GERAL ═══════════════════
-function VisaoGeral({ overview, navigate }) {
-  const [atividade, setAtividade] = useState([]);
+const CORES_PRIORIDADE = { alta: "#f87171", media: "#fbbf24", baixa: "#60a5fa" };
+const LABELS_PRIORIDADE = { alta: "🔴 Alta", media: "🟡 Média", baixa: "🔵 Baixa" };
+
+function VisaoGeral({ navigate }) {
+  const [dados, setDados] = useState(null);
 
   useEffect(() => {
-    api.get("/settings/atividade-recente", { params: { limite: 6 } }).then(r => setAtividade(r.data || [])).catch(() => {});
+    api.get("/settings/checklist").then(r => setDados(r.data)).catch(() => {});
   }, []);
 
-  if (!overview) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
+  if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
 
-  const pendencias = overview.status_configuracao.checks.filter(c => !c.ok);
+  const recomendacoes = dados.checklist.filter(i => i.status === "pendente" || i.status === "recomendado");
+  const tudoCerto = recomendacoes.length === 0;
 
   return (
     <div>
-      {/* Perfil da Empresa */}
-      <div style={{ ...cardStyleFixo, display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 16 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 10, background: "#f59e0b22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏢</div>
-          <div>
-            <p style={{ color: "#fff", fontWeight: 700, fontSize: 16, margin: "0 0 4px" }}>{overview.empresa.nome}</p>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: "#888", fontSize: 12 }}>
-              <span>Tipo: {overview.empresa.tipo_juridico_label}</span>
-              <span>·</span>
-              <span>País: {overview.empresa.pais}</span>
-              <span>·</span>
-              <span>Moeda: {overview.empresa.moeda}</span>
-            </div>
-          </div>
+      {/* Progresso da Configuração */}
+      <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: 0 }}>
+            {dados.percentual === 100 ? "🎉 Configuração da empresa" : "Configuração da empresa"}
+          </p>
+          <span style={{ color: dados.percentual === 100 ? "#4ade80" : "#fbbf24", fontSize: 24, fontWeight: 700 }}>{dados.percentual}%</span>
         </div>
-        <button onClick={() => navigate("/configuracoes/tipo-empresa")} style={{ background: "none", border: "1px solid #333", color: "#a78bfa", borderRadius: 8, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-          Editar perfil
-        </button>
+        <div style={{ height: 8, background: "#222", borderRadius: 4, marginBottom: 14, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${dados.percentual}%`, background: dados.percentual === 100 ? "#4ade80" : "#fbbf24", borderRadius: 4, transition: "width 0.3s" }} />
+        </div>
+        <div style={{ display: "flex", gap: 20, fontSize: 12.5 }}>
+          <span style={{ color: "#4ade80" }}>Concluídas: {dados.resumo.concluidos}</span>
+          <span style={{ color: "#fbbf24" }}>Em andamento: {dados.resumo.em_andamento}</span>
+          <span style={{ color: "#888" }}>Pendentes: {dados.resumo.pendentes}</span>
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
-        {/* Status de Configuração */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Checklist Inteligente */}
         <div style={cardStyleFixo}>
-          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>Status da Configuração</p>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12 }}>
-            <span style={{ color: overview.status_configuracao.percentual === 100 ? "#4ade80" : "#fbbf24", fontSize: 28, fontWeight: 700 }}>{overview.status_configuracao.percentual}%</span>
-            <span style={{ color: "#555", fontSize: 11.5 }}>configurado</span>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Checklist de Configuração</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {dados.checklist.map(item => {
+              const icone = item.status === "concluido" ? "✓" : item.status === "indisponivel" ? "—" : "⚠";
+              const cor = item.status === "concluido" ? "#4ade80" : item.status === "indisponivel" ? "#555" : "#fbbf24";
+              return (
+                <div
+                  key={item.chave}
+                  onClick={() => item.status !== "indisponivel" && navigate(item.link)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px", borderBottom: "1px solid #1a1a1a", cursor: item.status !== "indisponivel" ? "pointer" : "default" }}
+                >
+                  <span style={{ color: cor, fontSize: 14, width: 16 }}>{icone}</span>
+                  <span style={{ color: item.status === "indisponivel" ? "#555" : "#fff", fontSize: 13, flex: 1 }}>{item.label}</span>
+                  {item.status === "indisponivel" && <span style={{ color: "#555", fontSize: 10.5 }}>em breve</span>}
+                </div>
+              );
+            })}
           </div>
-          <div style={{ height: 6, background: "#222", borderRadius: 4, marginBottom: 14, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${overview.status_configuracao.percentual}%`, background: overview.status_configuracao.percentual === 100 ? "#4ade80" : "#fbbf24", borderRadius: 4 }} />
-          </div>
-          {overview.status_configuracao.checks.map(c => (
-            <div key={c.chave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 12 }}>
-              <span style={{ color: c.ok ? "#4ade80" : "#fbbf24" }}>{c.ok ? "✓" : "⚠"}</span>
-              <span style={{ color: c.ok ? "#888" : "#fff" }}>{c.label}</span>
-            </div>
-          ))}
         </div>
 
-        {/* Configuração Inteligente */}
-        <div style={cardStyleFixo}>
-          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>✨ Configuração Inteligente</p>
-          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 14 }}>{pendencias.length} recomendação(ões)</p>
-          {pendencias.length === 0 ? (
-            <p style={{ color: "#4ade80", fontSize: 13 }}>✅ Nenhuma pendência encontrada.</p>
+        {/* Próximo Passo */}
+        <div style={{ ...cardStyleFixo, background: "linear-gradient(135deg, #1a1428, #111)", border: "1px solid #a78bfa33" }}>
+          <p style={{ color: "#a78bfa", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 10 }}>PRÓXIMO PASSO</p>
+          {dados.proximo_passo ? (
+            <>
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: "0 0 8px" }}>{dados.proximo_passo.label}</p>
+              <p style={{ color: "#aaa", fontSize: 12.5, margin: "0 0 16px", lineHeight: 1.5 }}>{dados.proximo_passo.recomendacao}</p>
+              <button onClick={() => navigate(dados.proximo_passo.link)} style={{ ...btnStyle, width: "100%" }}>
+                Continuar configuração →
+              </button>
+            </>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {pendencias.map(p => (
-                <div key={p.chave} style={{ background: "#0a0a0a", border: "1px solid #f59e0b33", borderRadius: 8, padding: 10 }}>
-                  <p style={{ color: "#fbbf24", fontSize: 12, fontWeight: 600, margin: "0 0 4px" }}>⚠ {p.label}</p>
-                  <button onClick={() => navigate(mapaLinkPendencia(p.chave))} style={{ background: "none", border: "1px solid #333", color: "#a78bfa", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-                    Configurar agora
-                  </button>
-                </div>
-              ))}
-            </div>
+            <>
+              <p style={{ color: "#4ade80", fontWeight: 700, fontSize: 15, margin: "0 0 8px" }}>🎉 Tudo pronto!</p>
+              <p style={{ color: "#aaa", fontSize: 12.5, margin: 0 }}>Todas as configurações essenciais foram concluídas.</p>
+            </>
           )}
         </div>
+      </div>
 
-        {/* Módulos Instalados */}
-        <div style={cardStyleFixo}>
-          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>Módulos Instalados</p>
-          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 14 }}>{overview.modulos.total_instalados} de {overview.modulos.total_disponiveis}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
-            {overview.modulos.lista.map(m => (
-              <div key={m.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
-                <span style={{ color: "#ccc" }}>{m.label}</span>
-                <span style={{ color: m.instalado ? "#4ade80" : "#555" }}>{m.instalado ? "Instalado" : "Não instalado"}</span>
+      {/* Recomendações */}
+      <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
+        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Recomendações</p>
+        {tudoCerto ? (
+          <p style={{ color: "#4ade80", fontSize: 13 }}>✅ Tudo certo. Não encontramos pendências importantes na configuração atual.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {recomendacoes.map(item => (
+              <div key={item.chave} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0a0a0a", border: `1px solid ${CORES_PRIORIDADE[item.prioridade]}33`, borderRadius: 8, padding: 12 }}>
+                <div>
+                  <p style={{ color: CORES_PRIORIDADE[item.prioridade], fontSize: 10.5, fontWeight: 700, margin: "0 0 4px" }}>{LABELS_PRIORIDADE[item.prioridade]}</p>
+                  <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: "0 0 2px" }}>{item.label}</p>
+                  <p style={{ color: "#888", fontSize: 11.5, margin: 0 }}>{item.recomendacao}</p>
+                </div>
+                <button onClick={() => navigate(item.link)} style={{ background: "none", border: "1px solid #333", color: "#a78bfa", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                  Configurar
+                </button>
               </div>
             ))}
           </div>
-        </div>
-      </div>
-
-      {/* Configurações Principais */}
-      <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Configurações Principais</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 24 }}>
-        {CARDS_PRINCIPAIS.map(c => (
-          <div key={c.id} style={cardStyle} onClick={() => navigate(`/configuracoes/${c.id}`)}>
-            <div style={{ width: 34, height: 34, borderRadius: 8, background: c.cor + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginBottom: 10 }}>{c.icone}</div>
-            <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 700, margin: "0 0 4px" }}>{c.titulo}</p>
-            <p style={{ color: "#888", fontSize: 11.5, margin: 0 }}>{c.desc}</p>
-          </div>
-        ))}
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {/* Ações Rápidas */}
+        {/* Contexto da Empresa */}
         <div style={cardStyleFixo}>
-          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>⚡ Ações Rápidas</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {ACOES_RAPIDAS.map(a => (
-              <button key={a.label} onClick={() => navigate(a.to)} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "1px solid #222", color: "#ccc", borderRadius: 8, padding: "10px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-                <span>{a.icone}</span> {a.label}
-              </button>
-            ))}
-          </div>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 6 }}>Empresa</p>
+          <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>{dados.empresa_contexto.nome}</p>
+          <p style={{ color: "#888", fontSize: 12, margin: 0 }}>
+            {dados.empresa_contexto.tipo_juridico !== "nao_definido" ? dados.empresa_contexto.tipo_juridico.toUpperCase() : "Tipo não definido"} · {dados.empresa_contexto.pais} · {dados.empresa_contexto.moeda}
+          </p>
         </div>
 
-        {/* Atividade Recente */}
+        {/* Últimas Alterações */}
         <div style={cardStyleFixo}>
-          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Atividade Recente</p>
-          {atividade.length === 0 ? (
-            <p style={{ color: "#555", fontSize: 13 }}>Nenhuma atividade registrada ainda.</p>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 10 }}>Últimas configurações realizadas</p>
+          {dados.atividade_recente.length === 0 ? (
+            <p style={{ color: "#555", fontSize: 12.5 }}>Nenhuma alteração registrada ainda.</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {atividade.map(a => (
-                <div key={a.id} style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
-                  <p style={{ color: "#fff", fontSize: 12.5, margin: 0 }}>{a.acao}</p>
-                  <p style={{ color: "#555", fontSize: 11, margin: "2px 0 0" }}>{a.usuario_nome} · {a.origem} · {formatarDataHora(a.created_at)}</p>
-                </div>
-              ))}
-            </div>
+            dados.atividade_recente.map((a, i) => (
+              <p key={i} style={{ color: "#ccc", fontSize: 12, margin: "0 0 6px" }}>
+                <span style={{ color: "#555" }}>{new Date(a.created_at).toLocaleDateString("pt-BR")} — </span>{a.acao}
+              </p>
+            ))
           )}
         </div>
       </div>
@@ -583,7 +579,7 @@ export default function Configuracoes() {
       <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 6 }}>Visão Geral</h1>
       <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>Central de configuração da sua empresa. Aqui você encontra um resumo do que está configurado, pendências e recomendações.</p>
 
-      {secaoAtiva === "visao-geral" && <VisaoGeral overview={overview} navigate={navigate} />}
+      {secaoAtiva === "visao-geral" && <VisaoGeral navigate={navigate} />}
       {secaoAtiva === "conta" && <SecaoConta />}
       {secaoAtiva === "tipo-empresa" && <SecaoTipoEmpresa />}
       {secaoAtiva === "pagamento" && <SecaoPagamento />}

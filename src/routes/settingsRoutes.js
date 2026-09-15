@@ -17,5 +17,6 @@ router.put("/usuarios/:id/role", auth, ctrl.mudarRoleUsuario);
 router.put("/usuarios/:id/ativo", auth, ctrl.alternarAtivoUsuario);
 router.get("/ia", auth, ctrl.iaOverview);
 router.put("/ia/comportamento", auth, ctrl.atualizarIaComportamento);
+router.get("/checklist", auth, ctrl.checklist);
 
 module.exports = router;

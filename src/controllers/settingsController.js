@@ -312,3 +312,94 @@ exports.atualizarIaComportamento = async (req, res) => {
     res.status(500).json({ error: "Erro ao atualizar comportamento da IA", details: err.message });
   }
 };
+
+// ── Checklist inteligente da Visao Geral (v2) ──
+// Cada item aqui e verificavel no banco - nada de numero fixo.
+exports.checklist = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+
+    const [[tenant]] = await pool.query("SELECT nome, tipo_juridico, moeda, pais, plan_id FROM tenants WHERE id = ?", [tenantId]);
+    const [[fiscal]] = await pool.query("SELECT cnpj FROM company_fiscal_data WHERE tenant_id = ?", [tenantId]);
+    const [[usuario]] = await pool.query("SELECT nome, email FROM users WHERE id = ?", [req.user.id]);
+    const [[iaConfig]] = await pool.query("SELECT nivel_detalhamento, forma_comunicacao FROM ai_settings WHERE tenant_id = ?", [tenantId]);
+
+    const iaPersonalizada = iaConfig && (iaConfig.nivel_detalhamento !== "equilibrado" || iaConfig.forma_comunicacao !== "direta");
+
+    // Itens que realmente influenciam o percentual (todos verificaveis com dado real)
+    const itens = [
+      {
+        chave: "perfil_empresa", label: "Perfil da empresa", prioridade: "alta",
+        status: fiscal?.cnpj ? "concluido" : "pendente",
+        recomendacao: "Complete os dados cadastrais da empresa (CNPJ, razão social, endereço).",
+        link: "/configuracoes/tipo-empresa",
+      },
+      {
+        chave: "tipo_empresa", label: "Tipo de empresa", prioridade: "media",
+        status: tenant.tipo_juridico !== "nao_definido" ? "concluido" : "pendente",
+        recomendacao: "Defina o tipo jurídico da sua empresa (MEI, ME, EPP, LTDA, etc).",
+        link: "/configuracoes/tipo-empresa",
+      },
+      {
+        chave: "conta", label: "Conta", prioridade: "alta",
+        status: (usuario.nome && usuario.email) ? "concluido" : "pendente",
+        recomendacao: "Complete seus dados de conta.",
+        link: "/configuracoes/conta",
+      },
+      {
+        chave: "sistema", label: "Sistema", prioridade: "baixa",
+        status: tenant.moeda ? "concluido" : "pendente",
+        recomendacao: "Defina a moeda e preferências do sistema.",
+        link: "/configuracoes/sistema",
+      },
+      {
+        chave: "pagamento", label: "Pagamentos", prioridade: "media",
+        status: tenant.plan_id ? "concluido" : "pendente",
+        recomendacao: "Revise o plano contratado.",
+        link: "/configuracoes/pagamento",
+      },
+      {
+        chave: "ia", label: "Inteligência Artificial", prioridade: "media",
+        status: iaPersonalizada ? "concluido" : "recomendado",
+        recomendacao: "A Aria está ativa, mas ainda utiliza as preferências padrão de comportamento.",
+        link: "/configuracoes/ia",
+      },
+    ];
+
+    const concluidos = itens.filter(i => i.status === "concluido").length;
+    const pendentes = itens.filter(i => i.status === "pendente").length;
+    const emAndamento = itens.filter(i => i.status === "recomendado").length;
+    const percentual = Math.round((concluidos / itens.length) * 100);
+
+    // Segurança: nao existe nenhuma configuracao real implementada ainda (sem 2FA,
+    // sem sessoes, etc.) - por isso NAO entra no percentual, so aparece como contexto
+    // honesto de que a area ainda esta em desenvolvimento.
+    const contextoSeguranca = {
+      chave: "seguranca", label: "Segurança", prioridade: "baixa",
+      status: "indisponivel",
+      recomendacao: "A área de segurança avançada (autenticação adicional, sessões) ainda está em desenvolvimento.",
+      link: "/configuracoes/backup",
+    };
+
+    // Ordena pendencias por prioridade para achar o proximo passo
+    const ordemPrioridade = { alta: 0, media: 1, baixa: 2 };
+    const pendenciasReais = itens.filter(i => i.status !== "concluido").sort((a, b) => ordemPrioridade[a.prioridade] - ordemPrioridade[b.prioridade]);
+    const proximoPasso = pendenciasReais[0] || null;
+
+    const [atividade] = await pool.query(
+      "SELECT acao, origem, created_at FROM audit_log WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 4",
+      [tenantId]
+    );
+
+    res.json({
+      percentual,
+      resumo: { concluidos, pendentes, em_andamento: emAndamento, total: itens.length },
+      checklist: [...itens, contextoSeguranca],
+      proximo_passo: proximoPasso,
+      empresa_contexto: { nome: tenant.nome, tipo_juridico: tenant.tipo_juridico, pais: tenant.pais, moeda: tenant.moeda },
+      atividade_recente: atividade,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao carregar checklist de configuração", details: err.message });
+  }
+};
