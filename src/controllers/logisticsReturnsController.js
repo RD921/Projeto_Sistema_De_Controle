@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const eventDispatcher = require("../automation/engine/EventDispatcher");
 
 const FLUXO = ["solicitada", "em_analise", "aprovada", "etiqueta_gerada", "em_transporte", "recebida", "conferida", "concluida"];
 
@@ -33,6 +34,9 @@ exports.criar = async (req, res) => {
       "INSERT INTO logistics_returns (tenant_id, shipment_id, motivo, descricao) VALUES (?, ?, ?, ?)",
       [req.tenant_id, shipment_id, motivo, descricao || null]
     );
+        try {
+      await eventDispatcher.dispatch("RETURN_CREATED", req.tenant_id, { return_id: result.insertId, shipment_id, motivo });
+    } catch { /* nao bloqueia */ }
     res.status(201).json({ id: result.insertId, status: "solicitada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar devolucao", details: err.message });
@@ -51,7 +55,11 @@ exports.avancarStatus = async (req, res) => {
     }
 
     if (!FLUXO.includes(status)) return res.status(400).json({ error: "status invalido" });
-
+    if (status === "recebida") {
+      try {
+        await eventDispatcher.dispatch("RETURN_RECEIVED", req.tenant_id, { return_id: Number(req.params.id) });
+      } catch { /* nao bloqueia */ }
+    }
     const campos = { status };
     if (destino_produto) campos.destino_produto = destino_produto;
     if (reembolso_valor != null) {

@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const eventDispatcher = require("../automation/engine/EventDispatcher");
 
 // ── Depositos ──
 exports.listarDepositos = async (req, res) => {
@@ -134,6 +135,13 @@ exports.mudarStatusEnvio = async (req, res) => {
       [req.tenant_id, req.params.id, status, descricao || null, localizacao || null]
     );
 
+        if (status === "despachado") {
+      try { await eventDispatcher.dispatch("ORDER_SHIPPED", req.tenant_id, { shipment_id: Number(req.params.id) }); } catch {}
+    }
+    if (status === "entregue") {
+      try { await eventDispatcher.dispatch("ORDER_DELIVERED", req.tenant_id, { shipment_id: Number(req.params.id), customer_id: envio.customer_id }); } catch {}
+    }
+
     res.json({ message: "Status do envio atualizado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao mudar status do envio", details: err.message });
@@ -144,6 +152,9 @@ exports.registrarRastreio = async (req, res) => {
   try {
     const { tracking_code } = req.body;
     await pool.query("UPDATE logistics_shipments SET tracking_code = ? WHERE id = ? AND tenant_id = ?", [tracking_code, req.params.id, req.tenant_id]);
+        try {
+      await eventDispatcher.dispatch("TRACKING_UPDATED", req.tenant_id, { shipment_id: Number(req.params.id), tracking_code });
+    } catch { /* nao bloqueia */ }
     res.json({ message: "Codigo de rastreio registrado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao registrar rastreio", details: err.message });
@@ -229,6 +240,9 @@ exports.iniciarSeparacao = async (req, res) => {
       "INSERT INTO logistics_tracking_events (tenant_id, shipment_id, evento, descricao) VALUES (?, ?, 'em_separacao', 'Separacao iniciada')",
       [req.tenant_id, req.params.id]
     );
+        try {
+      await eventDispatcher.dispatch("ORDER_PICKING_STARTED", req.tenant_id, { shipment_id: Number(req.params.id) });
+    } catch { /* nao bloqueia */ }
     res.json({ message: "Separacao iniciada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao iniciar separacao", details: err.message });
@@ -264,6 +278,9 @@ exports.registrarEmbalagem = async (req, res) => {
       "INSERT INTO logistics_tracking_events (tenant_id, shipment_id, evento, descricao) VALUES (?, ?, 'em_embalagem', 'Embalagem registrada')",
       [req.tenant_id, req.params.id]
     );
+        try {
+      await eventDispatcher.dispatch("ORDER_PACKED", req.tenant_id, { shipment_id: Number(req.params.id) });
+    } catch { /* nao bloqueia */ }
     res.json({ message: "Embalagem registrada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao registrar embalagem", details: err.message });
