@@ -509,9 +509,12 @@ const trocarEmpresa = async (tenantId) => {
                     <p style={{ color: cor.text, fontSize: 13, fontWeight: 600, margin: 0 }}>Rodrigo</p>
                     <p style={{ color: cor.textMuted, fontSize: 11, margin: "2px 0 0" }}>admin@apollo.com</p>
                   </div>
+                  <button onClick={() => navigate("/configuracoes/visao-geral")} style={{ display: "block", width: "100%", padding: "10px 14px", background: "none", border: "none", color: cor.text, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                    ⚙️ Configurações
+                    </button>
                   <button onClick={logout} style={{ display: "block", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "#f87171", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-                    {t.sair}
-                  </button>
+                     {t.sair}
+                </button>
                 </div>
               )}
             </div>
