@@ -393,6 +393,10 @@ function SecaoSistema() {
 function SecaoUsuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [novoUsuario, setNovoUsuario] = useState({ nome: "", email: "", senha: "", role: "user" });
+  const [erroCriar, setErroCriar] = useState("");
+  const [salvandoCriar, setSalvandoCriar] = useState(false);
 
   const carregar = () => {
     setLoading(true);
@@ -419,6 +423,22 @@ function SecaoUsuarios() {
     }
   };
 
+  const criarUsuario = async (e) => {
+    e.preventDefault();
+    setErroCriar("");
+    setSalvandoCriar(true);
+    try {
+      await api.post("/users", novoUsuario);
+      setNovoUsuario({ nome: "", email: "", senha: "", role: "user" });
+      setMostrarForm(false);
+      carregar();
+    } catch (err) {
+      setErroCriar(err.response?.data?.error || "Erro ao criar usuário.");
+    } finally {
+      setSalvandoCriar(false);
+    }
+  };
+
   const totalAdmins = usuarios.filter(u => u.role === "admin").length;
   const totalAtivos = usuarios.filter(u => u.ativo).length;
 
@@ -426,6 +446,26 @@ function SecaoUsuarios() {
 
   return (
     <div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <button onClick={() => setMostrarForm(!mostrarForm)} style={btnStyle}>{mostrarForm ? "Cancelar" : "+ Novo Usuário"}</button>
+      </div>
+
+      {mostrarForm && (
+        <form onSubmit={criarUsuario} style={{ ...cardStyleFixo, marginBottom: 16, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+          <input value={novoUsuario.nome} onChange={e => setNovoUsuario({ ...novoUsuario, nome: e.target.value })} style={inputStyle} placeholder="Nome" required />
+          <input type="email" value={novoUsuario.email} onChange={e => setNovoUsuario({ ...novoUsuario, email: e.target.value })} style={inputStyle} placeholder="E-mail" required />
+          <input type="password" value={novoUsuario.senha} onChange={e => setNovoUsuario({ ...novoUsuario, senha: e.target.value })} style={inputStyle} placeholder="Senha" required />
+          <select value={novoUsuario.role} onChange={e => setNovoUsuario({ ...novoUsuario, role: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+            <option value="user">Usuário</option>
+            <option value="admin">Admin</option>
+          </select>
+          {erroCriar && <p style={{ color: "#f87171", fontSize: 12.5, gridColumn: "span 2", margin: 0 }}>{erroCriar}</p>}
+          <div style={{ gridColumn: "span 2" }}>
+            <button type="submit" style={btnStyle} disabled={salvandoCriar}>{salvandoCriar ? "Criando..." : "Criar Usuário"}</button>
+          </div>
+        </form>
+      )}
+      
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
         <div style={cardStyleFixo}>
           <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Total de Usuários</p>
@@ -634,7 +674,7 @@ export default function Configuracoes() {
       {secaoAtiva === "usuarios" && <SecaoUsuarios />}
       {secaoAtiva === "ia" && <SecaoIA />}
       {secaoAtiva === "auditoria" && <SecaoAuditoria />}
-      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia"].includes(secaoAtiva) && (
+      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia", "auditoria"].includes(secaoAtiva) && (
         <div style={{ ...cardStyleFixo, textAlign: "center", padding: 60 }}>
           <p style={{ color: "#555", fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>
         </div>

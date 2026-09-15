@@ -12,9 +12,11 @@ router.put("/conta/senha", auth, ctrl.alterarSenha);
 router.put("/tipo-juridico", auth, ctrl.atualizarTipoJuridico);
 router.put("/sistema", auth, ctrl.atualizarSistema);
 
+const role = require("../middleware/roleMiddleware");
+
 router.get("/usuarios", auth, ctrl.listarUsuarios);
-router.put("/usuarios/:id/role", auth, ctrl.mudarRoleUsuario);
-router.put("/usuarios/:id/ativo", auth, ctrl.alternarAtivoUsuario);
+router.put("/usuarios/:id/role", auth, role("admin"), ctrl.mudarRoleUsuario);
+router.put("/usuarios/:id/ativo", auth, role("admin"), ctrl.alternarAtivoUsuario);
 router.get("/ia", auth, ctrl.iaOverview);
 router.put("/ia/comportamento", auth, ctrl.atualizarIaComportamento);
 router.get("/checklist", auth, ctrl.checklist);
