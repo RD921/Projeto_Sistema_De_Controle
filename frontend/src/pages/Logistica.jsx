@@ -26,8 +26,37 @@ function formatarMoeda(valor) {
   return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const LABELS_STATUS = {
+  aguardando_separacao: "Aguardando Separação",
+  em_separacao: "Em Separação",
+  conferencia: "Conferência",
+  em_embalagem: "Em Embalagem",
+  pronto_expedicao: "Pronto para Expedição",
+  despachado: "Despachado",
+  em_transito: "Em Trânsito",
+  saiu_entrega: "Saiu para Entrega",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+  devolvido: "Devolvido",
+  extraviado: "Extraviado",
+  endereco_invalido: "Endereço Inválido",
+  aguardando_informacao: "Aguardando Informação",
+  tentativa_entrega: "Tentativa de Entrega",
+  entrega_recusada: "Entrega Recusada",
+  problema_transporte: "Problema de Transporte",
+  solicitada: "Solicitada",
+  em_analise: "Em Análise",
+  aprovada: "Aprovada",
+  etiqueta_gerada: "Etiqueta Gerada",
+  em_transporte: "Em Transporte",
+  recebida: "Recebida",
+  conferida: "Conferida",
+  concluida: "Concluída",
+  rejeitada: "Rejeitada",
+};
+
 function labelStatus(status) {
-  return (status || "").replace(/_/g, " ");
+  return LABELS_STATUS[status] || (status || "").replace(/_/g, " ");
 }
 
 function proximoEstagio(atual) {
@@ -830,9 +859,9 @@ function DevolucoesLogistica() {
             <div key={d.id} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ flex: 1 }}>
                 <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>Devolução #{d.id} — {d.customer_nome || "Cliente"}</p>
-                <p style={{ color: "#555", fontSize: 11.5, margin: "2px 0 0" }}>Motivo: {d.motivo.replace(/_/g, " ")}</p>
+                <p style={{ color: "#555", fontSize: 11.5, margin: "2px 0 0" }}>Motivo: {labelStatus(d.motivo)}</p>
               </div>
-              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "#33333355", color: "#ccc", textTransform: "capitalize" }}>{d.status.replace(/_/g, " ")}</span>
+               <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "#33333355", color: "#ccc", textTransform: "capitalize" }}>{labelStatus(d.status)}</span>
               {!["rejeitada", "concluida"].includes(d.status) && (
                 <>
                   <button style={{ ...btnGhost, color: "#4ade80" }} onClick={() => avancar(d)}>Avançar</button>
