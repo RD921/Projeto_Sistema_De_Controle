@@ -258,6 +258,15 @@ const trocarEmpresa = async (tenantId) => {
   const logisticaLinks = [
   { to: "/logistica/dashboard", label: "Torre de Controle", icon: "📊" },
   { to: "/logistica/envios", label: "Envios", icon: "🚚" },
+  { to: "/logistica/entregas", label: "Entregas", icon: "📦" },
+  { to: "/logistica/depositos", label: "Depósitos", icon: "🏭" },
+  { to: "/logistica/transferencias", label: "Transferências", icon: "🔄" },
+  { to: "/logistica/transportadoras", label: "Transportadoras", icon: "🚛" },
+  { to: "/logistica/devolucoes", label: "Devoluções", icon: "↩️" },
+  { to: "/logistica/indicadores", label: "Indicadores", icon: "📈" },
+  { to: "/logistica/custos", label: "Custos", icon: "💸" },
+  { to: "/logistica/alertas", label: "Alertas", icon: "🚨" },
+  { to: "/logistica/simulador", label: "Simulador", icon: "🔮" },
 ];
 
          const linksAtivos = isCentral ? centralLinks
