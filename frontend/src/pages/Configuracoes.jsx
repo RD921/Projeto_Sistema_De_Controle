@@ -687,6 +687,65 @@ function SecaoAuditoria() {
   );
 }
 
+function SecaoSeguranca() {
+  const [dados, setDados] = useState(null);
+
+  useEffect(() => {
+    api.get("/settings/seguranca").then(r => setDados(r.data)).catch(() => {});
+  }, []);
+
+  if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 12 }}>Política de Senha</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#ccc" }}>
+            <span style={{ color: "#4ade80" }}>✓</span> Mínimo de {dados.politica_senha.tamanho_minimo} caracteres
+          </div>
+        </div>
+
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 12 }}>Tentativas de Login (últimos 30 dias)</p>
+          <div style={{ display: "flex", gap: 20 }}>
+            <div><span style={{ color: "#4ade80", fontSize: 20, fontWeight: 700 }}>{dados.tentativas_login.sucessos_30_dias}</span><p style={{ color: "#888", fontSize: 11, margin: 0 }}>sucessos</p></div>
+            <div><span style={{ color: "#f87171", fontSize: 20, fontWeight: 700 }}>{dados.tentativas_login.falhas_30_dias}</span><p style={{ color: "#888", fontSize: 11, margin: 0 }}>falhas</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={{ ...cardStyleFixo, opacity: 0.6 }}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 8 }}>Autenticação em Dois Fatores (2FA)</p>
+          <p style={{ color: "#888", fontSize: 12.5, margin: 0 }}>❌ {dados.autenticacao_dois_fatores.motivo}</p>
+        </div>
+        <div style={{ ...cardStyleFixo, opacity: 0.6 }}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 8 }}>Sessões Ativas</p>
+          <p style={{ color: "#888", fontSize: 12.5, margin: 0 }}>❌ {dados.sessoes_ativas.motivo}</p>
+        </div>
+      </div>
+
+      <div style={cardStyleFixo}>
+        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Tentativas Recentes</p>
+        {dados.tentativas_login.recentes.length === 0 ? (
+          <p style={{ color: "#555", fontSize: 13 }}>Nenhuma tentativa registrada.</p>
+        ) : (
+          dados.tentativas_login.recentes.map((t, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < dados.tentativas_login.recentes.length - 1 ? "1px solid #1a1a1a" : "none" }}>
+              <div>
+                <span style={{ color: t.sucesso ? "#4ade80" : "#f87171", fontSize: 13 }}>{t.sucesso ? "✓ Sucesso" : "✗ Falha"}</span>
+                <span style={{ color: "#888", fontSize: 12, marginLeft: 10 }}>{t.email}{t.motivo_falha && ` · ${t.motivo_falha.replace(/_/g, " ")}`}</span>
+              </div>
+              <span style={{ color: "#555", fontSize: 11.5 }}>{new Date(t.created_at).toLocaleString("pt-BR")}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Configuracoes() {
   const { secao } = useParams();
   const navigate = useNavigate();
@@ -705,6 +764,7 @@ export default function Configuracoes() {
       {secaoAtiva === "usuarios" && <SecaoUsuarios />}
       {secaoAtiva === "ia" && <SecaoIA />}
       {secaoAtiva === "auditoria" && <SecaoAuditoria />}
+      {secaoAtiva === "backup" && <SecaoSeguranca />}
       {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia", "auditoria"].includes(secaoAtiva) && (
         <div style={{ ...cardStyleFixo, textAlign: "center", padding: 60 }}>
           <p style={{ color: "#555", fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>

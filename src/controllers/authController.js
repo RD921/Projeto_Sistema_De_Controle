@@ -4,16 +4,27 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 
 exports.login = async (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || null;
   try {
     const { email, senha } = req.body || {};
     if (!email || !senha)
       return res.status(400).json({ error: "Email e senha sao obrigatorios" });
     const [users] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
-    if (users.length === 0) return res.status(401).json({ error: "Usuario nao encontrado" });
+    if (users.length === 0) {
+      await pool.query("INSERT INTO login_attempts (email, sucesso, motivo_falha, ip) VALUES (?, FALSE, 'usuario_nao_encontrado', ?)", [email, ip]);
+      return res.status(401).json({ error: "Usuario nao encontrado" });
+    }
     const user = users[0];
-    if (!user.ativo) return res.status(403).json({ error: "Usuario inativo" });
+    if (!user.ativo) {
+      await pool.query("INSERT INTO login_attempts (email, user_id, tenant_id, sucesso, motivo_falha, ip) VALUES (?, ?, ?, FALSE, 'usuario_inativo', ?)", [email, user.id, user.tenant_id, ip]);
+      return res.status(403).json({ error: "Usuario inativo" });
+    }
     const match = await bcrypt.compare(senha, user.senha);
-    if (!match) return res.status(401).json({ error: "Senha invalida" });
+    if (!match) {
+      await pool.query("INSERT INTO login_attempts (email, user_id, tenant_id, sucesso, motivo_falha, ip) VALUES (?, ?, ?, FALSE, 'senha_invalida', ?)", [email, user.id, user.tenant_id, ip]);
+      return res.status(401).json({ error: "Senha invalida" });
+    }
+    await pool.query("INSERT INTO login_attempts (email, user_id, tenant_id, sucesso, ip) VALUES (?, ?, ?, TRUE, ?)", [email, user.id, user.tenant_id, ip]);
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id || 1 },
       process.env.JWT_SECRET,

@@ -467,3 +467,37 @@ exports.atualizarPermissoesUsuario = async (req, res) => {
     res.status(500).json({ error: "Erro ao atualizar permissoes", details: err.message });
   }
 };
+
+// ── Base de Seguranca ──
+// So mostra o que existe de verdade: log de tentativas de login e politica de senha.
+// Sessoes ativas e 2FA nao existem ainda - nao aparecem como se existissem.
+exports.seguranca = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+
+    const [tentativas] = await pool.query(
+      "SELECT email, sucesso, motivo_falha, ip, created_at FROM login_attempts WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 20",
+      [tenantId]
+    );
+
+    const [[resumo]] = await pool.query(
+      `SELECT
+         SUM(CASE WHEN sucesso = TRUE THEN 1 ELSE 0 END) AS sucessos,
+         SUM(CASE WHEN sucesso = FALSE THEN 1 ELSE 0 END) AS falhas
+       FROM login_attempts WHERE tenant_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+        const sucessos = Number(resumo.sucessos) || 0;
+    const falhas = Number(resumo.falhas) || 0;
+
+    res.json({
+      politica_senha: { tamanho_minimo: 8, exige_maiuscula: false, exige_numero: false, exige_simbolo: false },
+      autenticacao_dois_fatores: { disponivel: false, motivo: "Ainda não implementado" },
+      sessoes_ativas: { disponivel: false, motivo: "O sistema usa tokens JWT sem rastreamento de sessão no banco; não é possível listar ou revogar sessões individualmente ainda" },
+      tentativas_login: { total_30_dias: sucessos + falhas, sucessos_30_dias: sucessos, falhas_30_dias: falhas, recentes: tentativas },
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao carregar dados de segurança", details: err.message });
+  }
+};
