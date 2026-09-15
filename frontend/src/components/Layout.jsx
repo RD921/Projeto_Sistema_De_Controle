@@ -172,7 +172,8 @@ const trocarEmpresa = async (tenantId) => {
   const isFinanceiro = location.pathname.startsWith("/financeiro");
   const isAutomacoes = location.pathname.startsWith("/automacoes") && !location.pathname.includes("/editor");
   const isCRM = location.pathname.startsWith("/crm");
-  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes || isCRM;
+  const isLogistica = location.pathname.startsWith("/logistica");
+  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes || isCRM || isLogistica;
 
   const centralLinks = [
     { to: "/central-controle/resumo", label: "Resumo", icon: "📊" },
@@ -254,12 +255,18 @@ const trocarEmpresa = async (tenantId) => {
     { to: "/automacoes/logs", label: "Logs", icon: "📋" },
   ];
 
+  const logisticaLinks = [
+  { to: "/logistica/dashboard", label: "Torre de Controle", icon: "📊" },
+  { to: "/logistica/envios", label: "Envios", icon: "🚚" },
+];
+
          const linksAtivos = isCentral ? centralLinks
     : isMarketing ? marketingLinks
     : isIntegracoes ? integracoesLinks
     : isFinanceiro ? financeiroLinks
     : isAutomacoes ? automacoesLinks
     : isCRM ? crmLinks
+    : isLogistica ? logisticaLinks
     : ecommerceLinks;
 
       const tituloSecao = isCentral ? t.central
@@ -268,6 +275,7 @@ const trocarEmpresa = async (tenantId) => {
     : isFinanceiro ? t.financeiro
     : isAutomacoes ? "Automações"
     : isCRM ? "CRM"
+    : isLogistica ? "Logística"
     : "";
 
   const MODULOS_TODOS = [

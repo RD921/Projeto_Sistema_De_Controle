@@ -98,5 +98,6 @@ app.use("/api/crm", require("./routes/crmRoutes"));
 app.use("/api/crm/dashboard", require("./routes/crmDashboardRoutes"));
 app.use("/api/bi", require("./routes/biRoutes"));
 app.use("/api/fiscal-documents", require("./routes/fiscalDocumentsRoutes"));
+app.use("/api/logistica", require("./routes/logisticsRoutes"));
 
 module.exports = app;

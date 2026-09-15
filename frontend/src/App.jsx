@@ -19,6 +19,7 @@ import Financeiro from "./pages/Financeiro";
 import CRM from "./pages/CRM";
 import Customer360 from "./pages/Customer360";
 import Relatorios from "./pages/Relatorios";
+import Logistica from "./pages/Logistica";
 
 function PrivateRoute({ children }) {
   return localStorage.getItem("token") ? children : <Navigate to="/login" />;
@@ -57,6 +58,8 @@ export default function App() {
           <Route path="crm/customer/:customerId" element={<Customer360 />} />
           <Route path="relatorios" element={<Navigate to="/relatorios/vendas" replace />} />
           <Route path="relatorios/:secao" element={<Relatorios />} />
+          <Route path="logistica" element={<Navigate to="/logistica/dashboard" replace />} />
+          <Route path="logistica/:secao" element={<Logistica />} />
         </Route>
       </Routes>
     </BrowserRouter>

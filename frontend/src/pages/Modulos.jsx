@@ -128,9 +128,9 @@ export default function Modulos() {
     if (id === "integracoes") navigate("/integracoes");
     if (id === "financeiro") navigate("/financeiro");
     if (id === "atendimento") navigate("/loja-modulos");
-    if (id === "logistica") navigate("/loja-modulos");
     if (id === "crm") navigate("/crm/pipeline");
     if (id === "relatorios") navigate("/relatorios/vendas");
+    if (id === "logistica") navigate("/logistica/dashboard");
   };
 
   const instaladosVisiveis = modulosInstalados
