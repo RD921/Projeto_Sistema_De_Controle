@@ -20,5 +20,8 @@ router.put("/usuarios/:id/ativo", auth, role("admin"), ctrl.alternarAtivoUsuario
 router.get("/ia", auth, ctrl.iaOverview);
 router.put("/ia/comportamento", auth, ctrl.atualizarIaComportamento);
 router.get("/checklist", auth, ctrl.checklist);
+router.get("/permissoes", auth, ctrl.listarPermissoes);
+router.get("/usuarios/:id/permissoes", auth, ctrl.permissoesDoUsuario);
+router.put("/usuarios/:id/permissoes", auth, role("admin"), ctrl.atualizarPermissoesUsuario);
 
 module.exports = router;

@@ -32,7 +32,7 @@ function formatarDataHora(iso) {
   return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-// ═══════════════════ NOVA VISÃO GERAL ═══════════════════
+// ═══════════════════ VISÃO GERAL ═══════════════════
 const CORES_PRIORIDADE = { alta: "#f87171", media: "#fbbf24", baixa: "#60a5fa" };
 const LABELS_PRIORIDADE = { alta: "🔴 Alta", media: "🟡 Média", baixa: "🔵 Baixa" };
 
@@ -45,18 +45,15 @@ function VisaoGeral({ navigate }) {
 
   if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
 
-  // Segurança nunca entra no percentual nem nas recomendacoes - so aparece como contexto honesto
   const itensReais = dados.checklist.filter(i => i.status !== "indisponivel");
   const itemSeguranca = dados.checklist.find(i => i.status === "indisponivel");
 
   const proximoPasso = dados.proximo_passo;
-  // Recomendacoes = pendencias reais, EXCLUINDO a que ja aparece como Proximo Passo (evita repeticao)
   const recomendacoes = itensReais.filter(i => (i.status === "pendente" || i.status === "recomendado") && i.chave !== proximoPasso?.chave);
   const tudoCerto = !proximoPasso;
 
   return (
     <div>
-      {/* Progresso da Configuração */}
       <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: 0 }}>
@@ -78,7 +75,6 @@ function VisaoGeral({ navigate }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16, marginBottom: 16 }}>
-        {/* Checklist Inteligente */}
         <div style={cardStyleFixo}>
           <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Checklist de Configuração</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -92,7 +88,6 @@ function VisaoGeral({ navigate }) {
                 </div>
               );
             })}
-            {/* Segurança: separada, sem parecer pendencia */}
             {itemSeguranca && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px", marginTop: 4, opacity: 0.6 }}>
                 <span style={{ color: "#555", fontSize: 14, width: 16 }}>—</span>
@@ -103,7 +98,6 @@ function VisaoGeral({ navigate }) {
           </div>
         </div>
 
-        {/* Próximo Passo - o "cerebro" da pagina, muda conforme o que ja foi concluido */}
         <div style={{ ...cardStyleFixo, background: "linear-gradient(135deg, #1a1428, #111)", border: "1px solid #a78bfa33" }}>
           <p style={{ color: "#a78bfa", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 10 }}>PRÓXIMO PASSO</p>
           {proximoPasso ? (
@@ -123,7 +117,6 @@ function VisaoGeral({ navigate }) {
         </div>
       </div>
 
-      {/* Recomendações - NUNCA repete o Proximo Passo */}
       <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
         <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Outras Recomendações</p>
         {recomendacoes.length === 0 && tudoCerto ? (
@@ -148,12 +141,10 @@ function VisaoGeral({ navigate }) {
         )}
       </div>
 
-      {/* Contexto da empresa - agora apenas uma linha, nao um card grande */}
       <p style={{ color: "#555", fontSize: 12.5, marginBottom: 16, padding: "0 4px" }}>
         🏢 {dados.empresa_contexto.nome} · {dados.empresa_contexto.tipo_juridico !== "nao_definido" ? dados.empresa_contexto.tipo_juridico.toUpperCase() : "tipo não definido"} · {dados.empresa_contexto.pais} · {dados.empresa_contexto.moeda}
       </p>
 
-      {/* Últimas Alterações */}
       <div style={cardStyleFixo}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <p style={{ color: "#fff", fontWeight: 700, margin: 0 }}>Últimas configurações realizadas</p>
@@ -172,18 +163,6 @@ function VisaoGeral({ navigate }) {
       </div>
     </div>
   );
-}
-
-function mapaLinkPendencia(chave) {
-  const mapa = {
-    conta_configurada: "/configuracoes/conta",
-    empresa_configurada: "/configuracoes/tipo-empresa",
-    tipo_empresa_configurado: "/configuracoes/tipo-empresa",
-    usuarios_configurados: "/configuracoes/usuarios",
-    sistema_configurado: "/configuracoes/sistema",
-    pagamento_configurado: "/configuracoes/pagamento",
-  };
-  return mapa[chave] || "/configuracoes/visao-geral";
 }
 
 function SecaoConta() {
@@ -397,6 +376,9 @@ function SecaoUsuarios() {
   const [novoUsuario, setNovoUsuario] = useState({ nome: "", email: "", senha: "", role: "user" });
   const [erroCriar, setErroCriar] = useState("");
   const [salvandoCriar, setSalvandoCriar] = useState(false);
+  const [gerenciandoPermissoes, setGerenciandoPermissoes] = useState(null);
+  const [todasPermissoes, setTodasPermissoes] = useState([]);
+  const [permsSelecionadas, setPermsSelecionadas] = useState([]);
 
   const carregar = () => {
     setLoading(true);
@@ -439,6 +421,33 @@ function SecaoUsuarios() {
     }
   };
 
+  const abrirPermissoes = async (usuario) => {
+    try {
+      const [todasResp, doUsuarioResp] = await Promise.all([
+        api.get("/settings/permissoes"),
+        api.get(`/settings/usuarios/${usuario.id}/permissoes`),
+      ]);
+      setTodasPermissoes(todasResp.data);
+      setPermsSelecionadas(doUsuarioResp.data.permissoes_concedidas.map(p => p.id));
+      setGerenciandoPermissoes(usuario);
+    } catch (err) {
+      alert("Erro ao carregar permissões.");
+    }
+  };
+
+  const togglePermissao = (id) => {
+    setPermsSelecionadas(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  };
+
+  const salvarPermissoes = async () => {
+    try {
+      await api.put(`/settings/usuarios/${gerenciandoPermissoes.id}/permissoes`, { permission_ids: permsSelecionadas });
+      setGerenciandoPermissoes(null);
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao salvar permissões.");
+    }
+  };
+
   const totalAdmins = usuarios.filter(u => u.role === "admin").length;
   const totalAtivos = usuarios.filter(u => u.ativo).length;
 
@@ -446,7 +455,7 @@ function SecaoUsuarios() {
 
   return (
     <div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
         <button onClick={() => setMostrarForm(!mostrarForm)} style={btnStyle}>{mostrarForm ? "Cancelar" : "+ Novo Usuário"}</button>
       </div>
 
@@ -465,7 +474,7 @@ function SecaoUsuarios() {
           </div>
         </form>
       )}
-      
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
         <div style={cardStyleFixo}>
           <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Total de Usuários</p>
@@ -491,6 +500,11 @@ function SecaoUsuarios() {
             <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: u.role === "admin" ? "#a78bfa22" : "#33333355", color: u.role === "admin" ? "#a78bfa" : "#ccc" }}>
               {u.role === "admin" ? "Admin" : "Usuário"}
             </span>
+            {u.role !== "admin" && (
+              <button onClick={() => abrirPermissoes(u)} style={{ background: "none", border: "1px solid #333", color: "#a78bfa", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+                Permissões
+              </button>
+            )}
             <button onClick={() => mudarRole(u.id, u.role)} style={{ background: "none", border: "1px solid #333", color: "#888", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
               Tornar {u.role === "admin" ? "Usuário" : "Admin"}
             </button>
@@ -500,6 +514,33 @@ function SecaoUsuarios() {
           </div>
         ))}
       </div>
+
+      {gerenciandoPermissoes && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setGerenciandoPermissoes(null)} />
+          <div style={{ position: "relative", background: "#111", border: "1px solid #222", borderRadius: 16, padding: 28, width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
+            <h2 style={{ color: "#fff", marginBottom: 4, fontSize: 17 }}>Permissões de {gerenciandoPermissoes.nome}</h2>
+            <p style={{ color: "#888", fontSize: 12, marginBottom: 18 }}>Marque as permissões extras que esse usuário deve ter, além do acesso padrão.</p>
+            {Object.entries(
+              todasPermissoes.reduce((acc, p) => { (acc[p.modulo] = acc[p.modulo] || []).push(p); return acc; }, {})
+            ).map(([modulo, perms]) => (
+              <div key={modulo} style={{ marginBottom: 16 }}>
+                <p style={{ color: "#a78bfa", fontSize: 11, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>{modulo}</p>
+                {perms.map(p => (
+                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", cursor: "pointer" }}>
+                    <input type="checkbox" checked={permsSelecionadas.includes(p.id)} onChange={() => togglePermissao(p.id)} />
+                    <span style={{ color: "#fff", fontSize: 13 }}>{p.label}</span>
+                  </label>
+                ))}
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              <button onClick={() => setGerenciandoPermissoes(null)} style={{ flex: 1, padding: 11, background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+              <button onClick={salvarPermissoes} style={{ ...btnStyle, flex: 1 }}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -533,7 +574,6 @@ function SecaoIA() {
 
   return (
     <div>
-      {/* Status */}
       <div style={{ ...cardStyleFixo, display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
         <div style={{ width: 44, height: 44, borderRadius: 10, background: "#4ade8022", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🧠</div>
         <div>
@@ -543,7 +583,6 @@ function SecaoIA() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        {/* Nível de Autonomia */}
         <div style={cardStyleFixo}>
           <p style={{ color: "#fff", fontWeight: 700, marginBottom: 10 }}>Nível de Autonomia</p>
           <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", border: "1px solid #4ade8033", borderRadius: 8, padding: 12, marginBottom: 10 }}>
@@ -558,7 +597,6 @@ function SecaoIA() {
           </p>
         </div>
 
-        {/* Comportamento */}
         <div style={cardStyleFixo}>
           <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Comportamento da IA</p>
           <label style={labelStyle}>Nível de detalhamento</label>
@@ -582,7 +620,6 @@ function SecaoIA() {
         </div>
       </div>
 
-      {/* Módulos disponíveis para a IA */}
       <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
         <p style={{ color: "#fff", fontWeight: 700, marginBottom: 12 }}>Módulos Disponíveis para a IA</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
@@ -595,7 +632,6 @@ function SecaoIA() {
         </div>
       </div>
 
-      {/* Permissões de consulta (ferramentas reais) */}
       <div style={cardStyleFixo}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setMostrarFerramentas(!mostrarFerramentas)}>
           <p style={{ color: "#fff", fontWeight: 700, margin: 0 }}>Permissões de Consulta ({dados.total_ferramentas} ferramentas ativas)</p>
@@ -655,11 +691,6 @@ export default function Configuracoes() {
   const { secao } = useParams();
   const navigate = useNavigate();
   const secaoAtiva = secao || "visao-geral";
-  const [overview, setOverview] = useState(null);
-
-  useEffect(() => {
-    api.get("/settings/overview").then(r => setOverview(r.data)).catch(() => {});
-  }, []);
 
   return (
     <div>

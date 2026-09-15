@@ -403,3 +403,67 @@ exports.checklist = async (req, res) => {
     res.status(500).json({ error: "Erro ao carregar checklist de configuração", details: err.message });
   }
 };
+
+  // ── Base de Permissoes (alem de admin/user) ──
+// Admin continua tendo acesso total (comportamento atual preservado).
+// 'user' pode receber permissoes extras especificas. Nenhuma rota existente
+// checa essas permissoes ainda - essa e a base de dados + gestao, pronta para
+// rotas especificas passarem a usar no futuro.
+exports.listarPermissoes = async (req, res) => {
+  try {
+    const [permissoes] = await pool.query("SELECT * FROM permissions ORDER BY modulo, chave");
+    res.json(permissoes);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar permissoes", details: err.message });
+  }
+};
+
+exports.permissoesDoUsuario = async (req, res) => {
+  try {
+    const [[alvo]] = await pool.query("SELECT id, nome, role FROM users WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!alvo) return res.status(404).json({ error: "Usuario nao encontrado" });
+
+    const [concedidas] = await pool.query(
+      "SELECT p.id, p.chave, p.label, p.modulo FROM user_permissions up JOIN permissions p ON p.id = up.permission_id WHERE up.user_id = ?",
+      [req.params.id]
+    );
+
+    res.json({ usuario: alvo, permissoes_concedidas: concedidas, acesso_total: alvo.role === "admin" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar permissoes do usuario", details: err.message });
+  }
+};
+
+exports.atualizarPermissoesUsuario = async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const { permission_ids } = req.body;
+    if (!Array.isArray(permission_ids)) return res.status(400).json({ error: "permission_ids deve ser uma lista" });
+
+    const [[alvo]] = await conn.query("SELECT id, role FROM users WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!alvo) { conn.release(); return res.status(404).json({ error: "Usuario nao encontrado" }); }
+    if (alvo.role === "admin") { conn.release(); return res.status(409).json({ error: "Administradores ja possuem acesso total; nao e necessario conceder permissoes especificas" }); }
+
+    await conn.beginTransaction();
+    await conn.query("DELETE FROM user_permissions WHERE user_id = ?", [req.params.id]);
+    for (const permId of permission_ids) {
+      await conn.query("INSERT INTO user_permissions (user_id, permission_id, concedido_por) VALUES (?, ?, ?)", [req.params.id, permId, req.user.id]);
+    }
+    await conn.commit();
+    conn.release();
+
+    const [[usuario]] = await pool.query("SELECT nome FROM users WHERE id = ?", [req.user.id]);
+    const [[alvoNome]] = await pool.query("SELECT nome FROM users WHERE id = ?", [req.params.id]);
+    await audit.registrar({
+      tenantId: req.tenant_id, usuarioId: req.user.id, usuarioNome: usuario.nome,
+      acao: `Atualizou permissões de ${alvoNome.nome}`, origem: "Usuários e Permissões",
+      valorNovo: `${permission_ids.length} permissão(ões) concedida(s)`,
+    });
+
+    res.json({ message: "Permissoes atualizadas" });
+  } catch (err) {
+    await conn.rollback();
+    conn.release();
+    res.status(500).json({ error: "Erro ao atualizar permissoes", details: err.message });
+  }
+};
