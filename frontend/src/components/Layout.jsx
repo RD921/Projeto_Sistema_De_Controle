@@ -265,6 +265,7 @@ const configuracoesLinks = [
   { to: "/configuracoes/backup", label: "Backup e Segurança", icon: "🛡️" },
   { grupo: "INTELIGÊNCIA" },
   { to: "/configuracoes/ia", label: "Configuração da IA", icon: "🧠" },
+  { to: "/configuracoes/auditoria", label: "Auditoria", icon: "📋" },
 ];
 
   const automacoesLinks = [

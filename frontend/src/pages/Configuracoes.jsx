@@ -45,19 +45,28 @@ function VisaoGeral({ navigate }) {
 
   if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
 
-  const recomendacoes = dados.checklist.filter(i => i.status === "pendente" || i.status === "recomendado");
-  const tudoCerto = recomendacoes.length === 0;
+  // Segurança nunca entra no percentual nem nas recomendacoes - so aparece como contexto honesto
+  const itensReais = dados.checklist.filter(i => i.status !== "indisponivel");
+  const itemSeguranca = dados.checklist.find(i => i.status === "indisponivel");
+
+  const proximoPasso = dados.proximo_passo;
+  // Recomendacoes = pendencias reais, EXCLUINDO a que ja aparece como Proximo Passo (evita repeticao)
+  const recomendacoes = itensReais.filter(i => (i.status === "pendente" || i.status === "recomendado") && i.chave !== proximoPasso?.chave);
+  const tudoCerto = !proximoPasso;
 
   return (
     <div>
       {/* Progresso da Configuração */}
       <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: 0 }}>
             {dados.percentual === 100 ? "🎉 Configuração da empresa" : "Configuração da empresa"}
           </p>
           <span style={{ color: dados.percentual === 100 ? "#4ade80" : "#fbbf24", fontSize: 24, fontWeight: 700 }}>{dados.percentual}%</span>
         </div>
+        <p style={{ color: "#555", fontSize: 12, marginBottom: 14 }}>
+          {dados.resumo.concluidos} de {dados.resumo.total} etapas concluídas
+        </p>
         <div style={{ height: 8, background: "#222", borderRadius: 4, marginBottom: 14, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${dados.percentual}%`, background: dados.percentual === 100 ? "#4ade80" : "#fbbf24", borderRadius: 4, transition: "width 0.3s" }} />
         </div>
@@ -73,32 +82,35 @@ function VisaoGeral({ navigate }) {
         <div style={cardStyleFixo}>
           <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Checklist de Configuração</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {dados.checklist.map(item => {
-              const icone = item.status === "concluido" ? "✓" : item.status === "indisponivel" ? "—" : "⚠";
-              const cor = item.status === "concluido" ? "#4ade80" : item.status === "indisponivel" ? "#555" : "#fbbf24";
+            {itensReais.map(item => {
+              const icone = item.status === "concluido" ? "✓" : "⚠";
+              const cor = item.status === "concluido" ? "#4ade80" : "#fbbf24";
               return (
-                <div
-                  key={item.chave}
-                  onClick={() => item.status !== "indisponivel" && navigate(item.link)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px", borderBottom: "1px solid #1a1a1a", cursor: item.status !== "indisponivel" ? "pointer" : "default" }}
-                >
+                <div key={item.chave} onClick={() => navigate(item.link)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px", borderBottom: "1px solid #1a1a1a", cursor: "pointer" }}>
                   <span style={{ color: cor, fontSize: 14, width: 16 }}>{icone}</span>
-                  <span style={{ color: item.status === "indisponivel" ? "#555" : "#fff", fontSize: 13, flex: 1 }}>{item.label}</span>
-                  {item.status === "indisponivel" && <span style={{ color: "#555", fontSize: 10.5 }}>em breve</span>}
+                  <span style={{ color: "#fff", fontSize: 13, flex: 1 }}>{item.label}</span>
                 </div>
               );
             })}
+            {/* Segurança: separada, sem parecer pendencia */}
+            {itemSeguranca && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px", marginTop: 4, opacity: 0.6 }}>
+                <span style={{ color: "#555", fontSize: 14, width: 16 }}>—</span>
+                <span style={{ color: "#888", fontSize: 13, flex: 1 }}>{itemSeguranca.label}</span>
+                <span style={{ color: "#555", fontSize: 10, border: "1px solid #333", borderRadius: 4, padding: "2px 6px" }}>em desenvolvimento</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Próximo Passo */}
+        {/* Próximo Passo - o "cerebro" da pagina, muda conforme o que ja foi concluido */}
         <div style={{ ...cardStyleFixo, background: "linear-gradient(135deg, #1a1428, #111)", border: "1px solid #a78bfa33" }}>
           <p style={{ color: "#a78bfa", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 10 }}>PRÓXIMO PASSO</p>
-          {dados.proximo_passo ? (
+          {proximoPasso ? (
             <>
-              <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: "0 0 8px" }}>{dados.proximo_passo.label}</p>
-              <p style={{ color: "#aaa", fontSize: 12.5, margin: "0 0 16px", lineHeight: 1.5 }}>{dados.proximo_passo.recomendacao}</p>
-              <button onClick={() => navigate(dados.proximo_passo.link)} style={{ ...btnStyle, width: "100%" }}>
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: "0 0 8px" }}>{proximoPasso.label}</p>
+              <p style={{ color: "#aaa", fontSize: 12.5, margin: "0 0 16px", lineHeight: 1.5 }}>{proximoPasso.recomendacao}</p>
+              <button onClick={() => navigate(proximoPasso.link)} style={{ ...btnStyle, width: "100%" }}>
                 Continuar configuração →
               </button>
             </>
@@ -111,11 +123,13 @@ function VisaoGeral({ navigate }) {
         </div>
       </div>
 
-      {/* Recomendações */}
+      {/* Recomendações - NUNCA repete o Proximo Passo */}
       <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
-        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Recomendações</p>
-        {tudoCerto ? (
-          <p style={{ color: "#4ade80", fontSize: 13 }}>✅ Tudo certo. Não encontramos pendências importantes na configuração atual.</p>
+        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Outras Recomendações</p>
+        {recomendacoes.length === 0 && tudoCerto ? (
+          <p style={{ color: "#4ade80", fontSize: 13 }}>✅ Tudo certo. Não encontramos outras pendências.</p>
+        ) : recomendacoes.length === 0 ? (
+          <p style={{ color: "#555", fontSize: 13 }}>Sem outras recomendações no momento.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {recomendacoes.map(item => (
@@ -134,29 +148,27 @@ function VisaoGeral({ navigate }) {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {/* Contexto da Empresa */}
-        <div style={cardStyleFixo}>
-          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 6 }}>Empresa</p>
-          <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>{dados.empresa_contexto.nome}</p>
-          <p style={{ color: "#888", fontSize: 12, margin: 0 }}>
-            {dados.empresa_contexto.tipo_juridico !== "nao_definido" ? dados.empresa_contexto.tipo_juridico.toUpperCase() : "Tipo não definido"} · {dados.empresa_contexto.pais} · {dados.empresa_contexto.moeda}
-          </p>
-        </div>
+      {/* Contexto da empresa - agora apenas uma linha, nao um card grande */}
+      <p style={{ color: "#555", fontSize: 12.5, marginBottom: 16, padding: "0 4px" }}>
+        🏢 {dados.empresa_contexto.nome} · {dados.empresa_contexto.tipo_juridico !== "nao_definido" ? dados.empresa_contexto.tipo_juridico.toUpperCase() : "tipo não definido"} · {dados.empresa_contexto.pais} · {dados.empresa_contexto.moeda}
+      </p>
 
-        {/* Últimas Alterações */}
-        <div style={cardStyleFixo}>
-          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 10 }}>Últimas configurações realizadas</p>
-          {dados.atividade_recente.length === 0 ? (
-            <p style={{ color: "#555", fontSize: 12.5 }}>Nenhuma alteração registrada ainda.</p>
-          ) : (
-            dados.atividade_recente.map((a, i) => (
-              <p key={i} style={{ color: "#ccc", fontSize: 12, margin: "0 0 6px" }}>
-                <span style={{ color: "#555" }}>{new Date(a.created_at).toLocaleDateString("pt-BR")} — </span>{a.acao}
-              </p>
-            ))
-          )}
+      {/* Últimas Alterações */}
+      <div style={cardStyleFixo}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <p style={{ color: "#fff", fontWeight: 700, margin: 0 }}>Últimas configurações realizadas</p>
+          <span onClick={() => navigate("/configuracoes/auditoria")} style={{ color: "#a78bfa", fontSize: 12, cursor: "pointer" }}>Ver histórico completo →</span>
         </div>
+        {dados.atividade_recente.length === 0 ? (
+          <p style={{ color: "#555", fontSize: 12.5 }}>Nenhuma alteração registrada ainda.</p>
+        ) : (
+          dados.atividade_recente.map((a, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: i < dados.atividade_recente.length - 1 ? "1px solid #1a1a1a" : "none" }}>
+              <span style={{ color: "#ccc", fontSize: 12.5 }}>{a.acao}</span>
+              <span style={{ color: "#555", fontSize: 11.5 }}>{new Date(a.created_at).toLocaleDateString("pt-BR")}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
@@ -564,6 +576,41 @@ function SecaoIA() {
   );
 }
 
+function SecaoAuditoria() {
+  const [log, setLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/settings/atividade-recente", { params: { limite: 100 } }).then(r => setLog(r.data || [])).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
+
+  return (
+    <div style={cardStyleFixo}>
+      <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Histórico de Auditoria</p>
+      {log.length === 0 ? (
+        <p style={{ color: "#555", fontSize: 13 }}>Nenhuma alteração registrada ainda.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {log.map((a, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < log.length - 1 ? "1px solid #1a1a1a" : "none" }}>
+              <div>
+                <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{a.acao}</p>
+                <p style={{ color: "#888", fontSize: 11.5, margin: "2px 0 0" }}>
+                  {a.usuario_nome} · {a.origem}
+                  {a.valor_anterior && ` · de "${a.valor_anterior}" para "${a.valor_novo}"`}
+                </p>
+              </div>
+              <span style={{ color: "#555", fontSize: 11.5, flexShrink: 0 }}>{new Date(a.created_at).toLocaleString("pt-BR")}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Configuracoes() {
   const { secao } = useParams();
   const navigate = useNavigate();
@@ -586,6 +633,7 @@ export default function Configuracoes() {
       {secaoAtiva === "sistema" && <SecaoSistema />}
       {secaoAtiva === "usuarios" && <SecaoUsuarios />}
       {secaoAtiva === "ia" && <SecaoIA />}
+      {secaoAtiva === "auditoria" && <SecaoAuditoria />}
       {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia"].includes(secaoAtiva) && (
         <div style={{ ...cardStyleFixo, textAlign: "center", padding: 60 }}>
           <p style={{ color: "#555", fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>
