@@ -12,5 +12,6 @@ router.put("/sistema", auth, ctrl.atualizarSistema);
 router.get("/usuarios", auth, ctrl.listarUsuarios);
 router.put("/usuarios/:id/role", auth, ctrl.mudarRoleUsuario);
 router.put("/usuarios/:id/ativo", auth, ctrl.alternarAtivoUsuario);
+router.get("/sistema-info", auth, ctrl.sistemaInfo);
 
 module.exports = router;

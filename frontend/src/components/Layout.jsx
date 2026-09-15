@@ -173,6 +173,7 @@ const trocarEmpresa = async (tenantId) => {
   const isAutomacoes = location.pathname.startsWith("/automacoes") && !location.pathname.includes("/editor");
   const isCRM = location.pathname.startsWith("/crm");
   const isLogistica = location.pathname.startsWith("/logistica");
+  const isConfiguracoes = location.pathname.startsWith("/configuracoes");
   const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes || isCRM || isLogistica;
 
   const centralLinks = [
@@ -247,6 +248,18 @@ const trocarEmpresa = async (tenantId) => {
   { to: "/financeiro/documentos", label: "Documentos", icon: "🗂️" },
 ];
 
+const configuracoesLinks = [
+  { to: "/configuracoes/visao-geral", label: "Visão Geral", icon: "📊" },
+  { to: "/configuracoes/sac", label: "SAC (Atendimento)", icon: "🎧" },
+  { to: "/configuracoes/conta", label: "Conta", icon: "👤" },
+  { to: "/configuracoes/pagamento", label: "Pagamento", icon: "💳" },
+  { to: "/configuracoes/sistema", label: "Sistema", icon: "⚙️" },
+  { to: "/configuracoes/tipo-empresa", label: "Tipo de Empresa", icon: "🏢" },
+  { to: "/configuracoes/usuarios", label: "Usuários e Permissões", icon: "👥" },
+  { to: "/configuracoes/notificacoes", label: "Notificações", icon: "🔔" },
+  { to: "/configuracoes/backup", label: "Backup e Segurança", icon: "🛡️" },
+];
+
   const automacoesLinks = [
     { to: "/automacoes/minhas", label: "Minhas Automações", icon: "⚡" },
     { to: "/automacoes/templates-ia", label: "Templates da IA", icon: "🤖" },
@@ -276,6 +289,7 @@ const trocarEmpresa = async (tenantId) => {
     : isAutomacoes ? automacoesLinks
     : isCRM ? crmLinks
     : isLogistica ? logisticaLinks
+    : isConfiguracoes ? configuracoesLinks
     : ecommerceLinks;
 
       const tituloSecao = isCentral ? t.central
@@ -285,6 +299,7 @@ const trocarEmpresa = async (tenantId) => {
     : isAutomacoes ? "Automações"
     : isCRM ? "CRM"
     : isLogistica ? "Logística"
+    : isConfiguracoes ? "Configurações"
     : "";
 
   const MODULOS_TODOS = [

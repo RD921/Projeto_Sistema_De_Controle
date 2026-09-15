@@ -166,8 +166,12 @@ function SecaoSistema() {
   const [moeda, setMoeda] = useState("BRL");
   const [msg, setMsg] = useState("");
   const [erro, setErro] = useState("");
+  const [info, setInfo] = useState(null);
 
-  useEffect(() => { api.get("/settings/overview").then(r => setMoeda(r.data.sistema.moeda)).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get("/settings/overview").then(r => setMoeda(r.data.sistema.moeda)).catch(() => {});
+    api.get("/settings/sistema-info").then(r => setInfo(r.data)).catch(() => {});
+  }, []);
 
   const salvar = async () => {
     setErro(""); setMsg("");
@@ -179,19 +183,51 @@ function SecaoSistema() {
     }
   };
 
+  const formatarUptime = (seg) => {
+    const h = Math.floor(seg / 3600);
+    const m = Math.floor((seg % 3600) / 60);
+    return `${h}h ${m}min`;
+  };
+
   return (
-    <div style={{ ...cardStyle, cursor: "default", maxWidth: 480 }}>
-      <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Configuração Geral</p>
-      <label style={labelStyle}>Moeda</label>
-      <select value={moeda} onChange={e => setMoeda(e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
-        <option value="BRL">Real (BRL)</option>
-        <option value="USD">Dólar (USD)</option>
-        <option value="EUR">Euro (EUR)</option>
-      </select>
-      {erro && <p style={{ color: "#f87171", fontSize: 12.5, marginBottom: 10 }}>{erro}</p>}
-      {msg && <p style={{ color: "#4ade80", fontSize: 12.5, marginBottom: 10 }}>{msg}</p>}
-      <button onClick={salvar} style={btnStyle}>Salvar</button>
-      <p style={{ color: "#555", fontSize: 11.5, marginTop: 16 }}>Idioma e tema já são configurados no topo da tela (ícones de globo e paleta de cores).</p>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ ...cardStyle, cursor: "default" }}>
+        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Configuração Geral</p>
+        <label style={labelStyle}>Moeda</label>
+        <select value={moeda} onChange={e => setMoeda(e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
+          <option value="BRL">Real (BRL)</option>
+          <option value="USD">Dólar (USD)</option>
+          <option value="EUR">Euro (EUR)</option>
+        </select>
+        {erro && <p style={{ color: "#f87171", fontSize: 12.5, marginBottom: 10 }}>{erro}</p>}
+        {msg && <p style={{ color: "#4ade80", fontSize: 12.5, marginBottom: 10 }}>{msg}</p>}
+        <button onClick={salvar} style={btnStyle}>Salvar</button>
+        <p style={{ color: "#555", fontSize: 11.5, marginTop: 16 }}>Idioma e tema já são configurados no topo da tela (ícones de globo e paleta de cores).</p>
+      </div>
+
+      <div style={{ ...cardStyle, cursor: "default" }}>
+        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Status do Sistema</p>
+        {!info ? <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p> : (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1a1a1a" }}>
+              <span style={{ color: "#888", fontSize: 12.5 }}>Banco de dados</span>
+              <span style={{ color: info.banco_conectado ? "#4ade80" : "#f87171", fontSize: 12.5, fontWeight: 600 }}>{info.banco_conectado ? "🟢 Conectado" : "🔴 Desconectado"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1a1a1a" }}>
+              <span style={{ color: "#888", fontSize: 12.5 }}>Versão do Node.js</span>
+              <span style={{ color: "#fff", fontSize: 12.5 }}>{info.node_version}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1a1a1a" }}>
+              <span style={{ color: "#888", fontSize: 12.5 }}>Ambiente</span>
+              <span style={{ color: "#fff", fontSize: 12.5, textTransform: "capitalize" }}>{info.ambiente}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
+              <span style={{ color: "#888", fontSize: 12.5 }}>Servidor ativo há</span>
+              <span style={{ color: "#fff", fontSize: 12.5 }}>{formatarUptime(info.uptime_segundos)}</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -225,27 +261,47 @@ function SecaoUsuarios() {
     }
   };
 
+  const totalAdmins = usuarios.filter(u => u.role === "admin").length;
+  const totalAtivos = usuarios.filter(u => u.ativo).length;
+
   if (loading) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {usuarios.map(u => (
-        <div key={u.id} style={{ ...cardStyle, cursor: "default", display: "flex", alignItems: "center", gap: 14, opacity: u.ativo ? 1 : 0.5 }}>
-          <div style={{ flex: 1 }}>
-            <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{u.nome}</p>
-            <p style={{ color: "#888", fontSize: 11.5, margin: "2px 0 0" }}>{u.email}</p>
-          </div>
-          <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: u.role === "admin" ? "#a78bfa22" : "#33333355", color: u.role === "admin" ? "#a78bfa" : "#ccc" }}>
-            {u.role === "admin" ? "Admin" : "Usuário"}
-          </span>
-          <button onClick={() => mudarRole(u.id, u.role)} style={{ background: "none", border: "1px solid #333", color: "#888", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
-            Tornar {u.role === "admin" ? "Usuário" : "Admin"}
-          </button>
-          <button onClick={() => alternarAtivo(u.id)} style={{ background: "none", border: `1px solid ${u.ativo ? "#f8717155" : "#4ade8055"}`, color: u.ativo ? "#f87171" : "#4ade80", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
-            {u.ativo ? "Desativar" : "Reativar"}
-          </button>
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={{ ...cardStyle, cursor: "default" }}>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Total de Usuários</p>
+          <p style={{ color: "#fff", fontSize: 20, fontWeight: 700, margin: 0 }}>{usuarios.length}</p>
         </div>
-      ))}
+        <div style={{ ...cardStyle, cursor: "default" }}>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Administradores</p>
+          <p style={{ color: "#a78bfa", fontSize: 20, fontWeight: 700, margin: 0 }}>{totalAdmins}</p>
+        </div>
+        <div style={{ ...cardStyle, cursor: "default" }}>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Ativos</p>
+          <p style={{ color: "#4ade80", fontSize: 20, fontWeight: 700, margin: 0 }}>{totalAtivos}</p>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {usuarios.map(u => (
+          <div key={u.id} style={{ ...cardStyle, cursor: "default", display: "flex", alignItems: "center", gap: 14, opacity: u.ativo ? 1 : 0.5 }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{u.nome}</p>
+              <p style={{ color: "#888", fontSize: 11.5, margin: "2px 0 0" }}>{u.email} · desde {new Date(u.created_at).toLocaleDateString("pt-BR")}</p>
+            </div>
+            <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: u.role === "admin" ? "#a78bfa22" : "#33333355", color: u.role === "admin" ? "#a78bfa" : "#ccc" }}>
+              {u.role === "admin" ? "Admin" : "Usuário"}
+            </span>
+            <button onClick={() => mudarRole(u.id, u.role)} style={{ background: "none", border: "1px solid #333", color: "#888", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+              Tornar {u.role === "admin" ? "Usuário" : "Admin"}
+            </button>
+            <button onClick={() => alternarAtivo(u.id)} style={{ background: "none", border: `1px solid ${u.ativo ? "#f8717155" : "#4ade8055"}`, color: u.ativo ? "#f87171" : "#4ade80", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+              {u.ativo ? "Desativar" : "Reativar"}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -265,7 +321,7 @@ export default function Configuracoes() {
       <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 6 }}>Configurações</h1>
       <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>Gerencie todas as configurações do seu sistema de forma centralizada.</p>
 
-            {secaoAtiva === "visao-geral" && (
+      {secaoAtiva === "visao-geral" && (
         <div>
           {overview && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 20 }}>
@@ -331,6 +387,17 @@ export default function Configuracoes() {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {secaoAtiva === "conta" && <SecaoConta />}
+      {secaoAtiva === "tipo-empresa" && <SecaoTipoEmpresa />}
+      {secaoAtiva === "pagamento" && <SecaoPagamento />}
+      {secaoAtiva === "sistema" && <SecaoSistema />}
+      {secaoAtiva === "usuarios" && <SecaoUsuarios />}
+      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios"].includes(secaoAtiva) && (
+        <div style={{ ...cardStyle, cursor: "default", textAlign: "center", padding: 60 }}>
+          <p style={{ color: "#555", fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>
         </div>
       )}
     </div>

@@ -140,3 +140,17 @@ exports.alternarAtivoUsuario = async (req, res) => {
     res.status(500).json({ error: "Erro ao alternar status do usuario", details: err.message });
   }
 };
+
+exports.sistemaInfo = async (req, res) => {
+  try {
+    const [[dbCheck]] = await pool.query("SELECT 1 AS ok");
+    res.json({
+      node_version: process.version,
+      uptime_segundos: Math.floor(process.uptime()),
+      ambiente: process.env.NODE_ENV || "development",
+      banco_conectado: !!dbCheck,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar informacoes do sistema", details: err.message });
+  }
+};
