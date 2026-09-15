@@ -138,6 +138,33 @@ const toolDeclarations = [
       },
     },
   },
+
+    {
+    name: "consultar_dashboard_logistica",
+    description: "Consulta o dashboard geral da logistica: total de envios, taxa de entrega no prazo, quantidade de envios atrasados, frete medio e total, e envios agrupados por status. Use para perguntas sobre como esta a logistica de forma geral.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "consultar_envios",
+    description: "Consulta a lista de envios logisticos, com filtro opcional por status (aguardando_separacao, em_separacao, despachado, em_transito, entregue, extraviado, etc). Use para perguntas sobre pedidos especificos em transporte, quantos envios estao em cada estagio, ou detalhes de entregas.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        status: { type: "STRING", description: "Filtra por um status especifico. Deixe vazio para ver todos os envios recentes." },
+      },
+    },
+  },
+  {
+    name: "consultar_score_transportadoras",
+    description: "Consulta o desempenho real de cada transportadora cadastrada: pontualidade, taxa de ocorrencias (extravio/devolucao/problema), frete medio real cobrado, e um score consolidado de 0 a 100. Use para perguntas sobre qual transportadora e melhor, ou desempenho comparado entre elas.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "consultar_alertas_logisticos",
+    description: "Consulta os alertas criticos abertos na logistica: envios atrasados, produtos com estoque critico, e envios extraviados. Use quando o usuario perguntar o que precisa de atencao urgente na logistica, ou quais problemas existem agora.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+
 ];
 
 async function consultar_estoque(args, tenantId) {
@@ -432,6 +459,103 @@ async function consultar_tarefas_vencidas(args, tenantId) {
   return { tarefas_vencidas: rows, total_encontrado: rows.length };
 }
 
+async function consultar_dashboard_logistica(args, tenantId) {
+  const [porStatus] = await pool.query(
+    "SELECT status, COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ? GROUP BY status",
+    [tenantId]
+  );
+  const [[atrasados]] = await pool.query(
+    "SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ? AND data_prevista < CURDATE() AND status NOT IN ('entregue','cancelado','devolvido')",
+    [tenantId]
+  );
+  const [[fretes]] = await pool.query(
+    "SELECT COALESCE(AVG(frete_valor), 0) AS frete_medio, COALESCE(SUM(frete_valor), 0) AS frete_total FROM logistics_shipments WHERE tenant_id = ?",
+    [tenantId]
+  );
+  const [[entregues]] = await pool.query("SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ? AND status = 'entregue'", [tenantId]);
+  const [[totalEnvios]] = await pool.query("SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ?", [tenantId]);
+  const taxaEntrega = totalEnvios.total > 0 ? Number(((entregues.total / totalEnvios.total) * 100).toFixed(1)) : null;
+
+  return {
+    por_status: porStatus,
+    atrasados: atrasados.total,
+    frete_medio: Number(fretes.frete_medio).toFixed(2),
+    frete_total: Number(fretes.frete_total).toFixed(2),
+    taxa_entrega: taxaEntrega,
+    total_envios: totalEnvios.total,
+  };
+}
+
+async function consultar_envios(args, tenantId) {
+  let sql = `SELECT s.id, s.status, s.tracking_code, s.data_prevista, o.total AS pedido_total, c.nome AS customer_nome, cr.nome AS carrier_nome
+             FROM logistics_shipments s
+             JOIN orders o ON o.id = s.order_id
+             LEFT JOIN customers c ON c.id = o.customer_id
+             LEFT JOIN logistics_carriers cr ON cr.id = s.carrier_id
+             WHERE s.tenant_id = ?`;
+  const params = [tenantId];
+  if (args.status) { sql += " AND s.status = ?"; params.push(args.status); }
+  sql += " ORDER BY s.created_at DESC LIMIT 30";
+  const [rows] = await pool.query(sql, params);
+  return { envios: rows, total_encontrado: rows.length };
+}
+
+async function consultar_score_transportadoras(args, tenantId) {
+  const [rows] = await pool.query(
+    `SELECT
+       cr.id, cr.nome, cr.custo_medio,
+       COUNT(s.id) AS total_envios,
+       SUM(CASE WHEN s.status = 'entregue' AND s.data_prevista IS NOT NULL AND DATE(s.data_entrega) <= s.data_prevista THEN 1 ELSE 0 END) AS no_prazo,
+       SUM(CASE WHEN s.status IN ('extraviado','devolvido','problema_transporte') THEN 1 ELSE 0 END) AS ocorrencias,
+       COALESCE(AVG(s.frete_valor), 0) AS frete_medio_real
+     FROM logistics_carriers cr
+     LEFT JOIN logistics_shipments s ON s.carrier_id = cr.id AND s.tenant_id = cr.tenant_id
+     WHERE cr.tenant_id = ? AND cr.ativo = TRUE
+     GROUP BY cr.id`,
+    [tenantId]
+  );
+
+  const resultado = rows.map(r => {
+    const totalEnvios = Number(r.total_envios) || 0;
+    const pontualidade = totalEnvios > 0 ? (Number(r.no_prazo) / totalEnvios) * 100 : null;
+    const taxaOcorrencia = totalEnvios > 0 ? (Number(r.ocorrencias) / totalEnvios) * 100 : null;
+    const score = totalEnvios > 0 ? Number((((pontualidade ?? 0) + (100 - (taxaOcorrencia ?? 0))) / 2).toFixed(1)) : null;
+    return {
+      nome: r.nome, total_envios: totalEnvios,
+      pontualidade_pct: pontualidade != null ? Number(pontualidade.toFixed(1)) : null,
+      frete_medio_real: Number(r.frete_medio_real).toFixed(2),
+      score,
+    };
+  });
+  resultado.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  return { transportadoras: resultado };
+}
+
+async function consultar_alertas_logisticos(args, tenantId) {
+  const alertas = [];
+
+  const [atrasados] = await pool.query(
+    `SELECT s.id, s.data_prevista, c.nome AS customer_nome
+     FROM logistics_shipments s
+     LEFT JOIN orders o ON o.id = s.order_id
+     LEFT JOIN customers c ON c.id = o.customer_id
+     WHERE s.tenant_id = ? AND s.data_prevista < CURDATE() AND s.status NOT IN ('entregue','cancelado','devolvido')`,
+    [tenantId]
+  );
+  atrasados.forEach(a => alertas.push({ severidade: "critico", tipo: "pedido_atrasado", titulo: `Envio #${a.id} atrasado`, cliente: a.customer_nome }));
+
+  const [rupturaAlta] = await pool.query(
+    "SELECT id, nome, estoque FROM products WHERE tenant_id = ? AND ativo = TRUE AND estoque <= 5",
+    [tenantId]
+  );
+  rupturaAlta.forEach(p => alertas.push({ severidade: "critico", tipo: "estoque_critico", titulo: `${p.nome} com estoque critico`, estoque: p.estoque }));
+
+  const [[extraviados]] = await pool.query("SELECT COUNT(*) AS total FROM logistics_shipments WHERE tenant_id = ? AND status = 'extraviado'", [tenantId]);
+  if (extraviados.total > 0) alertas.push({ severidade: "critico", tipo: "extravio", titulo: `${extraviados.total} envio(s) extraviado(s)` });
+
+  return { total: alertas.length, alertas };
+}
+
 const executores = {
   consultar_estoque,
   consultar_pedidos,
@@ -446,6 +570,10 @@ const executores = {
   consultar_pipeline,
   consultar_dashboard_crm,
   consultar_tarefas_vencidas,
+  consultar_dashboard_logistica,
+  consultar_envios,
+  consultar_score_transportadoras,
+  consultar_alertas_logisticos,
 };
 
 async function executarFerramenta(nome, args, tenantId) {
