@@ -5,15 +5,23 @@ import api from "../api";
 const cardStyle = { background: "#111", border: "1px solid #222", borderRadius: 12, padding: 20, cursor: "pointer" };
 
 const CARDS = [
-  { id: "sac", titulo: "SAC (Atendimento)", desc: "Configure os canais de atendimento, regras de suporte, SLA e integrações com o time de atendimento.", icone: "🎧" },
-  { id: "conta", titulo: "Configuração de Conta", desc: "Gerencie os dados da sua conta, informações da empresa e dados de acesso.", icone: "👤" },
-  { id: "pagamento", titulo: "Configuração de Pagamento", desc: "Configure as formas de pagamento, meios de recebimento, parcelamento e gateways.", icone: "💳" },
-  { id: "sistema", titulo: "Configuração Geral do Sistema", desc: "Personalize o funcionamento do sistema, idioma, moeda, fuso horário, aparência e outras preferências.", icone: "⚙️" },
-  { id: "tipo-empresa", titulo: "Tipo de Empresa", desc: "Configure regras e parâmetros específicos para o tipo de empresa (MEI, ME, EPP, LTDA, etc).", icone: "🏢" },
-  { id: "usuarios", titulo: "Usuários e Permissões", desc: "Gerencie usuários, perfis de acesso e permissões do sistema.", icone: "👥" },
-  { id: "integracoes-atalho", titulo: "Integrações", desc: "Conecte o sistema com outras plataformas e serviços (marketplaces, bancos, transportadoras, etc).", icone: "🔗", externo: "/integracoes/canais-venda" },
-  { id: "notificacoes", titulo: "Notificações", desc: "Configure como e quando receber notificações do sistema.", icone: "🔔" },
-  { id: "backup", titulo: "Backup e Segurança", desc: "Configure políticas de backup, segurança dos dados e autenticação.", icone: "🛡️" },
+  { id: "sac", titulo: "SAC (Atendimento)", desc: "Configure os canais de atendimento, regras de suporte, SLA e integrações com o time de atendimento.", icone: "🎧", cor: "#ec4899" },
+  { id: "conta", titulo: "Configuração de Conta", desc: "Gerencie os dados da sua conta, informações da empresa e dados de acesso.", icone: "👤", cor: "#3b82f6" },
+  { id: "pagamento", titulo: "Configuração de Pagamento", desc: "Configure as formas de pagamento, meios de recebimento, parcelamento e gateways.", icone: "💳", cor: "#22c55e" },
+  { id: "sistema", titulo: "Configuração Geral do Sistema", desc: "Personalize o funcionamento do sistema, idioma, moeda, fuso horário, aparência e outras preferências.", icone: "⚙️", cor: "#8b5cf6" },
+  { id: "tipo-empresa", titulo: "Tipo de Empresa", desc: "Configure regras e parâmetros específicos para o tipo de empresa (MEI, ME, EPP, LTDA, etc).", icone: "🏢", cor: "#f59e0b" },
+  { id: "usuarios", titulo: "Usuários e Permissões", desc: "Gerencie usuários, perfis de acesso e permissões do sistema.", icone: "👥", cor: "#14b8a6" },
+  { id: "integracoes-atalho", titulo: "Integrações", desc: "Conecte o sistema com outras plataformas e serviços (marketplaces, bancos, transportadoras, etc).", icone: "🔗", cor: "#ec4899", externo: "/integracoes/canais-venda" },
+  { id: "notificacoes", titulo: "Notificações", desc: "Configure como e quando receber notificações do sistema.", icone: "🔔", cor: "#ef4444" },
+  { id: "backup", titulo: "Backup e Segurança", desc: "Configure políticas de backup, segurança dos dados e autenticação.", icone: "🛡️", cor: "#3b82f6" },
+];
+
+const TIPOS_JURIDICOS_INFO = [
+  { valor: "mei", label: "MEI", desc: "Microempreendedor Individual" },
+  { valor: "me", label: "ME", desc: "Microempresa" },
+  { valor: "epp", label: "EPP", desc: "Empresa de Pequeno Porte" },
+  { valor: "ltda", label: "LTDA", desc: "Sociedade Limitada" },
+  { valor: "outros", label: "Outros", desc: "Personalizado" },
 ];
 
 const inputStyle = { width: "100%", padding: "9px 12px", background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#fff", fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif", marginBottom: 12 };
@@ -257,49 +265,72 @@ export default function Configuracoes() {
       <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 6 }}>Configurações</h1>
       <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>Gerencie todas as configurações do seu sistema de forma centralizada.</p>
 
-      {secaoAtiva === "visao-geral" && (
+            {secaoAtiva === "visao-geral" && (
         <div>
           {overview && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 20 }}>
               <div style={cardStyle}>
-                <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>🟢 Sistema</p>
+                <p style={{ color: "#4ade80", fontSize: 11.5, marginBottom: 4 }}>🟢 Sistema</p>
                 <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.sistema.status}</p>
               </div>
-              <div style={cardStyle} onClick={() => navigate("/configuracoes/tipo-empresa")}>
-                <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>🏢 Tipo de Empresa</p>
-                <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.empresa.tipo_juridico_label}</p>
+              <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }} onClick={() => navigate("/configuracoes/tipo-empresa")}>
+                <div>
+                  <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>🏢 Tipo de Empresa</p>
+                  <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.empresa.tipo_juridico_label}</p>
+                </div>
+                <span style={{ fontSize: 10.5, color: "#a78bfa", border: "1px solid #a78bfa55", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>Editar</span>
               </div>
-              <div style={cardStyle} onClick={() => navigate("/configuracoes/pagamento")}>
-                <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>👥 Plano</p>
-                <p style={{ color: "#4ade80", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.plano.nome} · Ativo</p>
+              <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }} onClick={() => navigate("/configuracoes/pagamento")}>
+                <div>
+                  <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>👥 Plano</p>
+                  <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.plano.nome}</p>
+                </div>
+                <span style={{ fontSize: 10.5, color: "#4ade80", background: "#4ade8022", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>Ativo</span>
               </div>
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 24 }}>
             {CARDS.map(c => (
               <div
                 key={c.id}
                 style={cardStyle}
                 onClick={() => c.externo ? navigate(c.externo) : navigate(`/configuracoes/${c.id}`)}
               >
-                <p style={{ fontSize: 22, margin: "0 0 8px" }}>{c.icone}</p>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: c.cor + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, marginBottom: 12 }}>
+                  {c.icone}
+                </div>
                 <p style={{ color: "#fff", fontSize: 14.5, fontWeight: 700, margin: "0 0 6px" }}>{c.titulo}</p>
                 <p style={{ color: "#888", fontSize: 12, margin: 0, lineHeight: 1.5 }}>{c.desc}</p>
               </div>
             ))}
           </div>
-        </div>
-      )}
 
-            {secaoAtiva === "conta" && <SecaoConta />}
-      {secaoAtiva === "tipo-empresa" && <SecaoTipoEmpresa />}
-      {secaoAtiva === "pagamento" && <SecaoPagamento />}
-      {secaoAtiva === "sistema" && <SecaoSistema />}
-      {secaoAtiva === "usuarios" && <SecaoUsuarios />}
-      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios"].includes(secaoAtiva) && (
-        <div style={{ ...cardStyle, cursor: "default", textAlign: "center", padding: 60 }}>
-          <p style={{ color: "#555", fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>
+          <div style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div>
+                <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: "0 0 6px" }}>Configurações Especiais por Tipo de Empresa</p>
+                <p style={{ color: "#888", fontSize: 12, margin: 0 }}>Cada tipo de empresa possui configurações específicas para atender melhor às suas necessidades e exigências legais.</p>
+              </div>
+              <button onClick={() => navigate("/configuracoes/tipo-empresa")} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                Ver detalhes
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+              {TIPOS_JURIDICOS_INFO.map(t => {
+                const atual = overview?.empresa?.tipo_juridico === t.valor;
+                return (
+                  <div key={t.valor} style={{ background: "#0a0a0a", border: `1px solid ${atual ? "#4ade8055" : "#222"}`, borderRadius: 10, padding: 14 }}>
+                    <p style={{ color: "#fff", fontWeight: 700, fontSize: 13, margin: "0 0 2px" }}>{t.label}</p>
+                    <p style={{ color: "#888", fontSize: 11, margin: "0 0 10px" }}>{t.desc}</p>
+                    <span style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 6, background: atual ? "#4ade8022" : "#33333355", color: atual ? "#4ade80" : "#888" }}>
+                      {atual ? "Ativo" : "Inativo"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
