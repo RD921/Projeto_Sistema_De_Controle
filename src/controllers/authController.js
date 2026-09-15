@@ -132,28 +132,36 @@ exports.minhasEmpresas = async (req, res) => {
 };
 
 exports.trocarEmpresa = async (req, res) => {
-  try {
-    const { tenant_id } = req.body || {};
-    if (!tenant_id) return res.status(400).json({ error: "tenant_id é obrigatório" });
+    try {
+      const { tenant_id } = req.body || {};
+      if (!tenant_id) return res.status(400).json({ error: "tenant_id é obrigatório" });
 
-    const [vinculo] = await pool.query(
-      `SELECT ut.role, t.nome FROM user_tenants ut
-       JOIN tenants t ON t.id = ut.tenant_id
-       WHERE ut.user_id = ? AND ut.tenant_id = ? AND t.ativo = 1`,
-      [req.user.id, tenant_id]
-    );
-    if (vinculo.length === 0) {
-      return res.status(403).json({ error: "Você não tem acesso a essa empresa." });
+      const [vinculo] = await pool.query(
+        `SELECT ut.role, t.nome FROM user_tenants ut
+         JOIN tenants t ON t.id = ut.tenant_id
+         WHERE ut.user_id = ? AND ut.tenant_id = ? AND t.ativo = 1`,
+        [req.user.id, tenant_id]
+      );
+      if (vinculo.length === 0) {
+        return res.status(403).json({ error: "Você não tem acesso a essa empresa." });
+      }
+
+      const token = jwt.sign(
+        { id: req.user.id, email: req.user.email, role: vinculo[0].role, tenant_id: Number(tenant_id) },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      try {
+        const audit = require("../services/auditService");
+        await audit.registrar({
+          tenantId: Number(tenant_id), usuarioId: req.user.id, usuarioNome: req.user.email,
+          acao: `Trocou de empresa (login) para ${vinculo[0].nome}`, origem: "Autenticação",
+        });
+      } catch { /* auditoria nao deve travar a troca de empresa */ }
+
+      return res.json({ message: `Empresa alterada para ${vinculo[0].nome}`, token, tenant_id: Number(tenant_id) });
+    } catch (err) {
+      return res.status(500).json({ error: "Erro ao trocar de empresa", details: err.message });
     }
-
-    const token = jwt.sign(
-      { id: req.user.id, email: req.user.email, role: vinculo[0].role, tenant_id: Number(tenant_id) },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({ message: `Empresa alterada para ${vinculo[0].nome}`, token, tenant_id: Number(tenant_id) });
-  } catch (err) {
-    return res.status(500).json({ error: "Erro ao trocar de empresa", details: err.message });
-  }
-};
+  };

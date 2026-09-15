@@ -28,23 +28,35 @@ exports.getUserById = async (req, res) => {
   }
 };
 exports.createUser = async (req, res) => {
-  try {
-    const { nome, email, senha, role } = req.body || {};
-    if (!nome || !email || !senha) {
-      return res.status(400).json({ error: "Nome, email e senha sao obrigatorios" });
+    try {
+      const { nome, email, senha, role } = req.body || {};
+      if (!nome || !email || !senha) {
+        return res.status(400).json({ error: "Nome, email e senha sao obrigatorios" });
+      }
+      const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
+      if (existing.length > 0) return res.status(409).json({ error: "Email ja cadastrado" });
+      const hash = await bcrypt.hash(senha, 10);
+      await pool.query(
+        "INSERT INTO users (nome, email, senha, role, tenant_id) VALUES (?, ?, ?, ?, ?)",
+        [nome, email, hash, role || "user", req.tenant_id]
+      );
+
+      try {
+        const audit = require("../services/auditService");
+        const pool2 = require("../config/db");
+        const [[quemCriou]] = await pool2.query("SELECT nome FROM users WHERE id = ?", [req.user.id]);
+        await audit.registrar({
+          tenantId: req.tenant_id, usuarioId: req.user.id, usuarioNome: quemCriou?.nome,
+          acao: `Criou o usuário ${nome}`, origem: "Usuários e Permissões",
+          valorNovo: `${email} (${role || "user"})`,
+        });
+      } catch { /* auditoria nao deve travar a criacao do usuario */ }
+
+      res.status(201).json({ message: "Usuario criado com sucesso" });
+    } catch (err) {
+      res.status(500).json({ error: "Erro ao criar usuario", details: err.message });
     }
-    const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
-    if (existing.length > 0) return res.status(409).json({ error: "Email ja cadastrado" });
-    const hash = await bcrypt.hash(senha, 10);
-    await pool.query(
-      "INSERT INTO users (nome, email, senha, role, tenant_id) VALUES (?, ?, ?, ?, ?)",
-      [nome, email, hash, role || "user", req.tenant_id]
-    );
-    res.status(201).json({ message: "Usuario criado com sucesso" });
-  } catch (err) {
-    res.status(500).json({ error: "Erro ao criar usuario", details: err.message });
-  }
-};
+  };
 exports.updateUser = async (req, res) => {
   try {
     const { nome, email, role, ativo } = req.body || {};
