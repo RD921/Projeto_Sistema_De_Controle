@@ -1,0 +1,14 @@
+ALTER TABLE tenants ADD COLUMN pais VARCHAR(50) NOT NULL DEFAULT 'Brasil';
+
+CREATE TABLE audit_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  usuario_id INT NULL,
+  usuario_nome VARCHAR(150) NULL,
+  acao VARCHAR(255) NOT NULL,
+  origem VARCHAR(100) NOT NULL,
+  valor_anterior VARCHAR(255) NULL,
+  valor_novo VARCHAR(255) NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+);

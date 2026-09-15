@@ -174,7 +174,7 @@ const trocarEmpresa = async (tenantId) => {
   const isCRM = location.pathname.startsWith("/crm");
   const isLogistica = location.pathname.startsWith("/logistica");
   const isConfiguracoes = location.pathname.startsWith("/configuracoes");
-  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes || isCRM || isLogistica;
+  const hasSidebar = isEcommerce || isMarketing || isCentral || isIntegracoes || isFinanceiro || isAutomacoes || isCRM || isLogistica || isConfiguracoes;
 
   const centralLinks = [
     { to: "/central-controle/resumo", label: "Resumo", icon: "📊" },
@@ -190,7 +190,7 @@ const trocarEmpresa = async (tenantId) => {
     { to: "/customers", label: t.clientes, icon: "👥" },
   ];
   
-      const marketingLinks = [
+  const marketingLinks = [
     { to: "/marketing/visao-geral", label: "Visão Geral", icon: "📊" },
     { to: "/marketing/alcance-metricas", label: "Alcance & Métricas", icon: "📍" },
     { to: "/marketing/leads-campanhas", label: "Leads & Campanhas", icon: "🚀" },
@@ -250,14 +250,21 @@ const trocarEmpresa = async (tenantId) => {
 
 const configuracoesLinks = [
   { to: "/configuracoes/visao-geral", label: "Visão Geral", icon: "📊" },
-  { to: "/configuracoes/sac", label: "SAC (Atendimento)", icon: "🎧" },
-  { to: "/configuracoes/conta", label: "Conta", icon: "👤" },
-  { to: "/configuracoes/pagamento", label: "Pagamento", icon: "💳" },
-  { to: "/configuracoes/sistema", label: "Sistema", icon: "⚙️" },
-  { to: "/configuracoes/tipo-empresa", label: "Tipo de Empresa", icon: "🏢" },
+  { grupo: "EMPRESA" },
+  { to: "/configuracoes/tipo-empresa", label: "Empresa e Tipo Jurídico", icon: "🏢" },
+  { grupo: "CONTA" },
+  { to: "/configuracoes/conta", label: "Minha Conta", icon: "👤" },
   { to: "/configuracoes/usuarios", label: "Usuários e Permissões", icon: "👥" },
+  { grupo: "SISTEMA" },
+  { to: "/configuracoes/sistema", label: "Sistema", icon: "⚙️" },
   { to: "/configuracoes/notificacoes", label: "Notificações", icon: "🔔" },
+  { grupo: "SERVIÇOS" },
+  { to: "/configuracoes/pagamento", label: "Pagamento", icon: "💳" },
+  { to: "/configuracoes/sac", label: "SAC / Atendimento", icon: "🎧" },
+  { grupo: "SEGURANÇA" },
   { to: "/configuracoes/backup", label: "Backup e Segurança", icon: "🛡️" },
+  { grupo: "INTELIGÊNCIA" },
+  { to: "/configuracoes/ia", label: "Configuração da IA", icon: "🧠" },
 ];
 
   const automacoesLinks = [
@@ -282,7 +289,7 @@ const configuracoesLinks = [
   { to: "/logistica/simulador", label: "Simulador", icon: "🔮" },
 ];
 
-         const linksAtivos = isCentral ? centralLinks
+  const linksAtivos = isCentral ? centralLinks
     : isMarketing ? marketingLinks
     : isIntegracoes ? integracoesLinks
     : isFinanceiro ? financeiroLinks
@@ -349,7 +356,15 @@ const configuracoesLinks = [
             </h2>
           )}
 
-          {linksAtivos.map((n) => {
+                    {linksAtivos.map((n, idx) => {
+            if (n.grupo) {
+              if (sidebarColapsada) return null;
+              return (
+                <p key={`grupo-${idx}`} style={{ color: cor.textMuted, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", padding: "14px 20px 4px", margin: 0, opacity: 0.7 }}>
+                  {n.grupo}
+                </p>
+              );
+            }
             if (isFinanceiro && n.to === "/financeiro/contabilidade") {
               const contabilAtivo = location.pathname.startsWith("/financeiro/contabilidade");
               return (

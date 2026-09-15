@@ -3,30 +3,180 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 
 const cardStyle = { background: "#111", border: "1px solid #222", borderRadius: 12, padding: 20, cursor: "pointer" };
+const cardStyleFixo = { ...cardStyle, cursor: "default" };
 
-const CARDS = [
-  { id: "sac", titulo: "SAC (Atendimento)", desc: "Configure os canais de atendimento, regras de suporte, SLA e integrações com o time de atendimento.", icone: "🎧", cor: "#ec4899" },
-  { id: "conta", titulo: "Configuração de Conta", desc: "Gerencie os dados da sua conta, informações da empresa e dados de acesso.", icone: "👤", cor: "#3b82f6" },
-  { id: "pagamento", titulo: "Configuração de Pagamento", desc: "Configure as formas de pagamento, meios de recebimento, parcelamento e gateways.", icone: "💳", cor: "#22c55e" },
-  { id: "sistema", titulo: "Configuração Geral do Sistema", desc: "Personalize o funcionamento do sistema, idioma, moeda, fuso horário, aparência e outras preferências.", icone: "⚙️", cor: "#8b5cf6" },
-  { id: "tipo-empresa", titulo: "Tipo de Empresa", desc: "Configure regras e parâmetros específicos para o tipo de empresa (MEI, ME, EPP, LTDA, etc).", icone: "🏢", cor: "#f59e0b" },
-  { id: "usuarios", titulo: "Usuários e Permissões", desc: "Gerencie usuários, perfis de acesso e permissões do sistema.", icone: "👥", cor: "#14b8a6" },
-  { id: "integracoes-atalho", titulo: "Integrações", desc: "Conecte o sistema com outras plataformas e serviços (marketplaces, bancos, transportadoras, etc).", icone: "🔗", cor: "#ec4899", externo: "/integracoes/canais-venda" },
-  { id: "notificacoes", titulo: "Notificações", desc: "Configure como e quando receber notificações do sistema.", icone: "🔔", cor: "#ef4444" },
-  { id: "backup", titulo: "Backup e Segurança", desc: "Configure políticas de backup, segurança dos dados e autenticação.", icone: "🛡️", cor: "#3b82f6" },
+const CARDS_PRINCIPAIS = [
+  { id: "tipo-empresa", titulo: "Empresa", desc: "Dados cadastrais e perfil empresarial.", icone: "🏢", cor: "#f59e0b" },
+  { id: "conta", titulo: "Conta", desc: "Informações da conta, acesso e dados do usuário.", icone: "👤", cor: "#3b82f6" },
+  { id: "pagamento", titulo: "Pagamentos", desc: "Meios de pagamento e cobranças.", icone: "💳", cor: "#22c55e" },
+  { id: "sistema", titulo: "Sistema", desc: "Preferências gerais do sistema.", icone: "⚙️", cor: "#8b5cf6" },
+  { id: "usuarios", titulo: "Usuários e Permissões", desc: "Usuários, perfis e permissões.", icone: "👥", cor: "#14b8a6" },
+  { id: "notificacoes", titulo: "Notificações", desc: "Preferências de notificações.", icone: "🔔", cor: "#ef4444" },
+  { id: "backup", titulo: "Backup e Segurança", desc: "Políticas e configurações de backup.", icone: "🛡️", cor: "#3b82f6" },
+  { id: "sac", titulo: "SAC / Atendimento", desc: "Configurações gerais de atendimento.", icone: "🎧", cor: "#ec4899" },
+  { id: "ia", titulo: "Inteligência Artificial", desc: "Configuração global da Aria: comportamento, permissões e módulos disponíveis.", icone: "🧠", cor: "#4ade80" },
 ];
 
-const TIPOS_JURIDICOS_INFO = [
-  { valor: "mei", label: "MEI", desc: "Microempreendedor Individual" },
-  { valor: "me", label: "ME", desc: "Microempresa" },
-  { valor: "epp", label: "EPP", desc: "Empresa de Pequeno Porte" },
-  { valor: "ltda", label: "LTDA", desc: "Sociedade Limitada" },
-  { valor: "outros", label: "Outros", desc: "Personalizado" },
+const ACOES_RAPIDAS = [
+  { label: "Adicionar usuário", icone: "➕", to: "/configuracoes/usuarios" },
+  { label: "Editar empresa", icone: "🏢", to: "/configuracoes/tipo-empresa" },
+  { label: "Configurar pagamento", icone: "💳", to: "/configuracoes/pagamento" },
+  { label: "Segurança", icone: "🔐", to: "/configuracoes/backup" },
 ];
 
 const inputStyle = { width: "100%", padding: "9px 12px", background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#fff", fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif", marginBottom: 12 };
 const labelStyle = { color: "#555", fontSize: 11, display: "block", marginBottom: 4 };
 const btnStyle = { background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" };
+
+function formatarDataHora(iso) {
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+// ═══════════════════ NOVA VISÃO GERAL ═══════════════════
+function VisaoGeral({ overview, navigate }) {
+  const [atividade, setAtividade] = useState([]);
+
+  useEffect(() => {
+    api.get("/settings/atividade-recente", { params: { limite: 6 } }).then(r => setAtividade(r.data || [])).catch(() => {});
+  }, []);
+
+  if (!overview) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
+
+  const pendencias = overview.status_configuracao.checks.filter(c => !c.ok);
+
+  return (
+    <div>
+      {/* Perfil da Empresa */}
+      <div style={{ ...cardStyleFixo, display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 10, background: "#f59e0b22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏢</div>
+          <div>
+            <p style={{ color: "#fff", fontWeight: 700, fontSize: 16, margin: "0 0 4px" }}>{overview.empresa.nome}</p>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: "#888", fontSize: 12 }}>
+              <span>Tipo: {overview.empresa.tipo_juridico_label}</span>
+              <span>·</span>
+              <span>País: {overview.empresa.pais}</span>
+              <span>·</span>
+              <span>Moeda: {overview.empresa.moeda}</span>
+            </div>
+          </div>
+        </div>
+        <button onClick={() => navigate("/configuracoes/tipo-empresa")} style={{ background: "none", border: "1px solid #333", color: "#a78bfa", borderRadius: 8, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+          Editar perfil
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+        {/* Status de Configuração */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>Status da Configuração</p>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12 }}>
+            <span style={{ color: overview.status_configuracao.percentual === 100 ? "#4ade80" : "#fbbf24", fontSize: 28, fontWeight: 700 }}>{overview.status_configuracao.percentual}%</span>
+            <span style={{ color: "#555", fontSize: 11.5 }}>configurado</span>
+          </div>
+          <div style={{ height: 6, background: "#222", borderRadius: 4, marginBottom: 14, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${overview.status_configuracao.percentual}%`, background: overview.status_configuracao.percentual === 100 ? "#4ade80" : "#fbbf24", borderRadius: 4 }} />
+          </div>
+          {overview.status_configuracao.checks.map(c => (
+            <div key={c.chave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 12 }}>
+              <span style={{ color: c.ok ? "#4ade80" : "#fbbf24" }}>{c.ok ? "✓" : "⚠"}</span>
+              <span style={{ color: c.ok ? "#888" : "#fff" }}>{c.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Configuração Inteligente */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>✨ Configuração Inteligente</p>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 14 }}>{pendencias.length} recomendação(ões)</p>
+          {pendencias.length === 0 ? (
+            <p style={{ color: "#4ade80", fontSize: 13 }}>✅ Nenhuma pendência encontrada.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {pendencias.map(p => (
+                <div key={p.chave} style={{ background: "#0a0a0a", border: "1px solid #f59e0b33", borderRadius: 8, padding: 10 }}>
+                  <p style={{ color: "#fbbf24", fontSize: 12, fontWeight: 600, margin: "0 0 4px" }}>⚠ {p.label}</p>
+                  <button onClick={() => navigate(mapaLinkPendencia(p.chave))} style={{ background: "none", border: "1px solid #333", color: "#a78bfa", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                    Configurar agora
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Módulos Instalados */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 4 }}>Módulos Instalados</p>
+          <p style={{ color: "#555", fontSize: 11.5, marginBottom: 14 }}>{overview.modulos.total_instalados} de {overview.modulos.total_disponiveis}</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+            {overview.modulos.lista.map(m => (
+              <div key={m.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
+                <span style={{ color: "#ccc" }}>{m.label}</span>
+                <span style={{ color: m.instalado ? "#4ade80" : "#555" }}>{m.instalado ? "Instalado" : "Não instalado"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Configurações Principais */}
+      <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Configurações Principais</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 24 }}>
+        {CARDS_PRINCIPAIS.map(c => (
+          <div key={c.id} style={cardStyle} onClick={() => navigate(`/configuracoes/${c.id}`)}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: c.cor + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginBottom: 10 }}>{c.icone}</div>
+            <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 700, margin: "0 0 4px" }}>{c.titulo}</p>
+            <p style={{ color: "#888", fontSize: 11.5, margin: 0 }}>{c.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Ações Rápidas */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>⚡ Ações Rápidas</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {ACOES_RAPIDAS.map(a => (
+              <button key={a.label} onClick={() => navigate(a.to)} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "1px solid #222", color: "#ccc", borderRadius: 8, padding: "10px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                <span>{a.icone}</span> {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Atividade Recente */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Atividade Recente</p>
+          {atividade.length === 0 ? (
+            <p style={{ color: "#555", fontSize: 13 }}>Nenhuma atividade registrada ainda.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {atividade.map(a => (
+                <div key={a.id} style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
+                  <p style={{ color: "#fff", fontSize: 12.5, margin: 0 }}>{a.acao}</p>
+                  <p style={{ color: "#555", fontSize: 11, margin: "2px 0 0" }}>{a.usuario_nome} · {a.origem} · {formatarDataHora(a.created_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function mapaLinkPendencia(chave) {
+  const mapa = {
+    conta_configurada: "/configuracoes/conta",
+    empresa_configurada: "/configuracoes/tipo-empresa",
+    tipo_empresa_configurado: "/configuracoes/tipo-empresa",
+    usuarios_configurados: "/configuracoes/usuarios",
+    sistema_configurado: "/configuracoes/sistema",
+    pagamento_configurado: "/configuracoes/pagamento",
+  };
+  return mapa[chave] || "/configuracoes/visao-geral";
+}
 
 function SecaoConta() {
   const [form, setForm] = useState({ nome: "", email: "" });
@@ -67,7 +217,7 @@ function SecaoConta() {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-      <form onSubmit={salvarConta} style={cardStyle}>
+      <form onSubmit={salvarConta} style={cardStyleFixo}>
         <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Dados da Conta</p>
         <label style={labelStyle}>Nome</label>
         <input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} style={inputStyle} />
@@ -78,7 +228,7 @@ function SecaoConta() {
         <button type="submit" style={btnStyle}>Salvar</button>
       </form>
 
-      <form onSubmit={salvarSenha} style={cardStyle}>
+      <form onSubmit={salvarSenha} style={cardStyleFixo}>
         <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Alterar Senha</p>
         <label style={labelStyle}>Senha atual</label>
         <input type="password" value={senhas.senha_atual} onChange={e => setSenhas({ ...senhas, senha_atual: e.target.value })} style={inputStyle} />
@@ -120,8 +270,8 @@ function SecaoTipoEmpresa() {
   ];
 
   return (
-    <div style={{ ...cardStyle, cursor: "default", maxWidth: 480 }}>
-      <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Tipo de Empresa</p>
+    <div style={{ ...cardStyleFixo, maxWidth: 480 }}>
+      <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Empresa e Tipo Jurídico</p>
       <p style={{ color: "#888", fontSize: 12, marginBottom: 16 }}>Isso ajuda o sistema a ajustar regras fiscais e exigências específicas para o seu tipo de negócio.</p>
       <select value={tipo} onChange={e => setTipo(e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
         <option value="nao_definido" disabled>Selecione...</option>
@@ -139,7 +289,7 @@ function SecaoPagamento() {
   useEffect(() => { api.get("/settings/overview").then(r => setDados(r.data)).catch(() => {}); }, []);
   if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
   return (
-    <div style={{ ...cardStyle, cursor: "default", maxWidth: 480 }}>
+    <div style={{ ...cardStyleFixo, maxWidth: 480 }}>
       <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Plano Atual</p>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
         <span style={{ color: "#888", fontSize: 13 }}>Plano</span>
@@ -191,7 +341,7 @@ function SecaoSistema() {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-      <div style={{ ...cardStyle, cursor: "default" }}>
+      <div style={cardStyleFixo}>
         <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Configuração Geral</p>
         <label style={labelStyle}>Moeda</label>
         <select value={moeda} onChange={e => setMoeda(e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
@@ -205,7 +355,7 @@ function SecaoSistema() {
         <p style={{ color: "#555", fontSize: 11.5, marginTop: 16 }}>Idioma e tema já são configurados no topo da tela (ícones de globo e paleta de cores).</p>
       </div>
 
-      <div style={{ ...cardStyle, cursor: "default" }}>
+      <div style={cardStyleFixo}>
         <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Status do Sistema</p>
         {!info ? <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p> : (
           <>
@@ -269,15 +419,15 @@ function SecaoUsuarios() {
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <div style={{ ...cardStyle, cursor: "default" }}>
+        <div style={cardStyleFixo}>
           <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Total de Usuários</p>
           <p style={{ color: "#fff", fontSize: 20, fontWeight: 700, margin: 0 }}>{usuarios.length}</p>
         </div>
-        <div style={{ ...cardStyle, cursor: "default" }}>
+        <div style={cardStyleFixo}>
           <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Administradores</p>
           <p style={{ color: "#a78bfa", fontSize: 20, fontWeight: 700, margin: 0 }}>{totalAdmins}</p>
         </div>
-        <div style={{ ...cardStyle, cursor: "default" }}>
+        <div style={cardStyleFixo}>
           <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>Ativos</p>
           <p style={{ color: "#4ade80", fontSize: 20, fontWeight: 700, margin: 0 }}>{totalAtivos}</p>
         </div>
@@ -285,7 +435,7 @@ function SecaoUsuarios() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {usuarios.map(u => (
-          <div key={u.id} style={{ ...cardStyle, cursor: "default", display: "flex", alignItems: "center", gap: 14, opacity: u.ativo ? 1 : 0.5 }}>
+          <div key={u.id} style={{ ...cardStyleFixo, display: "flex", alignItems: "center", gap: 14, opacity: u.ativo ? 1 : 0.5 }}>
             <div style={{ flex: 1 }}>
               <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{u.nome}</p>
               <p style={{ color: "#888", fontSize: 11.5, margin: "2px 0 0" }}>{u.email} · desde {new Date(u.created_at).toLocaleDateString("pt-BR")}</p>
@@ -306,6 +456,118 @@ function SecaoUsuarios() {
   );
 }
 
+function SecaoIA() {
+  const [dados, setDados] = useState(null);
+  const [form, setForm] = useState({ nivel_detalhamento: "equilibrado", forma_comunicacao: "direta" });
+  const [msg, setMsg] = useState("");
+  const [erro, setErro] = useState("");
+  const [mostrarFerramentas, setMostrarFerramentas] = useState(false);
+
+  const carregar = () => {
+    api.get("/settings/ia").then(r => {
+      setDados(r.data);
+      setForm(r.data.comportamento);
+    }).catch(() => {});
+  };
+  useEffect(() => { carregar(); }, []);
+
+  const salvar = async () => {
+    setErro(""); setMsg("");
+    try {
+      await api.put("/settings/ia/comportamento", form);
+      setMsg("Comportamento da IA atualizado.");
+    } catch (err) {
+      setErro(err.response?.data?.error || "Erro ao salvar.");
+    }
+  };
+
+  if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando...</p>;
+
+  return (
+    <div>
+      {/* Status */}
+      <div style={{ ...cardStyleFixo, display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: "#4ade8022", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🧠</div>
+        <div>
+          <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: 0 }}>Inteligência Artificial Estratégica (Aria)</p>
+          <p style={{ color: "#4ade80", fontSize: 12, margin: "2px 0 0" }}>● Ativa — operando no nível "Somente Análise"</p>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Nível de Autonomia */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 10 }}>Nível de Autonomia</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", border: "1px solid #4ade8033", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+            <span style={{ color: "#4ade80", fontSize: 16 }}>●</span>
+            <div>
+              <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: 0 }}>Somente Análise</p>
+              <p style={{ color: "#888", fontSize: 11.5, margin: "2px 0 0" }}>A Aria consulta dados e responde perguntas — não executa nenhuma ação no sistema.</p>
+            </div>
+          </div>
+          <p style={{ color: "#555", fontSize: 11 }}>
+            Níveis de Recomendação, Aprovação e Execução Automática exigem ferramentas de execução que ainda não existem no sistema. Ficarão disponíveis conforme a Aria evoluir.
+          </p>
+        </div>
+
+        {/* Comportamento */}
+        <div style={cardStyleFixo}>
+          <p style={{ color: "#fff", fontWeight: 700, marginBottom: 14 }}>Comportamento da IA</p>
+          <label style={labelStyle}>Nível de detalhamento</label>
+          <select value={form.nivel_detalhamento} onChange={e => setForm({ ...form, nivel_detalhamento: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+            <option value="objetivo">Objetivo</option>
+            <option value="equilibrado">Equilibrado</option>
+            <option value="detalhado">Detalhado</option>
+            <option value="executivo">Executivo</option>
+          </select>
+          <label style={labelStyle}>Forma de comunicação</label>
+          <select value={form.forma_comunicacao} onChange={e => setForm({ ...form, forma_comunicacao: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+            <option value="direta">Direta</option>
+            <option value="executiva">Executiva</option>
+            <option value="tecnica">Técnica</option>
+            <option value="explicativa">Explicativa</option>
+          </select>
+          {erro && <p style={{ color: "#f87171", fontSize: 12.5, marginBottom: 10 }}>{erro}</p>}
+          {msg && <p style={{ color: "#4ade80", fontSize: 12.5, marginBottom: 10 }}>{msg}</p>}
+          <button onClick={salvar} style={btnStyle}>Salvar</button>
+          <p style={{ color: "#555", fontSize: 11, marginTop: 12 }}>Essas preferências mudam de verdade como a Aria formula as respostas no chat.</p>
+        </div>
+      </div>
+
+      {/* Módulos disponíveis para a IA */}
+      <div style={{ ...cardStyleFixo, marginBottom: 16 }}>
+        <p style={{ color: "#fff", fontWeight: 700, marginBottom: 12 }}>Módulos Disponíveis para a IA</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+          {dados.modulos.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+              <span style={{ color: m.instalado ? "#4ade80" : "#555" }}>{m.instalado ? "✓" : "○"}</span>
+              <span style={{ color: m.instalado ? "#fff" : "#555" }}>{m.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Permissões de consulta (ferramentas reais) */}
+      <div style={cardStyleFixo}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setMostrarFerramentas(!mostrarFerramentas)}>
+          <p style={{ color: "#fff", fontWeight: 700, margin: 0 }}>Permissões de Consulta ({dados.total_ferramentas} ferramentas ativas)</p>
+          <span style={{ color: "#888", fontSize: 12 }}>{mostrarFerramentas ? "▲ ocultar" : "▼ ver todas"}</span>
+        </div>
+        {mostrarFerramentas && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+            {dados.permissoes_consulta.map(p => (
+              <div key={p.nome} style={{ padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                <p style={{ color: "#4ade80", fontSize: 12.5, fontWeight: 600, margin: 0, fontFamily: "monospace" }}>{p.nome}</p>
+                <p style={{ color: "#888", fontSize: 11.5, margin: "3px 0 0" }}>{p.descricao}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Configuracoes() {
   const { secao } = useParams();
   const navigate = useNavigate();
@@ -318,85 +580,18 @@ export default function Configuracoes() {
 
   return (
     <div>
-      <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 6 }}>Configurações</h1>
-      <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>Gerencie todas as configurações do seu sistema de forma centralizada.</p>
+      <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 6 }}>Visão Geral</h1>
+      <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>Central de configuração da sua empresa. Aqui você encontra um resumo do que está configurado, pendências e recomendações.</p>
 
-      {secaoAtiva === "visao-geral" && (
-        <div>
-          {overview && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 20 }}>
-              <div style={cardStyle}>
-                <p style={{ color: "#4ade80", fontSize: 11.5, marginBottom: 4 }}>🟢 Sistema</p>
-                <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.sistema.status}</p>
-              </div>
-              <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }} onClick={() => navigate("/configuracoes/tipo-empresa")}>
-                <div>
-                  <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>🏢 Tipo de Empresa</p>
-                  <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.empresa.tipo_juridico_label}</p>
-                </div>
-                <span style={{ fontSize: 10.5, color: "#a78bfa", border: "1px solid #a78bfa55", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>Editar</span>
-              </div>
-              <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }} onClick={() => navigate("/configuracoes/pagamento")}>
-                <div>
-                  <p style={{ color: "#555", fontSize: 11.5, marginBottom: 4 }}>👥 Plano</p>
-                  <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 600, margin: 0 }}>{overview.plano.nome}</p>
-                </div>
-                <span style={{ fontSize: 10.5, color: "#4ade80", background: "#4ade8022", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>Ativo</span>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 24 }}>
-            {CARDS.map(c => (
-              <div
-                key={c.id}
-                style={cardStyle}
-                onClick={() => c.externo ? navigate(c.externo) : navigate(`/configuracoes/${c.id}`)}
-              >
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: c.cor + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, marginBottom: 12 }}>
-                  {c.icone}
-                </div>
-                <p style={{ color: "#fff", fontSize: 14.5, fontWeight: 700, margin: "0 0 6px" }}>{c.titulo}</p>
-                <p style={{ color: "#888", fontSize: 12, margin: 0, lineHeight: 1.5 }}>{c.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div style={cardStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-              <div>
-                <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, margin: "0 0 6px" }}>Configurações Especiais por Tipo de Empresa</p>
-                <p style={{ color: "#888", fontSize: 12, margin: 0 }}>Cada tipo de empresa possui configurações específicas para atender melhor às suas necessidades e exigências legais.</p>
-              </div>
-              <button onClick={() => navigate("/configuracoes/tipo-empresa")} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                Ver detalhes
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-              {TIPOS_JURIDICOS_INFO.map(t => {
-                const atual = overview?.empresa?.tipo_juridico === t.valor;
-                return (
-                  <div key={t.valor} style={{ background: "#0a0a0a", border: `1px solid ${atual ? "#4ade8055" : "#222"}`, borderRadius: 10, padding: 14 }}>
-                    <p style={{ color: "#fff", fontWeight: 700, fontSize: 13, margin: "0 0 2px" }}>{t.label}</p>
-                    <p style={{ color: "#888", fontSize: 11, margin: "0 0 10px" }}>{t.desc}</p>
-                    <span style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 6, background: atual ? "#4ade8022" : "#33333355", color: atual ? "#4ade80" : "#888" }}>
-                      {atual ? "Ativo" : "Inativo"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {secaoAtiva === "visao-geral" && <VisaoGeral overview={overview} navigate={navigate} />}
       {secaoAtiva === "conta" && <SecaoConta />}
       {secaoAtiva === "tipo-empresa" && <SecaoTipoEmpresa />}
       {secaoAtiva === "pagamento" && <SecaoPagamento />}
       {secaoAtiva === "sistema" && <SecaoSistema />}
       {secaoAtiva === "usuarios" && <SecaoUsuarios />}
-      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios"].includes(secaoAtiva) && (
-        <div style={{ ...cardStyle, cursor: "default", textAlign: "center", padding: 60 }}>
+      {secaoAtiva === "ia" && <SecaoIA />}
+      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia"].includes(secaoAtiva) && (
+        <div style={{ ...cardStyleFixo, textAlign: "center", padding: 60 }}>
           <p style={{ color: "#555", fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>
         </div>
       )}
