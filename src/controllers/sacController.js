@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const audit = require("../services/auditService");
 const role = require("../middleware/roleMiddleware");
+const eventDispatcher = require("../automation/engine/EventDispatcher");
 
 // Transicoes de status validas - o sistema controla, nao aceita qualquer string
 const STATUS_VALIDOS = ["novo", "em_atendimento", "aguardando_cliente", "aguardando_empresa", "resolvido", "encerrado", "reaberto"];
@@ -103,7 +104,13 @@ exports.criarTicket = async (req, res) => {
       [req.tenant_id, customer_id || null, order_id || null, assunto, descricao || null, categoria || "outros", prioridade || "normal", canal || "chat"]
     );
 
-    await registrarHistorico(result.insertId, req.user.id, "Ticket criado", null, "novo");
+        await registrarHistorico(result.insertId, req.user.id, "Ticket criado", null, "novo");
+
+    try {
+      await eventDispatcher.dispatch("TICKET_CRIADO", req.tenant_id, {
+        ticket_id: result.insertId, customer_id: customer_id || null, categoria: categoria || "outros", prioridade: prioridade || "normal",
+      });
+    } catch {}
 
     res.status(201).json({ id: result.insertId, message: "Ticket criado" });
   } catch (err) {
@@ -132,7 +139,13 @@ exports.atualizarStatus = async (req, res) => {
       [status, ...valoresExtras, req.params.id, req.tenant_id]
     );
 
-    await registrarHistorico(req.params.id, req.user.id, "Status alterado", ticket.status, status);
+       await registrarHistorico(req.params.id, req.user.id, "Status alterado", ticket.status, status);
+
+    try {
+      await eventDispatcher.dispatch("TICKET_STATUS_ALTERADO", req.tenant_id, { ticket_id: Number(req.params.id), status_anterior: ticket.status, status_novo: status });
+      if (status === "resolvido") await eventDispatcher.dispatch("TICKET_RESOLVIDO", req.tenant_id, { ticket_id: Number(req.params.id) });
+      if (status === "reaberto") await eventDispatcher.dispatch("TICKET_REABERTO", req.tenant_id, { ticket_id: Number(req.params.id) });
+    } catch {}
 
     // Acoes de encerramento administrativo sao sensiveis - entram na auditoria central
     if (status === "encerrado") {
@@ -178,7 +191,11 @@ exports.atribuirResponsavel = async (req, res) => {
     if (!ticket) return res.status(404).json({ error: "Ticket nao encontrado" });
 
     await pool.query("UPDATE sac_tickets SET responsavel_id = ? WHERE id = ? AND tenant_id = ?", [responsavel_id || null, req.params.id, req.tenant_id]);
-    await registrarHistorico(req.params.id, req.user.id, "Responsável atribuído", String(ticket.responsavel_id || "ninguém"), String(responsavel_id || "ninguém"));
+        await registrarHistorico(req.params.id, req.user.id, "Responsável atribuído", String(ticket.responsavel_id || "ninguém"), String(responsavel_id || "ninguém"));
+
+    try {
+      await eventDispatcher.dispatch("TICKET_ATRIBUIDO", req.tenant_id, { ticket_id: Number(req.params.id), responsavel_id: responsavel_id || null });
+    } catch {}
 
     res.json({ message: "Responsavel atualizado" });
   } catch (err) {
@@ -194,10 +211,16 @@ exports.enviarMensagem = async (req, res) => {
     const [[ticket]] = await pool.query("SELECT id, status FROM sac_tickets WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (!ticket) return res.status(404).json({ error: "Ticket nao encontrado" });
 
-    await pool.query(
+       await pool.query(
       "INSERT INTO sac_messages (ticket_id, remetente_id, tipo, conteudo, interna) VALUES (?, ?, 'atendente', ?, ?)",
       [req.params.id, req.user.id, conteudo, !!interna]
     );
+
+    if (!interna) {
+      try {
+        await eventDispatcher.dispatch("TICKET_MENSAGEM_ENVIADA", req.tenant_id, { ticket_id: Number(req.params.id) });
+      } catch {}
+    }
 
     // Primeira resposta: registra o timestamp se ainda nao existir
     const [[jaTemResposta]] = await pool.query("SELECT primeira_resposta_em FROM sac_tickets WHERE id = ?", [req.params.id]);
@@ -620,5 +643,34 @@ exports.aplicarRespostaRapida = async (req, res) => {
     res.json({ conteudo: textoFinal });
   } catch (err) {
     res.status(500).json({ error: "Erro ao aplicar resposta rapida", details: err.message });
+  }
+};
+
+// ── FASE 7: Verificacao periodica de SLA (para disparar eventos de vencimento) ──
+// Chamado manualmente por enquanto; a arquitetura permite plugar um scheduler/cron depois
+// sem mudar nada aqui - so quem chama essa rota.
+exports.verificarSlaVencimentos = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+    const [tickets] = await pool.query(
+      "SELECT id, prioridade, created_at, primeira_resposta_em, resolvido_em, encerrado_em FROM sac_tickets WHERE tenant_id = ? AND status NOT IN ('resolvido','encerrado')",
+      [tenantId]
+    );
+    const [regras] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ?", [tenantId]);
+    const mapaRegras = Object.fromEntries(regras.map(r => [r.prioridade, r]));
+
+    let disparados = 0;
+    for (const t of tickets) {
+      const status = calcularSlaStatus(t, mapaRegras[t.prioridade]);
+      if (status === "proximo_vencimento") {
+        try { await eventDispatcher.dispatch("TICKET_SLA_PROXIMO", tenantId, { ticket_id: t.id }); disparados++; } catch {}
+      } else if (status === "vencido") {
+        try { await eventDispatcher.dispatch("TICKET_SLA_VENCIDO", tenantId, { ticket_id: t.id }); disparados++; } catch {}
+      }
+    }
+
+    res.json({ message: "Verificacao concluida", tickets_avaliados: tickets.length, eventos_disparados: disparados });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao verificar SLA", details: err.message });
   }
 };
