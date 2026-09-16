@@ -32,8 +32,13 @@ exports.listarTickets = async (req, res) => {
     if (prioridade) { sql += " AND t.prioridade = ?"; params.push(prioridade); }
     if (categoria) { sql += " AND t.categoria = ?"; params.push(categoria); }
 
-    sql += " ORDER BY t.updated_at DESC";
+        sql += " ORDER BY t.updated_at DESC";
     const [rows] = await pool.query(sql, params);
+
+    const [regras] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ?", [req.tenant_id]);
+    const mapaRegras = Object.fromEntries(regras.map(r => [r.prioridade, r]));
+    rows.forEach(t => { t.sla_status = calcularSlaStatus(t, mapaRegras[t.prioridade]); });
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: "Erro ao listar tickets", details: err.message });
@@ -66,7 +71,10 @@ exports.buscarTicket = async (req, res) => {
       [ticket.id]
     );
 
-    res.json({ ...ticket, mensagens, historico });
+       const [[regra]] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ? AND prioridade = ?", [req.tenant_id, ticket.prioridade]);
+    const sla_status = calcularSlaStatus(ticket, regra);
+
+    res.json({ ...ticket, mensagens, historico, sla_status });
   } catch (err) {
     res.status(500).json({ error: "Erro ao buscar ticket", details: err.message });
   }
@@ -407,5 +415,81 @@ exports.contextoTicket = async (req, res) => {
     res.json(contexto);
   } catch (err) {
     res.status(500).json({ error: "Erro ao buscar contexto do ticket", details: err.message });
+  }
+};
+
+// ── FASE 5: SLA ──
+function calcularSlaStatus(ticket, regra) {
+  if (!regra) return null;
+  const agora = new Date();
+  const criado = new Date(ticket.created_at);
+  const minutosDecorridos = (agora - criado) / 60000;
+
+  // Se ja foi resolvido/encerrado, o SLA de resolucao esta "cumprido" se resolveu dentro do prazo
+  if (ticket.resolvido_em || ticket.encerrado_em) {
+    const dataConclusao = new Date(ticket.resolvido_em || ticket.encerrado_em);
+    const minutosAteConcluir = (dataConclusao - criado) / 60000;
+    return minutosAteConcluir <= regra.resolucao_minutos ? "cumprido" : "vencido_mas_concluido";
+  }
+
+  // Ainda aberto: verifica primeira resposta e resolucao
+  if (!ticket.primeira_resposta_em && minutosDecorridos > regra.primeira_resposta_minutos) return "vencido";
+  if (minutosDecorridos > regra.resolucao_minutos) return "vencido";
+  if (minutosDecorridos > regra.resolucao_minutos * 0.8) return "proximo_vencimento";
+  return "dentro_prazo";
+}
+
+exports.listarSlaRegras = async (req, res) => {
+  try {
+    const [regras] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ? ORDER BY FIELD(prioridade, 'urgente','alta','normal','baixa')", [req.tenant_id]);
+    res.json(regras);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar regras de SLA", details: err.message });
+  }
+};
+
+exports.atualizarSlaRegra = async (req, res) => {
+  try {
+    const { prioridade, primeira_resposta_minutos, resolucao_minutos } = req.body;
+    const prioridadesValidas = ["baixa", "normal", "alta", "urgente"];
+    if (!prioridadesValidas.includes(prioridade)) return res.status(400).json({ error: `prioridade deve ser uma de: ${prioridadesValidas.join(", ")}` });
+    if (!primeira_resposta_minutos || !resolucao_minutos) return res.status(400).json({ error: "primeira_resposta_minutos e resolucao_minutos sao obrigatorios" });
+
+    await pool.query(
+      `INSERT INTO sac_sla_rules (tenant_id, prioridade, primeira_resposta_minutos, resolucao_minutos) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE primeira_resposta_minutos = ?, resolucao_minutos = ?`,
+      [req.tenant_id, prioridade, primeira_resposta_minutos, resolucao_minutos, primeira_resposta_minutos, resolucao_minutos]
+    );
+
+    res.json({ message: "Regra de SLA atualizada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao atualizar regra de SLA", details: err.message });
+  }
+};
+
+exports.indicadoresSla = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+    const [tickets] = await pool.query("SELECT id, prioridade, created_at, primeira_resposta_em, resolvido_em, encerrado_em FROM sac_tickets WHERE tenant_id = ?", [tenantId]);
+    const [regras] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ?", [tenantId]);
+    const mapaRegras = Object.fromEntries(regras.map(r => [r.prioridade, r]));
+
+    let cumprido = 0, vencido = 0, dentroPrazo = 0, proximoVencimento = 0;
+    for (const t of tickets) {
+      const status = calcularSlaStatus(t, mapaRegras[t.prioridade]);
+      if (status === "cumprido") cumprido++;
+      else if (status === "vencido" || status === "vencido_mas_concluido") vencido++;
+      else if (status === "proximo_vencimento") proximoVencimento++;
+      else if (status === "dentro_prazo") dentroPrazo++;
+    }
+
+    const totalAvaliado = cumprido + vencido + dentroPrazo + proximoVencimento;
+    res.json({
+      total_tickets: tickets.length,
+      cumprido, vencido, dentro_prazo: dentroPrazo, proximo_vencimento: proximoVencimento,
+      percentual_cumprimento: totalAvaliado > 0 ? Math.round(((cumprido + dentroPrazo) / totalAvaliado) * 100) : null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular indicadores de SLA", details: err.message });
   }
 };

@@ -198,8 +198,12 @@ function CentralAtendimento({ cor }) {
                 <span style={{ color: CORES_PRIORIDADE[t.prioridade], fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{t.prioridade}</span>
               </div>
               <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "0 0 6px" }}>{t.customer_nome || "Cliente não vinculado"}</p>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, background: CORES_STATUS[t.status] + "22", color: CORES_STATUS[t.status] }}>{LABELS_STATUS[t.status]}</span>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, background: CORES_STATUS[t.status] + "22", color: CORES_STATUS[t.status] }}>{LABELS_STATUS[t.status]}</span>
+                  {t.sla_status === "vencido" && <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, background: "#f8717122", color: "#f87171" }}>SLA vencido</span>}
+                  {t.sla_status === "proximo_vencimento" && <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, background: "#fbbf2422", color: "#fbbf24" }}>SLA próximo</span>}
+                </div>
                 <span style={{ color: cor.textMuted, fontSize: 10.5 }}>{formatarDataHora(t.updated_at)}</span>
               </div>
             </div>
@@ -445,6 +449,80 @@ function GestaoFilasEquipes({ cor }) {
   );
 }
 
+const LABELS_SLA = {
+  dentro_prazo: "Dentro do prazo", proximo_vencimento: "Próximo do vencimento", vencido: "Vencido",
+  cumprido: "Cumprido", vencido_mas_concluido: "Concluído fora do prazo",
+};
+const CORES_SLA = {
+  dentro_prazo: "#4ade80", proximo_vencimento: "#fbbf24", vencido: "#f87171",
+  cumprido: "#4ade80", vencido_mas_concluido: "#fb923c",
+};
+
+function GestaoSla({ cor }) {
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
+  const inputStyle = { width: "100%", padding: "8px 10px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
+  const btnStyle = { background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" };
+
+  const [regras, setRegras] = useState([]);
+  const [indicadores, setIndicadores] = useState(null);
+  const [editando, setEditando] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  const carregar = () => {
+    setLoading(true);
+    Promise.all([api.get("/sac/sla/regras"), api.get("/sac/sla/indicadores")])
+      .then(([r, i]) => { setRegras(r.data || []); setIndicadores(i.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const salvarRegra = async (prioridade) => {
+    const valores = editando[prioridade];
+    if (!valores) return;
+    try {
+      await api.put("/sac/sla/regras", { prioridade, primeira_resposta_minutos: Number(valores.primeira_resposta_minutos), resolucao_minutos: Number(valores.resolucao_minutos) });
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao salvar regra.");
+    }
+  };
+
+  if (loading) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>;
+
+  return (
+    <div>
+      {indicadores && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
+          <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Cumprimento de SLA</p><h2 style={{ color: indicadores.percentual_cumprimento >= 80 ? "#4ade80" : "#fbbf24", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.percentual_cumprimento != null ? indicadores.percentual_cumprimento + "%" : "-"}</h2></div>
+          <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Dentro do Prazo</p><h2 style={{ color: "#4ade80", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.dentro_prazo}</h2></div>
+          <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Próximo do Vencimento</p><h2 style={{ color: "#fbbf24", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.proximo_vencimento}</h2></div>
+          <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Vencidos</p><h2 style={{ color: "#f87171", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.vencido}</h2></div>
+        </div>
+      )}
+
+      <div style={cardStyle}>
+        <p style={{ color: cor.text, fontWeight: 700, marginBottom: 16 }}>Regras de SLA por Prioridade</p>
+        {regras.map(r => (
+          <div key={r.prioridade} style={{ display: "grid", gridTemplateColumns: "100px 1fr 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cor.border}` }}>
+            <span style={{ color: CORES_PRIORIDADE[r.prioridade], fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{r.prioridade}</span>
+            <div>
+              <label style={{ color: cor.textMuted, fontSize: 10.5, display: "block", marginBottom: 2 }}>1ª resposta (min)</label>
+              <input type="number" defaultValue={r.primeira_resposta_minutos} onChange={e => setEditando({ ...editando, [r.prioridade]: { ...editando[r.prioridade], primeira_resposta_minutos: e.target.value, resolucao_minutos: editando[r.prioridade]?.resolucao_minutos ?? r.resolucao_minutos } })} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ color: cor.textMuted, fontSize: 10.5, display: "block", marginBottom: 2 }}>Resolução (min)</label>
+              <input type="number" defaultValue={r.resolucao_minutos} onChange={e => setEditando({ ...editando, [r.prioridade]: { ...editando[r.prioridade], resolucao_minutos: e.target.value, primeira_resposta_minutos: editando[r.prioridade]?.primeira_resposta_minutos ?? r.primeira_resposta_minutos } })} style={inputStyle} />
+            </div>
+            <button onClick={() => salvarRegra(r.prioridade)} style={btnStyle}>Salvar</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════ Componente principal ═══════════════════
 export default function Sac() {
   const { cor } = useOutletContext();
@@ -456,12 +534,14 @@ export default function Sac() {
         <h1 style={{ color: cor.text, fontWeight: 700, margin: 0 }}>SAC / Atendimento</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setAba("central")} style={{ background: aba === "central" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Central de Atendimento</button>
-          <button onClick={() => setAba("filas")} style={{ background: aba === "filas" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Filas e Equipes</button>
+                   <button onClick={() => setAba("filas")} style={{ background: aba === "filas" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Filas e Equipes</button>
+          <button onClick={() => setAba("sla")} style={{ background: aba === "sla" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>SLA</button>
         </div>
       </div>
 
       {aba === "central" && <CentralAtendimento cor={cor} />}
       {aba === "filas" && <GestaoFilasEquipes cor={cor} />}
+      {aba === "sla" && <GestaoSla cor={cor} />}
     </div>
   );
 }

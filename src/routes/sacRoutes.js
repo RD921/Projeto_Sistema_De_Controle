@@ -23,5 +23,8 @@ router.delete("/filas/:id", auth, role("admin"), ctrl.desativarFila);
 router.put("/tickets/:id/fila", auth, ctrl.atribuirFila);
 
 router.get("/tickets/:id/contexto", auth, ctrl.contextoTicket);
+router.get("/sla/regras", auth, ctrl.listarSlaRegras);
+router.put("/sla/regras", auth, role("admin"), ctrl.atualizarSlaRegra);
+router.get("/sla/indicadores", auth, ctrl.indicadoresSla);
 
 module.exports = router;
