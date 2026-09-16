@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const eventDispatcher = require("../automation/engine/EventDispatcher");
+const audit = require("../services/auditService");
 
 // ── Depositos ──
 exports.listarDepositos = async (req, res) => {
@@ -19,6 +20,16 @@ exports.criarDeposito = async (req, res) => {
       "INSERT INTO logistics_warehouses (tenant_id, nome, endereco, cidade, estado, cep, capacidade, responsavel) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [req.tenant_id, nome, endereco || null, cidade || null, estado || null, cep || null, capacidade || null, responsavel || null]
     );
+
+    try {
+      const pool2 = require("../config/db");
+      const [[usuario]] = await pool2.query("SELECT nome FROM users WHERE id = ?", [req.user.id]);
+      await audit.registrar({
+        tenantId: req.tenant_id, usuarioId: req.user.id, usuarioNome: usuario?.nome,
+        acao: `Criou o depósito ${nome}`, origem: "Logística",
+      });
+    } catch { /* auditoria nao deve travar a criacao do deposito */ }
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar deposito", details: err.message });
@@ -27,7 +38,17 @@ exports.criarDeposito = async (req, res) => {
 
 exports.desativarDeposito = async (req, res) => {
   try {
+    const [[deposito]] = await pool.query("SELECT nome FROM logistics_warehouses WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     await pool.query("UPDATE logistics_warehouses SET ativo = FALSE WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+
+    try {
+      const [[usuario]] = await pool.query("SELECT nome FROM users WHERE id = ?", [req.user.id]);
+      await audit.registrar({
+        tenantId: req.tenant_id, usuarioId: req.user.id, usuarioNome: usuario?.nome,
+        acao: `Desativou o depósito ${deposito?.nome || req.params.id}`, origem: "Logística",
+      });
+    } catch { /* auditoria nao deve travar a desativacao */ }
+
     res.json({ message: "Deposito desativado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao desativar deposito", details: err.message });
@@ -52,6 +73,15 @@ exports.criarTransportadora = async (req, res) => {
       "INSERT INTO logistics_carriers (tenant_id, nome, cnpj, contato, modalidades, prazo_medio_dias, custo_medio) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [req.tenant_id, nome, cnpj || null, contato || null, modalidades || null, prazo_medio_dias || null, custo_medio || null]
     );
+
+    try {
+      const [[usuario]] = await pool.query("SELECT nome FROM users WHERE id = ?", [req.user.id]);
+      await audit.registrar({
+        tenantId: req.tenant_id, usuarioId: req.user.id, usuarioNome: usuario?.nome,
+        acao: `Criou a transportadora ${nome}`, origem: "Logística",
+      });
+    } catch { /* auditoria nao deve travar a criacao */ }
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar transportadora", details: err.message });
@@ -60,7 +90,17 @@ exports.criarTransportadora = async (req, res) => {
 
 exports.desativarTransportadora = async (req, res) => {
   try {
+    const [[transportadora]] = await pool.query("SELECT nome FROM logistics_carriers WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     await pool.query("UPDATE logistics_carriers SET ativo = FALSE WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+
+    try {
+      const [[usuario]] = await pool.query("SELECT nome FROM users WHERE id = ?", [req.user.id]);
+      await audit.registrar({
+        tenantId: req.tenant_id, usuarioId: req.user.id, usuarioNome: usuario?.nome,
+        acao: `Desativou a transportadora ${transportadora?.nome || req.params.id}`, origem: "Logística",
+      });
+    } catch { /* auditoria nao deve travar a desativacao */ }
+
     res.json({ message: "Transportadora desativada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao desativar transportadora", details: err.message });
