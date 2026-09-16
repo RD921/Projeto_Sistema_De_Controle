@@ -2,3 +2,5 @@
 git init
 git add .
 git status
+teste_*.xlsx
+teste_*.pdf
