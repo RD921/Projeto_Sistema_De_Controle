@@ -110,6 +110,8 @@ function CentralAtendimento({ cor }) {
   const [mostrarNovoTicket, setMostrarNovoTicket] = useState(false);
   const [novoTicket, setNovoTicket] = useState({ assunto: "", descricao: "", categoria: "outros", prioridade: "normal", canal: "chat" });
   const [filas, setFilas] = useState([]);
+  const [respostasRapidas, setRespostasRapidas] = useState([]);
+  const [mostrarRespostas, setMostrarRespostas] = useState(false);
 
   const carregarLista = () => {
     setLoading(true);
@@ -118,7 +120,10 @@ function CentralAtendimento({ cor }) {
   };
 
   useEffect(() => { carregarLista(); }, [filtro]);
-  useEffect(() => { api.get("/sac/filas").then(r => setFilas(r.data || [])).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get("/sac/filas").then(r => setFilas(r.data || [])).catch(() => {});
+    api.get("/sac/respostas-rapidas").then(r => setRespostasRapidas(r.data || [])).catch(() => {});
+  }, []);
 
   const abrirTicket = (id) => {
     setTicketAtivoId(id);
@@ -174,6 +179,16 @@ function CentralAtendimento({ cor }) {
     }
   };
 
+  const usarRespostaRapida = async (id) => {
+    try {
+      const r = await api.get(`/sac/respostas-rapidas/${id}/aplicar`, { params: { ticket_id: ticketAtivoId } });
+      setNovaMensagem(r.data.conteudo);
+      setMostrarRespostas(false);
+    } catch (err) {
+      alert("Erro ao aplicar resposta rápida.");
+    }
+  };
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "180px 340px 1fr", gap: 14, height: "calc(100vh - 200px)" }}>
       <div style={{ ...cardStyle, padding: 14, overflowY: "auto" }}>
@@ -198,7 +213,7 @@ function CentralAtendimento({ cor }) {
                 <span style={{ color: CORES_PRIORIDADE[t.prioridade], fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{t.prioridade}</span>
               </div>
               <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "0 0 6px" }}>{t.customer_nome || "Cliente não vinculado"}</p>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", gap: 6 }}>
                   <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, background: CORES_STATUS[t.status] + "22", color: CORES_STATUS[t.status] }}>{LABELS_STATUS[t.status]}</span>
                   {t.sla_status === "vencido" && <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, background: "#f8717122", color: "#f87171" }}>SLA vencido</span>}
@@ -258,9 +273,26 @@ function CentralAtendimento({ cor }) {
               )}
             </div>
 
-            <div style={{ padding: 14, borderTop: `1px solid ${cor.border}`, display: "flex", gap: 8 }}>
-              <input value={novaMensagem} onChange={e => setNovaMensagem(e.target.value)} onKeyDown={e => e.key === "Enter" && enviarMensagem()} style={inputStyle} placeholder="Digite uma resposta..." />
-              <button onClick={enviarMensagem} disabled={enviando} style={btnStyle}>{enviando ? "..." : "Enviar"}</button>
+            <div style={{ padding: 14, borderTop: `1px solid ${cor.border}`, position: "relative" }}>
+              {mostrarRespostas && (
+                <div style={{ position: "absolute", bottom: "100%", left: 14, right: 14, background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, maxHeight: 200, overflowY: "auto", marginBottom: 6, zIndex: 10 }}>
+                  {respostasRapidas.length === 0 ? (
+                    <p style={{ color: cor.textMuted, fontSize: 12, padding: 12 }}>Nenhuma resposta rápida cadastrada.</p>
+                  ) : (
+                    respostasRapidas.map(r => (
+                      <div key={r.id} onClick={() => usarRespostaRapida(r.id)} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${cor.border}` }}>
+                        <p style={{ color: cor.text, fontSize: 12.5, fontWeight: 600, margin: 0 }}>{r.titulo}</p>
+                        <p style={{ color: cor.textMuted, fontSize: 11, margin: "2px 0 0" }}>{r.conteudo.slice(0, 60)}...</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setMostrarRespostas(!mostrarRespostas)} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "0 12px", cursor: "pointer", fontSize: 16 }}>⚡</button>
+                <input value={novaMensagem} onChange={e => setNovaMensagem(e.target.value)} onKeyDown={e => e.key === "Enter" && enviarMensagem()} style={inputStyle} placeholder="Digite uma resposta..." />
+                <button onClick={enviarMensagem} disabled={enviando} style={btnStyle}>{enviando ? "..." : "Enviar"}</button>
+              </div>
             </div>
           </>
         )}
@@ -383,7 +415,6 @@ function GestaoFilasEquipes({ cor }) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-      {/* Equipes */}
       <div>
         <form onSubmit={criarEquipe} style={{ ...cardStyle, marginBottom: 16, display: "flex", gap: 8, alignItems: "flex-start" }}>
           <input value={novaEquipe} onChange={e => setNovaEquipe(e.target.value)} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} placeholder="Nome da nova equipe" />
@@ -420,7 +451,6 @@ function GestaoFilasEquipes({ cor }) {
         )}
       </div>
 
-      {/* Filas */}
       <div>
         <form onSubmit={criarFila} style={{ ...cardStyle, marginBottom: 16 }}>
           <input value={novaFila.nome} onChange={e => setNovaFila({ ...novaFila, nome: e.target.value })} style={inputStyle} placeholder="Nome da nova fila" />
@@ -449,15 +479,7 @@ function GestaoFilasEquipes({ cor }) {
   );
 }
 
-const LABELS_SLA = {
-  dentro_prazo: "Dentro do prazo", proximo_vencimento: "Próximo do vencimento", vencido: "Vencido",
-  cumprido: "Cumprido", vencido_mas_concluido: "Concluído fora do prazo",
-};
-const CORES_SLA = {
-  dentro_prazo: "#4ade80", proximo_vencimento: "#fbbf24", vencido: "#f87171",
-  cumprido: "#4ade80", vencido_mas_concluido: "#fb923c",
-};
-
+// ═══════════════════ Gestão de SLA (Fase 5) ═══════════════════
 function GestaoSla({ cor }) {
   const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
   const inputStyle = { width: "100%", padding: "8px 10px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
@@ -523,6 +545,150 @@ function GestaoSla({ cor }) {
   );
 }
 
+// ═══════════════════ Base de Conhecimento e Respostas Rápidas (Fase 6) ═══════════════════
+function Conhecimento({ cor }) {
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
+  const inputStyle = { width: "100%", padding: "9px 12px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif", marginBottom: 10 };
+  const btnStyle = { background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" };
+
+  const [subaba, setSubaba] = useState("artigos");
+  const [artigos, setArtigos] = useState([]);
+  const [respostas, setRespostas] = useState([]);
+  const [mostrarFormArtigo, setMostrarFormArtigo] = useState(false);
+  const [novoArtigo, setNovoArtigo] = useState({ titulo: "", categoria: "outros", conteudo: "", status: "rascunho" });
+  const [mostrarFormResposta, setMostrarFormResposta] = useState(false);
+  const [novaResposta, setNovaResposta] = useState({ titulo: "", conteudo: "" });
+
+  const carregar = () => {
+    api.get("/sac/kb/artigos").then(r => setArtigos(r.data || [])).catch(() => {});
+    api.get("/sac/respostas-rapidas").then(r => setRespostas(r.data || [])).catch(() => {});
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const criarArtigo = async (e) => {
+    e.preventDefault();
+    if (!novoArtigo.titulo || !novoArtigo.conteudo) return;
+    try {
+      await api.post("/sac/kb/artigos", novoArtigo);
+      setNovoArtigo({ titulo: "", categoria: "outros", conteudo: "", status: "rascunho" });
+      setMostrarFormArtigo(false);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao criar artigo.");
+    }
+  };
+
+  const excluirArtigo = async (id) => {
+    if (!confirm("Excluir este artigo?")) return;
+    try {
+      await api.delete(`/sac/kb/artigos/${id}`);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao excluir artigo (pode exigir permissão de admin).");
+    }
+  };
+
+  const criarResposta = async (e) => {
+    e.preventDefault();
+    if (!novaResposta.titulo || !novaResposta.conteudo) return;
+    try {
+      await api.post("/sac/respostas-rapidas", novaResposta);
+      setNovaResposta({ titulo: "", conteudo: "" });
+      setMostrarFormResposta(false);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao criar resposta rápida.");
+    }
+  };
+
+  const desativarResposta = async (id) => {
+    try {
+      await api.delete(`/sac/respostas-rapidas/${id}`);
+      carregar();
+    } catch (err) {
+      alert("Erro ao desativar.");
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setSubaba("artigos")} style={{ background: subaba === "artigos" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Base de Conhecimento</button>
+        <button onClick={() => setSubaba("respostas")} style={{ background: subaba === "respostas" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Respostas Rápidas</button>
+      </div>
+
+      {subaba === "artigos" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            <button onClick={() => setMostrarFormArtigo(!mostrarFormArtigo)} style={btnStyle}>{mostrarFormArtigo ? "Cancelar" : "+ Novo Artigo"}</button>
+          </div>
+          {mostrarFormArtigo && (
+            <form onSubmit={criarArtigo} style={{ ...cardStyle, marginBottom: 16 }}>
+              <input value={novoArtigo.titulo} onChange={e => setNovoArtigo({ ...novoArtigo, titulo: e.target.value })} style={inputStyle} placeholder="Título" required />
+              <select value={novoArtigo.categoria} onChange={e => setNovoArtigo({ ...novoArtigo, categoria: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+                <option value="entrega">Entrega</option>
+                <option value="pagamento">Pagamento</option>
+                <option value="troca">Troca</option>
+                <option value="devolucao">Devolução</option>
+                <option value="outros">Outros</option>
+              </select>
+              <textarea value={novoArtigo.conteudo} onChange={e => setNovoArtigo({ ...novoArtigo, conteudo: e.target.value })} style={{ ...inputStyle, minHeight: 100, resize: "vertical" }} placeholder="Conteúdo do artigo" required />
+              <select value={novoArtigo.status} onChange={e => setNovoArtigo({ ...novoArtigo, status: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+              </select>
+              <button type="submit" style={btnStyle}>Criar</button>
+            </form>
+          )}
+          {artigos.length === 0 ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum artigo cadastrado ainda.</p>
+          ) : (
+            artigos.map(a => (
+              <div key={a.id} style={{ ...cardStyle, marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <p style={{ color: cor.text, fontWeight: 700, fontSize: 14, margin: 0 }}>{a.titulo}</p>
+                  <button onClick={() => excluirArtigo(a.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 11 }}>Excluir</button>
+                </div>
+                <p style={{ color: cor.textMuted, fontSize: 11.5, marginBottom: 8 }}>{a.categoria} · {a.status} · por {a.autor_nome || "—"}</p>
+                <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{a.conteudo}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {subaba === "respostas" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            <button onClick={() => setMostrarFormResposta(!mostrarFormResposta)} style={btnStyle}>{mostrarFormResposta ? "Cancelar" : "+ Nova Resposta"}</button>
+          </div>
+          {mostrarFormResposta && (
+            <form onSubmit={criarResposta} style={{ ...cardStyle, marginBottom: 16 }}>
+              <input value={novaResposta.titulo} onChange={e => setNovaResposta({ ...novaResposta, titulo: e.target.value })} style={inputStyle} placeholder="Título" required />
+              <textarea value={novaResposta.conteudo} onChange={e => setNovaResposta({ ...novaResposta, conteudo: e.target.value })} style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} placeholder="Conteúdo (use {nome} para o nome do cliente)" required />
+              <button type="submit" style={btnStyle}>Criar</button>
+            </form>
+          )}
+          {respostas.length === 0 ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma resposta rápida cadastrada ainda.</p>
+          ) : (
+            respostas.map(r => (
+              <div key={r.id} style={{ ...cardStyle, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <p style={{ color: cor.text, fontWeight: 700, fontSize: 13.5, margin: 0 }}>{r.titulo}</p>
+                  <p style={{ color: cor.textMuted, fontSize: 12, margin: "2px 0 0" }}>{r.conteudo}</p>
+                </div>
+                <button onClick={() => desativarResposta(r.id)} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f87171", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit", flexShrink: 0 }}>Desativar</button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════ Componente principal ═══════════════════
 export default function Sac() {
   const { cor } = useOutletContext();
@@ -534,14 +700,16 @@ export default function Sac() {
         <h1 style={{ color: cor.text, fontWeight: 700, margin: 0 }}>SAC / Atendimento</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setAba("central")} style={{ background: aba === "central" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Central de Atendimento</button>
-                   <button onClick={() => setAba("filas")} style={{ background: aba === "filas" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Filas e Equipes</button>
+          <button onClick={() => setAba("filas")} style={{ background: aba === "filas" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Filas e Equipes</button>
           <button onClick={() => setAba("sla")} style={{ background: aba === "sla" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>SLA</button>
+          <button onClick={() => setAba("conhecimento")} style={{ background: aba === "conhecimento" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Conhecimento</button>
         </div>
       </div>
 
       {aba === "central" && <CentralAtendimento cor={cor} />}
       {aba === "filas" && <GestaoFilasEquipes cor={cor} />}
       {aba === "sla" && <GestaoSla cor={cor} />}
+      {aba === "conhecimento" && <Conhecimento cor={cor} />}
     </div>
   );
 }

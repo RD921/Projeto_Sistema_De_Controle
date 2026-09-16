@@ -493,3 +493,132 @@ exports.indicadoresSla = async (req, res) => {
     res.status(500).json({ error: "Erro ao calcular indicadores de SLA", details: err.message });
   }
 };
+
+// ── FASE 6: Base de Conhecimento ──
+exports.listarArtigos = async (req, res) => {
+  try {
+    const { categoria, status } = req.query;
+    let sql = "SELECT a.*, u.nome AS autor_nome FROM sac_kb_articles a LEFT JOIN users u ON u.id = a.autor_id WHERE a.tenant_id = ?";
+    const params = [req.tenant_id];
+    if (categoria) { sql += " AND a.categoria = ?"; params.push(categoria); }
+    if (status) { sql += " AND a.status = ?"; params.push(status); }
+    sql += " ORDER BY a.updated_at DESC";
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar artigos", details: err.message });
+  }
+};
+
+exports.buscarArtigo = async (req, res) => {
+  try {
+    const [[artigo]] = await pool.query(
+      "SELECT a.*, u.nome AS autor_nome FROM sac_kb_articles a LEFT JOIN users u ON u.id = a.autor_id WHERE a.id = ? AND a.tenant_id = ?",
+      [req.params.id, req.tenant_id]
+    );
+    if (!artigo) return res.status(404).json({ error: "Artigo nao encontrado" });
+    res.json(artigo);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar artigo", details: err.message });
+  }
+};
+
+exports.criarArtigo = async (req, res) => {
+  try {
+    const { titulo, categoria, conteudo, status } = req.body;
+    if (!titulo || !conteudo) return res.status(400).json({ error: "titulo e conteudo sao obrigatorios" });
+    const [result] = await pool.query(
+      "INSERT INTO sac_kb_articles (tenant_id, titulo, categoria, conteudo, status, autor_id) VALUES (?, ?, ?, ?, ?, ?)",
+      [req.tenant_id, titulo, categoria || "outros", conteudo, status === "publicado" ? "publicado" : "rascunho", req.user.id]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao criar artigo", details: err.message });
+  }
+};
+
+exports.atualizarArtigo = async (req, res) => {
+  try {
+    const { titulo, categoria, conteudo, status } = req.body;
+    const [[artigo]] = await pool.query("SELECT id FROM sac_kb_articles WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!artigo) return res.status(404).json({ error: "Artigo nao encontrado" });
+
+    await pool.query(
+      "UPDATE sac_kb_articles SET titulo = ?, categoria = ?, conteudo = ?, status = ? WHERE id = ? AND tenant_id = ?",
+      [titulo, categoria || "outros", conteudo, status === "publicado" ? "publicado" : "rascunho", req.params.id, req.tenant_id]
+    );
+    res.json({ message: "Artigo atualizado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao atualizar artigo", details: err.message });
+  }
+};
+
+exports.excluirArtigo = async (req, res) => {
+  try {
+    const [result] = await pool.query("DELETE FROM sac_kb_articles WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Artigo nao encontrado" });
+    res.json({ message: "Artigo excluido" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao excluir artigo", details: err.message });
+  }
+};
+
+// ── FASE 6: Respostas Rapidas ──
+exports.listarRespostasRapidas = async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM sac_quick_replies WHERE tenant_id = ? AND ativo = TRUE ORDER BY titulo", [req.tenant_id]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar respostas rapidas", details: err.message });
+  }
+};
+
+exports.criarRespostaRapida = async (req, res) => {
+  try {
+    const { titulo, conteudo, categoria } = req.body;
+    if (!titulo || !conteudo) return res.status(400).json({ error: "titulo e conteudo sao obrigatorios" });
+    const [result] = await pool.query(
+      "INSERT INTO sac_quick_replies (tenant_id, titulo, conteudo, categoria) VALUES (?, ?, ?, ?)",
+      [req.tenant_id, titulo, conteudo, categoria || null]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao criar resposta rapida", details: err.message });
+  }
+};
+
+exports.desativarRespostaRapida = async (req, res) => {
+  try {
+    await pool.query("UPDATE sac_quick_replies SET ativo = FALSE WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    res.json({ message: "Resposta rapida desativada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao desativar resposta rapida", details: err.message });
+  }
+};
+
+// Substitui variaveis reais na resposta rapida (ex: {nome} do cliente).
+// So substitui variaveis que o sistema realmente sabe preencher - nunca inventa.
+exports.aplicarRespostaRapida = async (req, res) => {
+  try {
+    const [[resposta]] = await pool.query("SELECT conteudo FROM sac_quick_replies WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!resposta) return res.status(404).json({ error: "Resposta rapida nao encontrada" });
+
+    let textoFinal = resposta.conteudo;
+
+    if (req.query.ticket_id) {
+      const [[ticket]] = await pool.query(
+        `SELECT c.nome AS customer_nome, t.assunto FROM sac_tickets t LEFT JOIN customers c ON c.id = t.customer_id
+         WHERE t.id = ? AND t.tenant_id = ?`,
+        [req.query.ticket_id, req.tenant_id]
+      );
+      if (ticket) {
+        textoFinal = textoFinal.replace(/{nome}/g, ticket.customer_nome || "cliente");
+        textoFinal = textoFinal.replace(/{assunto}/g, ticket.assunto || "");
+      }
+    }
+
+    res.json({ conteudo: textoFinal });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao aplicar resposta rapida", details: err.message });
+  }
+};

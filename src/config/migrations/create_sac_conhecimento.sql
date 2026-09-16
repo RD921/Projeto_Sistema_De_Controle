@@ -1,0 +1,24 @@
+CREATE TABLE sac_kb_articles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  titulo VARCHAR(255) NOT NULL,
+  categoria VARCHAR(50) NOT NULL DEFAULT 'outros',
+  conteudo TEXT NOT NULL,
+  status ENUM('rascunho','publicado') NOT NULL DEFAULT 'rascunho',
+  autor_id INT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  FOREIGN KEY (autor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE sac_quick_replies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  titulo VARCHAR(150) NOT NULL,
+  conteudo TEXT NOT NULL,
+  categoria VARCHAR(50) NULL,
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+);

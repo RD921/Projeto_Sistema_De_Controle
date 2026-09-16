@@ -26,5 +26,15 @@ router.get("/tickets/:id/contexto", auth, ctrl.contextoTicket);
 router.get("/sla/regras", auth, ctrl.listarSlaRegras);
 router.put("/sla/regras", auth, role("admin"), ctrl.atualizarSlaRegra);
 router.get("/sla/indicadores", auth, ctrl.indicadoresSla);
+router.get("/kb/artigos", auth, ctrl.listarArtigos);
+router.get("/kb/artigos/:id", auth, ctrl.buscarArtigo);
+router.post("/kb/artigos", auth, ctrl.criarArtigo);
+router.put("/kb/artigos/:id", auth, ctrl.atualizarArtigo);
+router.delete("/kb/artigos/:id", auth, role("admin"), ctrl.excluirArtigo);
+
+router.get("/respostas-rapidas", auth, ctrl.listarRespostasRapidas);
+router.post("/respostas-rapidas", auth, ctrl.criarRespostaRapida);
+router.delete("/respostas-rapidas/:id", auth, ctrl.desativarRespostaRapida);
+router.get("/respostas-rapidas/:id/aplicar", auth, ctrl.aplicarRespostaRapida);
 
 module.exports = router;
