@@ -101,5 +101,6 @@ app.use("/api/fiscal-documents", require("./routes/fiscalDocumentsRoutes"));
 app.use("/api/logistica", require("./routes/logisticsRoutes"));
 app.use("/api/logistica/devolucoes", require("./routes/logisticsReturnsRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
+app.use("/api/sac", require("./routes/sacRoutes"));
 
 module.exports = app;
