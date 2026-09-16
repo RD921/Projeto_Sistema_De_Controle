@@ -1,17 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
+const role = require("../middleware/roleMiddleware");
 const ctrl = require("../controllers/logisticsController");
 
 router.get("/dashboard", auth, ctrl.dashboard);
 
 router.get("/depositos", auth, ctrl.listarDepositos);
 router.post("/depositos", auth, ctrl.criarDeposito);
-router.delete("/depositos/:id", auth, ctrl.desativarDeposito);
+router.delete("/depositos/:id", auth, role("admin"), ctrl.desativarDeposito);
 
 router.get("/transportadoras", auth, ctrl.listarTransportadoras);
 router.post("/transportadoras", auth, ctrl.criarTransportadora);
-router.delete("/transportadoras/:id", auth, ctrl.desativarTransportadora);
+router.delete("/transportadoras/:id", auth, role("admin"), ctrl.desativarTransportadora);
 router.get("/transportadoras/score", auth, ctrl.scoreTransportadoras);
 
 router.get("/fretes/comparar", auth, ctrl.compararFretes);
