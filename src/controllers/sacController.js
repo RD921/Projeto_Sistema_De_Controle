@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const audit = require("../services/auditService");
+const role = require("../middleware/roleMiddleware");
 
 // Transicoes de status validas - o sistema controla, nao aceita qualquer string
 const STATUS_VALIDOS = ["novo", "em_atendimento", "aguardando_cliente", "aguardando_empresa", "resolvido", "encerrado", "reaberto"];
@@ -242,5 +243,169 @@ exports.metricas = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Erro ao calcular metricas", details: err.message });
+  }
+};
+// ── FASE 3: Equipes ──
+exports.listarEquipes = async (req, res) => {
+  try {
+    const [equipes] = await pool.query("SELECT * FROM sac_teams WHERE tenant_id = ? ORDER BY nome", [req.tenant_id]);
+    for (const equipe of equipes) {
+      const [membros] = await pool.query(
+        `SELECT u.id, u.nome FROM sac_team_members tm JOIN users u ON u.id = tm.user_id WHERE tm.team_id = ?`,
+        [equipe.id]
+      );
+      equipe.membros = membros;
+    }
+    res.json(equipes);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar equipes", details: err.message });
+  }
+};
+
+exports.criarEquipe = async (req, res) => {
+  try {
+    const { nome, descricao } = req.body;
+    if (!nome) return res.status(400).json({ error: "nome e obrigatorio" });
+    const [result] = await pool.query("INSERT INTO sac_teams (tenant_id, nome, descricao) VALUES (?, ?, ?)", [req.tenant_id, nome, descricao || null]);
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao criar equipe", details: err.message });
+  }
+};
+
+exports.adicionarMembro = async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const [[equipe]] = await pool.query("SELECT id FROM sac_teams WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!equipe) return res.status(404).json({ error: "Equipe nao encontrada" });
+    const [[usuario]] = await pool.query("SELECT id FROM users WHERE id = ? AND tenant_id = ?", [user_id, req.tenant_id]);
+    if (!usuario) return res.status(400).json({ error: "Usuario nao encontrado neste tenant" });
+
+    await pool.query("INSERT IGNORE INTO sac_team_members (team_id, user_id) VALUES (?, ?)", [req.params.id, user_id]);
+    res.json({ message: "Membro adicionado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao adicionar membro", details: err.message });
+  }
+};
+
+exports.removerMembro = async (req, res) => {
+  try {
+    await pool.query("DELETE FROM sac_team_members WHERE team_id = ? AND user_id = ?", [req.params.id, req.params.userId]);
+    res.json({ message: "Membro removido" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao remover membro", details: err.message });
+  }
+};
+
+// ── FASE 3: Filas ──
+exports.listarFilas = async (req, res) => {
+  try {
+    const [filas] = await pool.query(
+      `SELECT f.*, t.nome AS team_nome FROM sac_queues f LEFT JOIN sac_teams t ON t.id = f.team_id
+       WHERE f.tenant_id = ? ORDER BY f.nome`,
+      [req.tenant_id]
+    );
+    res.json(filas);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar filas", details: err.message });
+  }
+};
+
+exports.criarFila = async (req, res) => {
+  try {
+    const { nome, descricao, team_id } = req.body;
+    if (!nome) return res.status(400).json({ error: "nome e obrigatorio" });
+    if (team_id) {
+      const [[equipe]] = await pool.query("SELECT id FROM sac_teams WHERE id = ? AND tenant_id = ?", [team_id, req.tenant_id]);
+      if (!equipe) return res.status(400).json({ error: "Equipe nao encontrada neste tenant" });
+    }
+    const [result] = await pool.query("INSERT INTO sac_queues (tenant_id, nome, descricao, team_id) VALUES (?, ?, ?, ?)", [req.tenant_id, nome, descricao || null, team_id || null]);
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao criar fila", details: err.message });
+  }
+};
+
+exports.desativarFila = async (req, res) => {
+  try {
+    await pool.query("UPDATE sac_queues SET ativo = FALSE WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    res.json({ message: "Fila desativada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao desativar fila", details: err.message });
+  }
+};
+
+exports.atribuirFila = async (req, res) => {
+  try {
+    const { queue_id } = req.body;
+    if (queue_id) {
+      const [[fila]] = await pool.query("SELECT id FROM sac_queues WHERE id = ? AND tenant_id = ?", [queue_id, req.tenant_id]);
+      if (!fila) return res.status(400).json({ error: "Fila nao encontrada neste tenant" });
+    }
+    const [[ticket]] = await pool.query("SELECT queue_id FROM sac_tickets WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!ticket) return res.status(404).json({ error: "Ticket nao encontrado" });
+
+    await pool.query("UPDATE sac_tickets SET queue_id = ? WHERE id = ? AND tenant_id = ?", [queue_id || null, req.params.id, req.tenant_id]);
+    await registrarHistorico(req.params.id, req.user.id, "Fila atribuída", String(ticket.queue_id || "nenhuma"), String(queue_id || "nenhuma"));
+
+    res.json({ message: "Fila atribuida" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao atribuir fila", details: err.message });
+  }
+};
+
+// ── FASE 4: Integracoes (contexto do ticket) ──
+exports.contextoTicket = async (req, res) => {
+  try {
+    const [[ticket]] = await pool.query("SELECT customer_id, order_id FROM sac_tickets WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!ticket) return res.status(404).json({ error: "Ticket nao encontrado" });
+
+    const contexto = { pedido: null, logistica: null, crm: { deals: [], interacoes: [] }, tickets_anteriores: [] };
+
+    // Pedido - reaproveita a tabela orders existente, nunca duplica
+    if (ticket.order_id) {
+      const [[pedido]] = await pool.query(
+        `SELECT o.id, o.status, o.total, o.created_at FROM orders o WHERE o.id = ? AND o.tenant_id = ?`,
+        [ticket.order_id, req.tenant_id]
+      );
+      contexto.pedido = pedido || null;
+
+      // Logistica - busca envio vinculado ao pedido, se existir
+      if (pedido) {
+        const [[envio]] = await pool.query(
+          `SELECT s.status, s.tracking_code, s.data_prevista, s.data_entrega, c.nome AS carrier_nome
+           FROM logistics_shipments s LEFT JOIN logistics_carriers c ON c.id = s.carrier_id
+           WHERE s.order_id = ? AND s.tenant_id = ?`,
+          [ticket.order_id, req.tenant_id]
+        );
+        contexto.logistica = envio || null;
+      }
+    }
+
+    // CRM - deals e interacoes do mesmo cliente, se vinculado
+    if (ticket.customer_id) {
+      const [deals] = await pool.query(
+        `SELECT id, titulo, estagio, valor FROM crm_deals WHERE customer_id = ? AND tenant_id = ? ORDER BY created_at DESC LIMIT 5`,
+        [ticket.customer_id, req.tenant_id]
+      );
+      contexto.crm.deals = deals;
+
+      const [interacoes] = await pool.query(
+        `SELECT tipo, descricao, created_at FROM crm_activities WHERE customer_id = ? AND tenant_id = ? ORDER BY created_at DESC LIMIT 5`,
+        [ticket.customer_id, req.tenant_id]
+      ).catch(() => [[]]);
+      contexto.crm.interacoes = interacoes || [];
+
+      // Tickets anteriores do mesmo cliente (exceto o atual)
+      const [ticketsAnteriores] = await pool.query(
+        `SELECT id, assunto, status, created_at FROM sac_tickets WHERE customer_id = ? AND tenant_id = ? AND id != ? ORDER BY created_at DESC LIMIT 5`,
+        [ticket.customer_id, req.tenant_id, req.params.id]
+      );
+      contexto.tickets_anteriores = ticketsAnteriores;
+    }
+
+    res.json(contexto);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar contexto do ticket", details: err.message });
   }
 };

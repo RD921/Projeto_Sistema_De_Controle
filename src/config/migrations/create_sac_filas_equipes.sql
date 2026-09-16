@@ -1,0 +1,31 @@
+CREATE TABLE sac_teams (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  nome VARCHAR(150) NOT NULL,
+  descricao VARCHAR(255) NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+);
+
+CREATE TABLE sac_team_members (
+  team_id INT NOT NULL,
+  user_id INT NOT NULL,
+  PRIMARY KEY (team_id, user_id),
+  FOREIGN KEY (team_id) REFERENCES sac_teams(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE sac_queues (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  nome VARCHAR(150) NOT NULL,
+  descricao VARCHAR(255) NULL,
+  team_id INT NULL,
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  FOREIGN KEY (team_id) REFERENCES sac_teams(id) ON DELETE SET NULL
+);
+
+ALTER TABLE sac_tickets ADD COLUMN queue_id INT NULL AFTER categoria;
+ALTER TABLE sac_tickets ADD FOREIGN KEY (queue_id) REFERENCES sac_queues(id) ON DELETE SET NULL;
