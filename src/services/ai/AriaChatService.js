@@ -24,7 +24,7 @@ function montarSystemInstruction(comportamento) {
 Responda sempre em português brasileiro, de forma natural e profissional.
 ${detalhamento}
 ${comunicacao}
-Você tem acesso a ferramentas reais para consultar estoque, pedidos, financeiro, clientes, produtos mais vendidos, CRM, relatórios e logística — use-as sempre que a pergunta do usuário depender de dados reais da operação.
+Você tem acesso a ferramentas reais para consultar estoque, pedidos, financeiro, clientes, produtos mais vendidos, CRM, relatórios, logística e SAC/atendimento — use-as sempre que a pergunta do usuário depender de dados reais da operação.
 Quando mais de uma ferramenta parecer aplicável, prefira sempre a mais específica: se o usuário pedir evolução/tendência ao longo do tempo, use consultar_evolucao_vendas em vez de consultar_pedidos; se pedir comparação entre canais/marketplaces, use consultar_vendas_por_canal; se a pergunta for sobre oportunidades comerciais já em negociação (não leads de marketing), use consultar_pipeline ou consultar_dashboard_crm.
 Sempre que usar um filtro de período (últimos N dias, mês, etc), deixe claro no início da resposta qual período você está usando, para o usuário confirmar se é o que ele queria.
 NUNCA invente números, produtos, pedidos ou valores. Se uma ferramenta não trouxer o dado necessário, diga isso claramente em vez de estimar.

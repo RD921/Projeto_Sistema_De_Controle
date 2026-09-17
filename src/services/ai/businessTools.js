@@ -159,9 +159,35 @@ const toolDeclarations = [
     description: "Consulta o desempenho real de cada transportadora cadastrada: pontualidade, taxa de ocorrencias (extravio/devolucao/problema), frete medio real cobrado, e um score consolidado de 0 a 100. Use para perguntas sobre qual transportadora e melhor, ou desempenho comparado entre elas.",
     parameters: { type: "OBJECT", properties: {} },
   },
-  {
+    {
     name: "consultar_alertas_logisticos",
     description: "Consulta os alertas criticos abertos na logistica: envios atrasados, produtos com estoque critico, e envios extraviados. Use quando o usuario perguntar o que precisa de atencao urgente na logistica, ou quais problemas existem agora.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "consultar_tickets_sac",
+    description: "Consulta os tickets de atendimento (SAC) cadastrados, com filtro opcional por status e prioridade. Use para perguntas sobre quantos tickets estao abertos, quais estao pendentes, ou detalhes de um atendimento especifico.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        status: { type: "STRING", description: "Filtra por status: novo, em_atendimento, aguardando_cliente, aguardando_empresa, resolvido, encerrado, reaberto" },
+        prioridade: { type: "STRING", description: "Filtra por prioridade: baixa, normal, alta, urgente" },
+      },
+    },
+  },
+  {
+    name: "consultar_sla_sac",
+    description: "Consulta indicadores de cumprimento de SLA do atendimento (SAC): quantos tickets estao dentro do prazo, proximos do vencimento, ou vencidos, e o percentual geral de cumprimento. Use para perguntas sobre a qualidade do prazo de atendimento.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "consultar_satisfacao_sac",
+    description: "Consulta os indicadores de satisfacao do atendimento (SAC): nota media das avaliacoes, quantidade de clientes satisfeitos e insatisfeitos, e taxa de resposta das avaliacoes. Use para perguntas sobre a qualidade percebida do atendimento.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "consultar_motivos_atendimento_sac",
+    description: "Consulta os motivos/categorias mais comuns de abertura de tickets no SAC (entrega, pagamento, troca, devolucao, etc), com contagem por categoria. Use para perguntas sobre o principal motivo de contato dos clientes, ou se ha aumento de reclamacoes sobre algum tema especifico.",
     parameters: { type: "OBJECT", properties: {} },
   },
 
@@ -556,6 +582,78 @@ async function consultar_alertas_logisticos(args, tenantId) {
   return { total: alertas.length, alertas };
 }
 
+async function consultar_tickets_sac(args, tenantId) {
+  let sql = "SELECT t.id, t.assunto, t.status, t.prioridade, t.categoria, t.canal, t.created_at, c.nome AS customer_nome FROM sac_tickets t LEFT JOIN customers c ON c.id = t.customer_id WHERE t.tenant_id = ?";
+  const params = [tenantId];
+  if (args.status) { sql += " AND t.status = ?"; params.push(args.status); }
+  if (args.prioridade) { sql += " AND t.prioridade = ?"; params.push(args.prioridade); }
+  sql += " ORDER BY t.updated_at DESC LIMIT 30";
+  const [rows] = await pool.query(sql, params);
+  return { tickets: rows, total_encontrado: rows.length };
+}
+
+async function consultar_sla_sac(args, tenantId) {
+  const [[resumo]] = await pool.query(
+    `SELECT COUNT(*) AS total FROM sac_tickets WHERE tenant_id = ?`,
+    [tenantId]
+  );
+  if (resumo.total === 0) return { mensagem: "Nao ha tickets registrados para calcular SLA." };
+
+  const [tickets] = await pool.query(
+    "SELECT id, prioridade, created_at, primeira_resposta_em, resolvido_em, encerrado_em FROM sac_tickets WHERE tenant_id = ?",
+    [tenantId]
+  );
+  const [regras] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ?", [tenantId]);
+  const mapaRegras = Object.fromEntries(regras.map(r => [r.prioridade, r]));
+
+  let cumprido = 0, vencido = 0, dentroPrazo = 0, proximoVencimento = 0;
+  const agora = new Date();
+  for (const t of tickets) {
+    const regra = mapaRegras[t.prioridade];
+    if (!regra) continue;
+    const criado = new Date(t.created_at);
+    const minutosDecorridos = (agora - criado) / 60000;
+    if (t.resolvido_em || t.encerrado_em) {
+      const dataConclusao = new Date(t.resolvido_em || t.encerrado_em);
+      const minutosAteConcluir = (dataConclusao - criado) / 60000;
+      if (minutosAteConcluir <= regra.resolucao_minutos) cumprido++; else vencido++;
+    } else if (minutosDecorridos > regra.resolucao_minutos) vencido++;
+    else if (minutosDecorridos > regra.resolucao_minutos * 0.8) proximoVencimento++;
+    else dentroPrazo++;
+  }
+  const totalAvaliado = cumprido + vencido + dentroPrazo + proximoVencimento;
+  return {
+    total_tickets: resumo.total, cumprido, vencido, dentro_prazo: dentroPrazo, proximo_vencimento: proximoVencimento,
+    percentual_cumprimento: totalAvaliado > 0 ? Math.round(((cumprido + dentroPrazo) / totalAvaliado) * 100) : null,
+  };
+}
+
+async function consultar_satisfacao_sac(args, tenantId) {
+  const [[resumo]] = await pool.query(
+    `SELECT COUNT(*) AS total_avaliacoes, AVG(nota) AS nota_media,
+            SUM(CASE WHEN nota >= 4 THEN 1 ELSE 0 END) AS satisfeitos,
+            SUM(CASE WHEN nota <= 2 THEN 1 ELSE 0 END) AS insatisfeitos
+     FROM sac_ratings WHERE tenant_id = ?`,
+    [tenantId]
+  );
+  if (Number(resumo.total_avaliacoes) === 0) return { mensagem: "Ainda nao ha avaliacoes de atendimento registradas." };
+  return {
+    total_avaliacoes: Number(resumo.total_avaliacoes),
+    nota_media: resumo.nota_media != null ? Number(Number(resumo.nota_media).toFixed(1)) : null,
+    satisfeitos: Number(resumo.satisfeitos),
+    insatisfeitos: Number(resumo.insatisfeitos),
+  };
+}
+
+async function consultar_motivos_atendimento_sac(args, tenantId) {
+  const [porCategoria] = await pool.query(
+    "SELECT categoria, COUNT(*) AS total FROM sac_tickets WHERE tenant_id = ? GROUP BY categoria ORDER BY total DESC",
+    [tenantId]
+  );
+  if (porCategoria.length === 0) return { mensagem: "Ainda nao ha tickets registrados para analisar motivos." };
+  return { motivos: porCategoria };
+}
+
 const executores = {
   consultar_estoque,
   consultar_pedidos,
@@ -574,6 +672,10 @@ const executores = {
   consultar_envios,
   consultar_score_transportadoras,
   consultar_alertas_logisticos,
+  consultar_tickets_sac,
+  consultar_sla_sac,
+  consultar_satisfacao_sac,
+  consultar_motivos_atendimento_sac,
 };
 
 async function executarFerramenta(nome, args, tenantId) {
