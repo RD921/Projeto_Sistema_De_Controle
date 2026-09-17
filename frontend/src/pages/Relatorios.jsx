@@ -458,7 +458,7 @@ function RelatorioExecutivo({ cor, cardStyle, dataInicio, dataFim }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
         <div>
           <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Estoque</h3>
           <div style={cardStyle}>
@@ -474,6 +474,18 @@ function RelatorioExecutivo({ cor, cardStyle, dataInicio, dataFim }) {
             <p style={{ color: "#16a34a", fontSize: 11, margin: "4px 0 0" }}>{formatarMoeda(dados.marketing.receita_atribuida)} atribuído</p>
           </div>
         </div>
+        {dados.sac && (
+          <div>
+            <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>SAC</h3>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Tickets Abertos / Total</p>
+              <h2 style={{ color: dados.sac.abertos > 0 ? "#fbbf24" : cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.sac.abertos} / {dados.sac.total_tickets}</h2>
+              {dados.sac.nota_media_satisfacao != null && (
+                <p style={{ color: "#fbbf24", fontSize: 11, margin: "4px 0 0" }}>{dados.sac.nota_media_satisfacao} ★ satisfação média</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

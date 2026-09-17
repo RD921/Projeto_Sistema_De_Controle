@@ -37,5 +37,9 @@ router.post("/respostas-rapidas", auth, ctrl.criarRespostaRapida);
 router.delete("/respostas-rapidas/:id", auth, ctrl.desativarRespostaRapida);
 router.get("/respostas-rapidas/:id/aplicar", auth, ctrl.aplicarRespostaRapida);
 router.post("/sla/verificar", auth, ctrl.verificarSlaVencimentos);
+router.post("/tickets/:id/avaliacao", auth, ctrl.avaliarTicket);
+router.get("/tickets/:id/avaliacao", auth, ctrl.buscarAvaliacaoTicket);
+router.get("/qualidade/indicadores", auth, ctrl.indicadoresQualidade);
+router.get("/relatorio", auth, ctrl.relatorio);
 
 module.exports = router;

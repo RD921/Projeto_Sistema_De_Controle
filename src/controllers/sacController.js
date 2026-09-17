@@ -674,3 +674,119 @@ exports.verificarSlaVencimentos = async (req, res) => {
     res.status(500).json({ error: "Erro ao verificar SLA", details: err.message });
   }
 };
+
+// ── FASE 8: Qualidade (avaliacao pos-atendimento) ──
+exports.avaliarTicket = async (req, res) => {
+  try {
+    const { nota, comentario } = req.body;
+    if (!nota || nota < 1 || nota > 5) return res.status(400).json({ error: "nota deve ser um numero entre 1 e 5" });
+
+    const [[ticket]] = await pool.query("SELECT id, status FROM sac_tickets WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!ticket) return res.status(404).json({ error: "Ticket nao encontrado" });
+    if (!["resolvido", "encerrado"].includes(ticket.status)) {
+      return res.status(409).json({ error: "So e possivel avaliar tickets resolvidos ou encerrados" });
+    }
+
+    await pool.query(
+      `INSERT INTO sac_ratings (ticket_id, tenant_id, nota, comentario) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE nota = ?, comentario = ?`,
+      [req.params.id, req.tenant_id, nota, comentario || null, nota, comentario || null]
+    );
+
+    try {
+      await eventDispatcher.dispatch("TICKET_AVALIADO", req.tenant_id, { ticket_id: Number(req.params.id), nota });
+    } catch {}
+
+    res.json({ message: "Avaliacao registrada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao registrar avaliacao", details: err.message });
+  }
+};
+
+exports.buscarAvaliacaoTicket = async (req, res) => {
+  try {
+    const [[avaliacao]] = await pool.query("SELECT * FROM sac_ratings WHERE ticket_id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    res.json(avaliacao || null);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar avaliacao", details: err.message });
+  }
+};
+
+exports.indicadoresQualidade = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+    const [[resumo]] = await pool.query(
+      `SELECT COUNT(*) AS total_avaliacoes, AVG(nota) AS nota_media,
+              SUM(CASE WHEN nota >= 4 THEN 1 ELSE 0 END) AS satisfeitos,
+              SUM(CASE WHEN nota <= 2 THEN 1 ELSE 0 END) AS insatisfeitos
+       FROM sac_ratings WHERE tenant_id = ?`,
+      [tenantId]
+    );
+
+    const [distribuicao] = await pool.query(
+      "SELECT nota, COUNT(*) AS total FROM sac_ratings WHERE tenant_id = ? GROUP BY nota ORDER BY nota DESC",
+      [tenantId]
+    );
+
+    const [[totalResolvidos]] = await pool.query(
+      "SELECT COUNT(*) AS total FROM sac_tickets WHERE tenant_id = ? AND status IN ('resolvido','encerrado')",
+      [tenantId]
+    );
+
+    res.json({
+      total_avaliacoes: Number(resumo.total_avaliacoes) || 0,
+      nota_media: resumo.nota_media != null ? Number(Number(resumo.nota_media).toFixed(1)) : null,
+      satisfeitos: Number(resumo.satisfeitos) || 0,
+      insatisfeitos: Number(resumo.insatisfeitos) || 0,
+      taxa_resposta_pct: totalResolvidos.total > 0 ? Math.round((Number(resumo.total_avaliacoes) / totalResolvidos.total) * 100) : null,
+      distribuicao,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular indicadores de qualidade", details: err.message });
+  }
+};
+
+// ── FASE 9: Relatorio dedicado do SAC (segue o padrao dos relatorios existentes) ──
+exports.relatorio = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+    const dataInicio = req.query.data_inicio || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const dataFim = req.query.data_fim || new Date().toISOString().slice(0, 10);
+
+    const [porCategoria] = await pool.query(
+      "SELECT categoria, COUNT(*) AS total FROM sac_tickets WHERE tenant_id = ? AND created_at BETWEEN ? AND ? GROUP BY categoria ORDER BY total DESC",
+      [tenantId, dataInicio, dataFim + " 23:59:59"]
+    );
+
+    const [porCanal] = await pool.query(
+      "SELECT canal, COUNT(*) AS total FROM sac_tickets WHERE tenant_id = ? AND created_at BETWEEN ? AND ? GROUP BY canal ORDER BY total DESC",
+      [tenantId, dataInicio, dataFim + " 23:59:59"]
+    );
+
+    const [porResponsavel] = await pool.query(
+      `SELECT u.nome AS responsavel, COUNT(*) AS total
+       FROM sac_tickets t JOIN users u ON u.id = t.responsavel_id
+       WHERE t.tenant_id = ? AND t.created_at BETWEEN ? AND ?
+       GROUP BY u.id ORDER BY total DESC`,
+      [tenantId, dataInicio, dataFim + " 23:59:59"]
+    );
+
+    const [[tempos]] = await pool.query(
+      `SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, primeira_resposta_em)) AS tempo_medio_primeira_resposta,
+              AVG(TIMESTAMPDIFF(MINUTE, created_at, COALESCE(resolvido_em, encerrado_em))) AS tempo_medio_resolucao
+       FROM sac_tickets WHERE tenant_id = ? AND created_at BETWEEN ? AND ?`,
+      [tenantId, dataInicio, dataFim + " 23:59:59"]
+    );
+
+    res.json({
+      periodo: { data_inicio: dataInicio, data_fim: dataFim },
+      por_categoria: porCategoria,
+      por_canal: porCanal,
+      por_responsavel: porResponsavel,
+      tempo_medio_primeira_resposta_minutos: tempos.tempo_medio_primeira_resposta != null ? Math.round(tempos.tempo_medio_primeira_resposta) : null,
+      tempo_medio_resolucao_minutos: tempos.tempo_medio_resolucao != null ? Math.round(tempos.tempo_medio_resolucao) : null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao gerar relatorio do SAC", details: err.message });
+  }
+};

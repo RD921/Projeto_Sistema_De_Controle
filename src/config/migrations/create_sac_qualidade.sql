@@ -1,0 +1,11 @@
+CREATE TABLE sac_ratings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ticket_id INT NOT NULL UNIQUE,
+  tenant_id INT NOT NULL,
+  nota TINYINT NOT NULL,
+  comentario VARCHAR(500) NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ticket_id) REFERENCES sac_tickets(id) ON DELETE CASCADE,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CHECK (nota BETWEEN 1 AND 5)
+);

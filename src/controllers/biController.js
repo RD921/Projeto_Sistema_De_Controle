@@ -68,12 +68,24 @@ exports.executivo = async (req, res) => {
       "SELECT COUNT(*) AS total FROM marketing_leads WHERE tenant_id = ?",
       [tenantId]
     );
-    const [[marketingConversoes]] = await pool.query(
-      "SELECT COUNT(*) AS total, COALESCE(SUM(valor), 0) AS receita_atribuida FROM marketing_conversions WHERE tenant_id = ?",
-      [tenantId]
-    );
+          const [[marketingConversoes]] = await pool.query(
+        "SELECT COUNT(*) AS total, COALESCE(SUM(valor), 0) AS receita_atribuida FROM marketing_conversions WHERE tenant_id = ?",
+        [tenantId]
+      );
 
-    res.json({
+      const [[sacResumo]] = await pool.query(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN status IN ('novo','em_atendimento','aguardando_cliente','aguardando_empresa','reaberto') THEN 1 ELSE 0 END) AS abertos,
+                SUM(CASE WHEN status IN ('resolvido','encerrado') THEN 1 ELSE 0 END) AS concluidos
+         FROM sac_tickets WHERE tenant_id = ?`,
+        [tenantId]
+      );
+      const [[sacQualidade]] = await pool.query(
+        "SELECT AVG(nota) AS nota_media FROM sac_ratings WHERE tenant_id = ?",
+        [tenantId]
+      );
+
+      res.json({
       periodo: { data_inicio: dataInicio, data_fim: dataFim },
       vendas: {
         total_pedidos: vendasRow.total_pedidos,
@@ -100,13 +112,20 @@ exports.executivo = async (req, res) => {
         produtos_estoque_baixo: estoqueBaixoRow.total,
         observacao: "Estoque reflete o estado atual (sem filtro de periodo)",
       },
-      marketing: {
-        total_leads: marketingLeads.total,
-        total_conversoes: marketingConversoes.total,
-        receita_atribuida: Number(marketingConversoes.receita_atribuida).toFixed(2),
-        observacao: "Marketing reflete o estado atual (sem filtro de periodo)",
-      },
-    });
+              marketing: {
+          total_leads: marketingLeads.total,
+          total_conversoes: marketingConversoes.total,
+          receita_atribuida: Number(marketingConversoes.receita_atribuida).toFixed(2),
+          observacao: "Marketing reflete o estado atual (sem filtro de periodo)",
+        },
+        sac: {
+          total_tickets: Number(sacResumo.total) || 0,
+          abertos: Number(sacResumo.abertos) || 0,
+          concluidos: Number(sacResumo.concluidos) || 0,
+          nota_media_satisfacao: sacQualidade.nota_media != null ? Number(Number(sacQualidade.nota_media).toFixed(1)) : null,
+          observacao: "SAC reflete o estado atual (sem filtro de periodo)",
+        },
+      });
   } catch (err) {
     res.status(500).json({ error: "Erro ao gerar dashboard executivo", details: err.message });
   }

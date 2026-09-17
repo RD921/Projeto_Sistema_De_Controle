@@ -112,6 +112,9 @@ function CentralAtendimento({ cor }) {
   const [filas, setFilas] = useState([]);
   const [respostasRapidas, setRespostasRapidas] = useState([]);
   const [mostrarRespostas, setMostrarRespostas] = useState(false);
+  const [mostrarAvaliacao, setMostrarAvaliacao] = useState(false);
+  const [notaAvaliacao, setNotaAvaliacao] = useState(0);
+  const [comentarioAvaliacao, setComentarioAvaliacao] = useState("");
 
   const carregarLista = () => {
     setLoading(true);
@@ -150,6 +153,7 @@ function CentralAtendimento({ cor }) {
       await api.put(`/sac/tickets/${ticketAtivoId}/status`, { status });
       abrirTicket(ticketAtivoId);
       carregarLista();
+      if (status === "resolvido" || status === "encerrado") setMostrarAvaliacao(true);
     } catch (err) {
       alert(err.response?.data?.error || "Erro ao mudar status.");
     }
@@ -186,6 +190,18 @@ function CentralAtendimento({ cor }) {
       setMostrarRespostas(false);
     } catch (err) {
       alert("Erro ao aplicar resposta rápida.");
+    }
+  };
+
+  const enviarAvaliacao = async () => {
+    if (!notaAvaliacao) return;
+    try {
+      await api.post(`/sac/tickets/${ticketAtivoId}/avaliacao`, { nota: notaAvaliacao, comentario: comentarioAvaliacao || undefined });
+      setMostrarAvaliacao(false);
+      setNotaAvaliacao(0);
+      setComentarioAvaliacao("");
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao enviar avaliação.");
     }
   };
 
@@ -297,6 +313,26 @@ function CentralAtendimento({ cor }) {
           </>
         )}
       </div>
+
+      {mostrarAvaliacao && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setMostrarAvaliacao(false)} />
+          <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 400 }}>
+            <h2 style={{ color: cor.text, marginBottom: 6, fontSize: 17 }}>Avaliar Atendimento</h2>
+            <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 16 }}>Como você avalia este atendimento?</p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, justifyContent: "center" }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <span key={n} onClick={() => setNotaAvaliacao(n)} style={{ fontSize: 28, cursor: "pointer", color: n <= notaAvaliacao ? "#fbbf24" : cor.border }}>★</span>
+              ))}
+            </div>
+            <textarea value={comentarioAvaliacao} onChange={e => setComentarioAvaliacao(e.target.value)} style={{ ...inputStyle, minHeight: 70, resize: "vertical", marginBottom: 16 }} placeholder="Comentário (opcional)" />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setMostrarAvaliacao(false)} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Agora não</button>
+              <button onClick={enviarAvaliacao} disabled={!notaAvaliacao} style={{ ...btnStyle, flex: 1 }}>Enviar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mostrarNovoTicket && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -689,6 +725,157 @@ function Conhecimento({ cor }) {
   );
 }
 
+// ═══════════════════ Qualidade (Fase 8) ═══════════════════
+function GestaoQualidade({ cor }) {
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
+  const [indicadores, setIndicadores] = useState(null);
+
+  useEffect(() => { api.get("/sac/qualidade/indicadores").then(r => setIndicadores(r.data)).catch(() => {}); }, []);
+
+  if (!indicadores) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>;
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Nota Média</p><h2 style={{ color: "#fbbf24", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.nota_media != null ? `${indicadores.nota_media} ★` : "-"}</h2></div>
+        <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Total de Avaliações</p><h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.total_avaliacoes}</h2></div>
+        <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Satisfeitos (4-5★)</p><h2 style={{ color: "#4ade80", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.satisfeitos}</h2></div>
+        <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Insatisfeitos (1-2★)</p><h2 style={{ color: "#f87171", fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.insatisfeitos}</h2></div>
+        <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Taxa de Resposta</p><h2 style={{ color: cor.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{indicadores.taxa_resposta_pct != null ? indicadores.taxa_resposta_pct + "%" : "-"}</h2></div>
+      </div>
+
+      <div style={cardStyle}>
+        <p style={{ color: cor.text, fontWeight: 700, marginBottom: 14 }}>Distribuição de Notas</p>
+        {indicadores.distribuicao.length === 0 ? (
+          <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma avaliação registrada ainda.</p>
+        ) : (
+          [5, 4, 3, 2, 1].map(n => {
+            const item = indicadores.distribuicao.find(d => d.nota === n);
+            const total = item?.total || 0;
+            const max = Math.max(...indicadores.distribuicao.map(d => d.total), 1);
+            return (
+              <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ color: cor.textMuted, fontSize: 12, width: 30 }}>{n} ★</span>
+                <div style={{ flex: 1, height: 8, background: cor.border, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${(total / max) * 100}%`, background: "#fbbf24", borderRadius: 4 }} />
+                </div>
+                <span style={{ color: cor.text, fontSize: 12, width: 20, textAlign: "right" }}>{total}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RelatorioSac({ cor }) {
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
+  const inputStyle = { padding: "9px 12px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
+
+  const [dados, setDados] = useState(null);
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const carregar = () => {
+    setLoading(true);
+    api.get("/sac/relatorio", { params: { data_inicio: dataInicio || undefined, data_fim: dataFim || undefined } })
+      .then(r => setDados(r.data))
+      .catch(() => setDados(null))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  if (loading) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>;
+  if (!dados) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Erro ao carregar relatório.</p>;
+
+  const maxCategoria = Math.max(...dados.por_categoria.map(c => c.total), 1);
+  const maxCanal = Math.max(...dados.por_canal.map(c => c.total), 1);
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 20 }}>
+        <div>
+          <label style={{ color: cor.textMuted, fontSize: 11, display: "block", marginBottom: 4 }}>De</label>
+          <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={{ color: cor.textMuted, fontSize: 11, display: "block", marginBottom: 4 }}>Até</label>
+          <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} style={inputStyle} />
+        </div>
+        <button onClick={carregar} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>Filtrar</button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Tempo Médio 1ª Resposta</p>
+          <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.tempo_medio_primeira_resposta_minutos != null ? `${dados.tempo_medio_primeira_resposta_minutos} min` : "-"}</h2>
+        </div>
+        <div style={cardStyle}>
+          <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Tempo Médio Resolução</p>
+          <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{dados.tempo_medio_resolucao_minutos != null ? `${dados.tempo_medio_resolucao_minutos} min` : "-"}</h2>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div>
+          <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Por Categoria</h3>
+          <div style={cardStyle}>
+            {dados.por_categoria.length === 0 ? (
+              <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum ticket no período.</p>
+            ) : (
+              dados.por_categoria.map(c => (
+                <div key={c.categoria} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ color: cor.textMuted, fontSize: 12, width: 90, textTransform: "capitalize" }}>{c.categoria}</span>
+                  <div style={{ flex: 1, height: 8, background: cor.border, borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${(c.total / maxCategoria) * 100}%`, background: "#a78bfa", borderRadius: 4 }} />
+                  </div>
+                  <span style={{ color: cor.text, fontSize: 12, width: 20, textAlign: "right" }}>{c.total}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div>
+          <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Por Canal</h3>
+          <div style={cardStyle}>
+            {dados.por_canal.length === 0 ? (
+              <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum ticket no período.</p>
+            ) : (
+              dados.por_canal.map(c => (
+                <div key={c.canal} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ color: cor.textMuted, fontSize: 12, width: 90, textTransform: "capitalize" }}>{c.canal}</span>
+                  <div style={{ flex: 1, height: 8, background: cor.border, borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${(c.total / maxCanal) * 100}%`, background: "#60a5fa", borderRadius: 4 }} />
+                  </div>
+                  <span style={{ color: cor.text, fontSize: 12, width: 20, textAlign: "right" }}>{c.total}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Por Responsável</h3>
+      <div style={cardStyle}>
+        {dados.por_responsavel.length === 0 ? (
+          <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum ticket com responsável atribuído no período.</p>
+        ) : (
+          dados.por_responsavel.map((r, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < dados.por_responsavel.length - 1 ? `1px solid ${cor.border}` : "none" }}>
+              <span style={{ color: cor.text, fontSize: 13 }}>{r.responsavel}</span>
+              <span style={{ color: cor.textMuted, fontSize: 13 }}>{r.total} ticket(s)</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════ Componente principal ═══════════════════
 export default function Sac() {
   const { cor } = useOutletContext();
@@ -703,6 +890,8 @@ export default function Sac() {
           <button onClick={() => setAba("filas")} style={{ background: aba === "filas" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Filas e Equipes</button>
           <button onClick={() => setAba("sla")} style={{ background: aba === "sla" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>SLA</button>
           <button onClick={() => setAba("conhecimento")} style={{ background: aba === "conhecimento" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Conhecimento</button>
+                    <button onClick={() => setAba("qualidade")} style={{ background: aba === "qualidade" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Qualidade</button>
+          <button onClick={() => setAba("relatorios")} style={{ background: aba === "relatorios" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Relatórios</button>
         </div>
       </div>
 
@@ -710,6 +899,8 @@ export default function Sac() {
       {aba === "filas" && <GestaoFilasEquipes cor={cor} />}
       {aba === "sla" && <GestaoSla cor={cor} />}
       {aba === "conhecimento" && <Conhecimento cor={cor} />}
+      {aba === "qualidade" && <GestaoQualidade cor={cor} />}
+      {aba === "relatorios" && <RelatorioSac cor={cor} />}
     </div>
   );
 }
