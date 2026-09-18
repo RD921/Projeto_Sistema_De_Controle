@@ -31,21 +31,26 @@ async function refreshAccessToken(refreshToken) {
   });
   return response.data;
 }
-async function getValidToken() {
-  const [rows] = await pool.query(
-    "SELECT * FROM integrations WHERE marketplace = 'mercadolivre' AND ativo = TRUE LIMIT 1"
-  );
-  if (rows.length === 0) throw new Error("Integracao com Mercado Livre nao configurada");
-  const integration = rows[0];
-  const now = new Date();
-  const expiresAt = new Date(integration.expires_at);
-  if (expiresAt <= now) {
-    const newTokens = await refreshAccessToken(integration.refresh_token);
-    const newExpires = new Date(Date.now() + newTokens.expires_in * 1000);
-    await pool.query(
-      "UPDATE integrations SET access_token = ?, refresh_token = ?, expires_at = ? WHERE id = ?",
-      [newTokens.access_token, newTokens.refresh_token, newExpires, integration.id]
+
+  async function getValidToken(tenantId) {
+    if (!tenantId) throw new Error("getValidToken requer tenantId - nunca buscar token sem isolar por empresa");
+    const [rows] = await pool.query(
+      "SELECT * FROM integrations WHERE tenant_id = ? AND marketplace = 'mercadolivre' AND ativo = TRUE LIMIT 1",
+      [tenantId]
     );
+    if (rows.length === 0) throw new Error("Integracao com Mercado Livre nao configurada para esta empresa");
+    const integration = rows[0];
+    const now = new Date();
+    const expiresAt = new Date(integration.expires_at);
+    if (expiresAt <= now) {
+      const newTokens = await refreshAccessToken(integration.refresh_token);
+      const newExpires = new Date(Date.now() + newTokens.expires_in * 1000);
+      await pool.query(
+        "UPDATE integrations SET access_token = ?, refresh_token = ?, expires_at = ? WHERE id = ?",
+        [newTokens.access_token, newTokens.refresh_token, newExpires, integration.id]
+      );
+      return { token: newTokens.access_token, sellerId: integration.seller_id };
+    
     return { token: newTokens.access_token, sellerId: integration.seller_id };
   }
   return { token: integration.access_token, sellerId: integration.seller_id };
