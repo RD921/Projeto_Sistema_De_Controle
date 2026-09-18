@@ -14,12 +14,23 @@ async function registrar(tenantId, user, acao, entidadeTipo, entidadeId, detalhe
     }
   } catch { /* mantem o fallback do email se a busca falhar */ }
 
+    // Origem deduzida a partir do tipo de entidade, ja que este servico e
+  // compartilhado por varios modulos (Financeiro, CRM, Contabilidade, Tesouraria).
+  const mapaOrigem = {
+    financial_entry: "Financeiro",
+    company_fiscal_data: "Financeiro",
+    crm_deal: "CRM",
+    crm_interaction: "CRM",
+    crm_task: "CRM",
+  };
+  const origem = mapaOrigem[entidadeTipo] || "Financeiro";
+
   await auditService.registrar({
     tenantId,
     usuarioId: user?.id || null,
     usuarioNome: nomeUsuario,
     acao: `${acao}${entidadeTipo ? ` (${entidadeTipo}${entidadeId ? ` #${entidadeId}` : ""})` : ""}`,
-    origem: "Financeiro",
+    origem,
     valorNovo: detalhes || null,
   });
 }

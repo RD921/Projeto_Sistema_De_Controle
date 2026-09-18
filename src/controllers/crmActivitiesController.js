@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { registrar } = require("../services/auditoriaService");
 
 exports.criarInteracao = async (req, res) => {
   try {
@@ -12,6 +13,7 @@ exports.criarInteracao = async (req, res) => {
       "INSERT INTO crm_interactions (tenant_id, customer_id, deal_id, tipo, descricao, user_id) VALUES (?, ?, ?, ?, ?, ?)",
       [req.tenant_id, customer_id, deal_id || null, tipo, descricao, req.user?.id || null]
     );
+    await registrar(req.tenant_id, req.user, "criar_interacao", "crm_interaction", result.insertId, `Registrou interação (${tipo}) com cliente`);
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Erro ao registrar interacao", details: err.message });
@@ -38,6 +40,7 @@ exports.editarInteracao = async (req, res) => {
     const novaDescricao = descricao !== undefined ? descricao : interacao.descricao;
 
     await pool.query("UPDATE crm_interactions SET tipo = ?, descricao = ? WHERE id = ?", [novoTipo, novaDescricao, id]);
+    await registrar(req.tenant_id, req.user, "editar_interacao", "crm_interaction", id, `Editou interação (${novoTipo})`);
     res.json({ message: "Interacao atualizada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao atualizar interacao", details: err.message });
@@ -48,6 +51,7 @@ exports.excluirInteracao = async (req, res) => {
   try {
     const [result] = await pool.query("DELETE FROM crm_interactions WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Interacao nao encontrada" });
+    await registrar(req.tenant_id, req.user, "excluir_interacao", "crm_interaction", req.params.id, "Excluiu interação");
     res.json({ message: "Interacao excluida" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir interacao", details: err.message });
@@ -63,6 +67,7 @@ exports.criarTarefa = async (req, res) => {
       "INSERT INTO crm_tasks (tenant_id, customer_id, deal_id, titulo, prazo, responsavel_id) VALUES (?, ?, ?, ?, ?, ?)",
       [req.tenant_id, customer_id || null, deal_id || null, titulo, prazo || null, req.user?.id || null]
     );
+    await registrar(req.tenant_id, req.user, "criar_tarefa", "crm_task", result.insertId, `Criou tarefa "${titulo}"`);
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar tarefa", details: err.message });
@@ -92,6 +97,7 @@ exports.editarTarefa = async (req, res) => {
       "UPDATE crm_tasks SET titulo = ?, prazo = ?" + (resetarNotificacao ? ", overdue_notified_at = NULL" : "") + " WHERE id = ?",
       [novoTitulo, novoPrazo, id]
     );
+    await registrar(req.tenant_id, req.user, "editar_tarefa", "crm_task", id, `Editou tarefa "${tarefa.titulo}" -> "${novoTitulo}"`);
     res.json({ message: "Tarefa atualizada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao atualizar tarefa", details: err.message });
@@ -100,8 +106,10 @@ exports.editarTarefa = async (req, res) => {
 
 exports.concluirTarefa = async (req, res) => {
   try {
+    const [[tarefa]] = await pool.query("SELECT titulo FROM crm_tasks WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     const [result] = await pool.query("UPDATE crm_tasks SET concluida = TRUE WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Tarefa nao encontrada" });
+    await registrar(req.tenant_id, req.user, "concluir_tarefa", "crm_task", req.params.id, tarefa ? `Concluiu tarefa "${tarefa.titulo}"` : "Concluiu tarefa");
     res.json({ message: "Tarefa concluida" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao concluir tarefa", details: err.message });
@@ -110,8 +118,10 @@ exports.concluirTarefa = async (req, res) => {
 
 exports.excluirTarefa = async (req, res) => {
   try {
+    const [[tarefa]] = await pool.query("SELECT titulo FROM crm_tasks WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     const [result] = await pool.query("DELETE FROM crm_tasks WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Tarefa nao encontrada" });
+    await registrar(req.tenant_id, req.user, "excluir_tarefa", "crm_task", req.params.id, tarefa ? `Excluiu tarefa "${tarefa.titulo}"` : "Excluiu tarefa");
     res.json({ message: "Tarefa excluida" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir tarefa", details: err.message });
@@ -119,7 +129,7 @@ exports.excluirTarefa = async (req, res) => {
 };
 
 // Visao 360 do cliente: dados cadastrais + oportunidades + interacoes + tarefas,
-// tudo junto, exatamente o conceito de "visao 360" que Marketing ja usa (Â§37 do prompt original).
+// tudo junto, exatamente o conceito de "visao 360" que Marketing ja usa.
 exports.visao360 = async (req, res) => {
   try {
     const { customerId } = req.params;

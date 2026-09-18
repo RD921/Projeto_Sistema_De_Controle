@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const eventDispatcher = require("../automation/engine/EventDispatcher");
+const { registrar } = require("../services/auditoriaService");
 
 exports.listar = async (req, res) => {
   try {
@@ -57,6 +58,8 @@ exports.criar = async (req, res) => {
       await eventDispatcher.dispatch("deal_created", req.tenant_id, { deal_id: dealId, customer_id, titulo, valor });
     } catch { /* nao bloqueia */ }
 
+    await registrar(req.tenant_id, req.user, "criar_deal", "crm_deal", dealId, `Criou oportunidade "${titulo}"${valor ? ` de R$ ${valor}` : ""}`);
+
     res.status(201).json({ id: dealId });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar oportunidade", details: err.message });
@@ -82,6 +85,9 @@ exports.editar = async (req, res) => {
     const novoValor = valor !== undefined ? valor : deal.valor;
 
     await pool.query("UPDATE crm_deals SET titulo = ?, valor = ? WHERE id = ?", [novoTitulo, novoValor, id]);
+
+    await registrar(req.tenant_id, req.user, "editar_deal", "crm_deal", id, `Editou oportunidade "${deal.titulo}" -> "${novoTitulo}"`);
+
     res.json({ message: "Oportunidade atualizada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao atualizar oportunidade", details: err.message });
@@ -117,6 +123,8 @@ exports.mudarEstagio = async (req, res) => {
       try { await eventDispatcher.dispatch("deal_lost", req.tenant_id, { deal_id: Number(id), customer_id: deal.customer_id, titulo: deal.titulo, motivo_perda }); } catch {}
     }
 
+    await registrar(req.tenant_id, req.user, "mudar_estagio_deal", "crm_deal", id, `"${deal.titulo}": ${deal.estagio} -> ${estagio}${motivo_perda ? ` (motivo: ${motivo_perda})` : ""}`);
+
     res.json({ message: "Estagio atualizado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao mudar estagio", details: err.message });
@@ -125,8 +133,10 @@ exports.mudarEstagio = async (req, res) => {
 
 exports.excluir = async (req, res) => {
   try {
+    const [[deal]] = await pool.query("SELECT titulo FROM crm_deals WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     const [result] = await pool.query("DELETE FROM crm_deals WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Oportunidade nao encontrada" });
+    await registrar(req.tenant_id, req.user, "excluir_deal", "crm_deal", req.params.id, deal ? `Excluiu oportunidade "${deal.titulo}"` : "Excluiu oportunidade");
     res.json({ message: "Oportunidade excluida" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir oportunidade", details: err.message });
