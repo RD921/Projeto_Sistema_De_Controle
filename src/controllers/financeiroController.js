@@ -143,10 +143,13 @@ exports.criarLancamento = async (req, res) => {
       idsGerados.push(result.insertId);
     }
 
-    // Roda o motor de automação em cada parcela criada
+        // Roda o motor de automação em cada parcela criada
 for (const id of idsGerados) {
   try { await avaliarLancamento(req.tenant_id, id); } catch { /* não bloqueia a criação por erro de automação */ }
 }
+
+    await registrar(req.tenant_id, req.user, "criar_lancamento", "financial_entry", idsGerados[0],
+      `Criou ${tipo} "${descricao}" de R$ ${valor}${numParcelas > 1 ? ` em ${numParcelas}x` : ""}`);
 
     res.status(201).json({ ids: idsGerados, message: numParcelas > 1 ? `${numParcelas} parcelas criadas` : "Lançamento criado" });
   } catch (err) {
@@ -162,6 +165,7 @@ exports.marcarPago = async (req, res) => {
       [id, req.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+    await registrar(req.tenant_id, req.user, "marcar_pago", "financial_entry", id, "Marcou lançamento como pago");
     res.json({ message: "Lançamento marcado como pago" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao marcar como pago", details: err.message });
@@ -171,11 +175,14 @@ exports.marcarPago = async (req, res) => {
 exports.excluirLancamento = async (req, res) => {
   try {
     const { id } = req.params;
+    const [[entry]] = await pool.query("SELECT descricao, valor FROM financial_entries WHERE id = ? AND tenant_id = ?", [id, req.tenant_id]);
     const [result] = await pool.query(
       "DELETE FROM financial_entries WHERE id = ? AND tenant_id = ?",
       [id, req.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lançamento não encontrado" });
+    await registrar(req.tenant_id, req.user, "excluir_lancamento", "financial_entry", id,
+      entry ? `Excluiu "${entry.descricao}" de R$ ${entry.valor}` : "Excluiu lançamento");
     res.json({ message: "Lançamento excluído" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir lançamento", details: err.message });
@@ -288,12 +295,13 @@ exports.salvarDadosFiscais = async (req, res) => {
     ];
     const valores = campos.map(c => req.body[c] ?? null);
 
-    await pool.query(
+        await pool.query(
       `INSERT INTO company_fiscal_data (tenant_id, ${campos.join(", ")})
        VALUES (?, ${campos.map(() => "?").join(", ")})
        ON DUPLICATE KEY UPDATE ${campos.map(c => `${c} = VALUES(${c})`).join(", ")}`,
       [req.tenant_id, ...valores]
     );
+    await registrar(req.tenant_id, req.user, "salvar_dados_fiscais", "company_fiscal_data", null, "Atualizou dados fiscais da empresa");
     res.json({ message: "Dados fiscais salvos com sucesso" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao salvar dados fiscais", details: err.message });
