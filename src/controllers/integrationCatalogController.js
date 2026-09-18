@@ -10,11 +10,18 @@ exports.list = async (req, res) => {
     );
     const mapa = Object.fromEntries(conectadas.map(c => [c.integration_id, c.status]));
 
-    res.json(catalogo.map(i => ({
-      ...i,
-      campos_credencial: typeof i.campos_credencial === "string" ? JSON.parse(i.campos_credencial) : i.campos_credencial,
-      conectado: mapa[i.id] === "connected",
-    })));
+    res.json(catalogo.map(i => {
+      const conectado = mapa[i.id] === "connected";
+      return {
+        ...i,
+        campos_credencial: typeof i.campos_credencial === "string" ? JSON.parse(i.campos_credencial) : i.campos_credencial,
+        conectado,
+        sincronizacao_real: !!i.sincronizacao_real,
+        // Honestidade com o usuario: credencial salva != integracao funcionando de verdade,
+        // exceto para as que ja tem sincronizacao_real = TRUE (hoje, so Mercado Livre).
+        status_label: !conectado ? "nao_conectado" : (i.sincronizacao_real ? "conectado_ativo" : "credencial_salva"),
+      };
+    }));
   } catch (err) {
     res.status(500).json({ error: "Erro ao listar integrações", details: err.message });
   }

@@ -217,16 +217,21 @@ export default function IntegracoesHub() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: 12 }}>
+                            <div style={{ marginBottom: 12 }}>
                 <span style={{
                   fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
-                  background: i.conectado ? "#16a34a22" : cor.bg,
-                  color: i.conectado ? "#16a34a" : cor.textMuted,
-                  border: `1px solid ${i.conectado ? "#16a34a55" : cor.border}`,
+                  background: i.status_label === "conectado_ativo" ? "#16a34a22" : i.status_label === "credencial_salva" ? "#3b82f622" : cor.bg,
+                  color: i.status_label === "conectado_ativo" ? "#16a34a" : i.status_label === "credencial_salva" ? "#3b82f6" : cor.textMuted,
+                  border: `1px solid ${i.status_label === "conectado_ativo" ? "#16a34a55" : i.status_label === "credencial_salva" ? "#3b82f655" : cor.border}`,
                 }}>
-                  {i.conectado ? "● Conectado" : "● Não conectado"}
+                  {i.status_label === "conectado_ativo" ? "● Conectado e sincronizando" : i.status_label === "credencial_salva" ? "● Credencial salva" : "● Não conectado"}
                 </span>
               </div>
+              {i.status_label === "credencial_salva" && (
+                <p style={{ color: cor.textMuted, fontSize: 11, margin: "0 0 12px", fontStyle: "italic" }}>
+                  Sincronização automática com {i.label} ainda não está disponível — a credencial fica salva, pronta para quando a integração for implementada.
+                </p>
+              )}
 
               {i.conectado ? (
                 <button
