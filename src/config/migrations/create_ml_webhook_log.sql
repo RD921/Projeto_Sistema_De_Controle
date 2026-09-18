@@ -1,0 +1,7 @@
+CREATE TABLE ml_webhook_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  topico VARCHAR(50) NULL,
+  recurso VARCHAR(255) NULL,
+  payload_bruto TEXT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

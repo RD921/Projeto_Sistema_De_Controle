@@ -8,4 +8,5 @@ router.get("/mercadolivre/callback",                 ctrl.handleCallback);
 router.post("/mercadolivre/sync/orders",             auth, ctrl.syncOrders);
 router.get("/mercadolivre/orders",                   auth, (req, res) => { req.params.marketplace = "mercadolivre"; ctrl.getMarketplaceOrders(req, res); });
 router.delete("/:marketplace/disconnect",            auth, ctrl.disconnectIntegration);
+router.post("/mercadolivre/webhook",                 ctrl.receberWebhook);
 module.exports = router;

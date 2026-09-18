@@ -200,3 +200,22 @@ exports.searchMLCategories = async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar categorias", details: err.message });
   }
 };
+
+// Recebe notificacoes do Mercado Livre (webhook). Hoje apenas registra o
+// que chegou - NAO processa/sincroniza automaticamente ainda. Isso evita
+// fingir uma funcionalidade que nao existe, mas deixa a base pronta para
+// quando o processamento real for implementado.
+exports.receberWebhook = async (req, res) => {
+  try {
+    const { topic, resource } = req.body || {};
+    await pool.query(
+      "INSERT INTO ml_webhook_log (topico, recurso, payload_bruto) VALUES (?, ?, ?)",
+      [topic || null, resource || null, JSON.stringify(req.body || {})]
+    );
+    // O Mercado Livre exige resposta 200 rapida, senao considera falha e tenta de novo
+    res.status(200).send("OK");
+  } catch (err) {
+    console.error("Erro ao registrar webhook do Mercado Livre:", err.message);
+    res.status(200).send("OK"); // responde 200 mesmo assim, para nao gerar retentativas em cascata
+  }
+};
