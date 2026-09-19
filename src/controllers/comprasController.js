@@ -161,3 +161,199 @@ exports.mudarStatusPedido = async (req, res) => {
     res.status(500).json({ error: "Erro ao mudar status", details: err.message });
   }
 };
+
+// ── FASE 2: Cotacoes ──
+exports.criarCotacao = async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const { titulo, data_limite, observacoes, itens, fornecedor_ids } = req.body;
+    if (!titulo) { conn.release(); return res.status(400).json({ error: "titulo e obrigatorio" }); }
+    if (!Array.isArray(itens) || itens.length === 0) { conn.release(); return res.status(400).json({ error: "informe ao menos um item" }); }
+    if (!Array.isArray(fornecedor_ids) || fornecedor_ids.length === 0) { conn.release(); return res.status(400).json({ error: "convide ao menos um fornecedor" }); }
+
+    await conn.beginTransaction();
+
+    const [result] = await conn.query(
+      "INSERT INTO compras_cotacoes (tenant_id, titulo, data_limite, observacoes, created_by) VALUES (?, ?, ?, ?, ?)",
+      [req.tenant_id, titulo, data_limite || null, observacoes || null, req.user?.id || null]
+    );
+    const cotacaoId = result.insertId;
+
+    for (const item of itens) {
+      const [[produto]] = await conn.query("SELECT id FROM products WHERE id = ? AND tenant_id = ?", [item.product_id, req.tenant_id]);
+      if (!produto) { await conn.rollback(); conn.release(); return res.status(400).json({ error: `product_id ${item.product_id} invalido` }); }
+      await conn.query("INSERT INTO compras_cotacao_itens (cotacao_id, product_id, quantidade) VALUES (?, ?, ?)", [cotacaoId, item.product_id, item.quantidade]);
+    }
+
+    for (const fornecedorId of fornecedor_ids) {
+      const [[fornecedor]] = await conn.query("SELECT id FROM compras_fornecedores WHERE id = ? AND tenant_id = ?", [fornecedorId, req.tenant_id]);
+      if (!fornecedor) { await conn.rollback(); conn.release(); return res.status(400).json({ error: `fornecedor_id ${fornecedorId} invalido` }); }
+      await conn.query("INSERT INTO compras_cotacao_fornecedores (cotacao_id, fornecedor_id) VALUES (?, ?)", [cotacaoId, fornecedorId]);
+    }
+
+    await conn.commit();
+    conn.release();
+
+    await registrar(req.tenant_id, req.user, "criar_cotacao", "compras_cotacao", cotacaoId, `Criou cotação "${titulo}" com ${itens.length} item(ns) e ${fornecedor_ids.length} fornecedor(es)`);
+
+    res.status(201).json({ id: cotacaoId });
+  } catch (err) {
+    await conn.rollback();
+    conn.release();
+    res.status(500).json({ error: "Erro ao criar cotacao", details: err.message });
+  }
+};
+
+exports.listarCotacoes = async (req, res) => {
+  try {
+    const { status } = req.query;
+    let sql = "SELECT * FROM compras_cotacoes WHERE tenant_id = ?";
+    const params = [req.tenant_id];
+    if (status) { sql += " AND status = ?"; params.push(status); }
+    sql += " ORDER BY created_at DESC";
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar cotacoes", details: err.message });
+  }
+};
+
+// Retorna a "grade de comparacao": para cada item, o preco que cada fornecedor
+// convidado registrou (ou null se ainda nao respondeu). E o formato pronto para
+// o frontend renderizar uma tabela item x fornecedor sem processamento extra.
+exports.buscarCotacao = async (req, res) => {
+  try {
+    const [[cotacao]] = await pool.query("SELECT * FROM compras_cotacoes WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!cotacao) return res.status(404).json({ error: "Cotacao nao encontrada" });
+
+    const [itens] = await pool.query(
+      `SELECT i.id, i.product_id, i.quantidade, p.nome AS produto_nome, p.sku
+       FROM compras_cotacao_itens i JOIN products p ON p.id = i.product_id WHERE i.cotacao_id = ?`,
+      [cotacao.id]
+    );
+
+    const [fornecedores] = await pool.query(
+      `SELECT f.id, f.nome FROM compras_cotacao_fornecedores cf JOIN compras_fornecedores f ON f.id = cf.fornecedor_id WHERE cf.cotacao_id = ?`,
+      [cotacao.id]
+    );
+
+    const [precos] = await pool.query(
+      `SELECT p.cotacao_item_id, p.fornecedor_id, p.preco_unitario, p.prazo_entrega_dias
+       FROM compras_cotacao_precos p JOIN compras_cotacao_itens i ON i.id = p.cotacao_item_id WHERE i.cotacao_id = ?`,
+      [cotacao.id]
+    );
+
+    const grade = itens.map(item => ({
+      ...item,
+      precos: fornecedores.map(f => {
+        const preco = precos.find(p => p.cotacao_item_id === item.id && p.fornecedor_id === f.id);
+        return { fornecedor_id: f.id, fornecedor_nome: f.nome, preco_unitario: preco?.preco_unitario ?? null, prazo_entrega_dias: preco?.prazo_entrega_dias ?? null };
+      }),
+    }));
+
+    res.json({ ...cotacao, itens: grade, fornecedores });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar cotacao", details: err.message });
+  }
+};
+
+exports.registrarPreco = async (req, res) => {
+  try {
+    const { cotacao_item_id, fornecedor_id, preco_unitario, prazo_entrega_dias } = req.body;
+    if (!cotacao_item_id || !fornecedor_id || preco_unitario == null) {
+      return res.status(400).json({ error: "cotacao_item_id, fornecedor_id e preco_unitario sao obrigatorios" });
+    }
+
+    const [[vinculo]] = await pool.query(
+      `SELECT i.id FROM compras_cotacao_itens i
+       JOIN compras_cotacoes c ON c.id = i.cotacao_id
+       WHERE i.id = ? AND c.tenant_id = ? AND c.status = 'aberta'`,
+      [cotacao_item_id, req.tenant_id]
+    );
+    if (!vinculo) return res.status(400).json({ error: "Item de cotacao invalido ou cotacao ja fechada" });
+
+    await pool.query(
+      `INSERT INTO compras_cotacao_precos (cotacao_item_id, fornecedor_id, preco_unitario, prazo_entrega_dias)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE preco_unitario = VALUES(preco_unitario), prazo_entrega_dias = VALUES(prazo_entrega_dias)`,
+      [cotacao_item_id, fornecedor_id, preco_unitario, prazo_entrega_dias || null]
+    );
+
+    res.json({ message: "Preco registrado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao registrar preco", details: err.message });
+  }
+};
+
+// Converte a cotacao em pedido(s) de compra reais, reaproveitando a mesma
+// logica/tabelas de compras_pedidos - nao existe um "pedido de cotacao" paralelo.
+// O comprador escolhe, para cada item, qual fornecedor venceu; itens do mesmo
+// fornecedor viram um unico pedido (agrupado), fornecedores diferentes geram
+// pedidos separados.
+exports.converterEmPedido = async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const { escolhas } = req.body; // [{ cotacao_item_id, fornecedor_id }]
+    if (!Array.isArray(escolhas) || escolhas.length === 0) { conn.release(); return res.status(400).json({ error: "informe as escolhas de fornecedor vencedor por item" }); }
+
+    const [[cotacao]] = await conn.query("SELECT * FROM compras_cotacoes WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!cotacao) { conn.release(); return res.status(404).json({ error: "Cotacao nao encontrada" }); }
+    if (cotacao.status === "convertida") { conn.release(); return res.status(409).json({ error: "Cotacao ja foi convertida em pedido" }); }
+
+    const porFornecedor = {};
+    for (const escolha of escolhas) {
+      const [[item]] = await conn.query(
+        `SELECT i.product_id, i.quantidade, p.preco_unitario FROM compras_cotacao_itens i
+         LEFT JOIN compras_cotacao_precos p ON p.cotacao_item_id = i.id AND p.fornecedor_id = ?
+         WHERE i.id = ? AND i.cotacao_id = ?`,
+        [escolha.fornecedor_id, escolha.cotacao_item_id, cotacao.id]
+      );
+      if (!item || item.preco_unitario == null) { await conn.rollback(); conn.release(); return res.status(400).json({ error: `Fornecedor escolhido nao registrou preco para o item ${escolha.cotacao_item_id}` }); }
+
+      if (!porFornecedor[escolha.fornecedor_id]) porFornecedor[escolha.fornecedor_id] = [];
+      porFornecedor[escolha.fornecedor_id].push({ product_id: item.product_id, quantidade: item.quantidade, preco_unitario: item.preco_unitario });
+    }
+
+    await conn.beginTransaction();
+
+    const pedidosCriados = [];
+    for (const [fornecedorId, itens] of Object.entries(porFornecedor)) {
+      const valorTotal = itens.reduce((acc, i) => acc + i.quantidade * i.preco_unitario, 0);
+      const [result] = await conn.query(
+        "INSERT INTO compras_pedidos (tenant_id, fornecedor_id, valor_total, created_by, observacoes) VALUES (?, ?, ?, ?, ?)",
+        [req.tenant_id, fornecedorId, valorTotal, req.user?.id || null, `Gerado a partir da cotação "${cotacao.titulo}"`]
+      );
+      for (const item of itens) {
+        await conn.query("INSERT INTO compras_itens (pedido_id, product_id, quantidade, preco_unitario) VALUES (?, ?, ?, ?)", [result.insertId, item.product_id, item.quantidade, item.preco_unitario]);
+      }
+      pedidosCriados.push(result.insertId);
+    }
+
+    await conn.query("UPDATE compras_cotacoes SET status = 'convertida' WHERE id = ?", [cotacao.id]);
+
+    await conn.commit();
+    conn.release();
+
+    await registrar(req.tenant_id, req.user, "converter_cotacao_pedido", "compras_cotacao", cotacao.id, `Convertida em ${pedidosCriados.length} pedido(s) de compra`);
+
+    res.json({ message: "Cotacao convertida", pedidos_criados: pedidosCriados });
+  } catch (err) {
+    await conn.rollback();
+    conn.release();
+    res.status(500).json({ error: "Erro ao converter cotacao", details: err.message });
+  }
+};
+
+exports.fecharCotacao = async (req, res) => {
+  try {
+    const [[cotacao]] = await pool.query("SELECT titulo, status FROM compras_cotacoes WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!cotacao) return res.status(404).json({ error: "Cotacao nao encontrada" });
+    if (cotacao.status !== "aberta") return res.status(409).json({ error: "So e possivel fechar uma cotacao aberta" });
+
+    await pool.query("UPDATE compras_cotacoes SET status = 'fechada' WHERE id = ?", [req.params.id]);
+    await registrar(req.tenant_id, req.user, "fechar_cotacao", "compras_cotacao", req.params.id, `Fechou cotação "${cotacao.titulo}" sem registrar novos precos`);
+    res.json({ message: "Cotacao fechada" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao fechar cotacao", details: err.message });
+  }
+};
