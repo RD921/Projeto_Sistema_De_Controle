@@ -1108,6 +1108,7 @@ function ComprasLogistica() {
   const [cotacaoDetalhe, setCotacaoDetalhe] = useState(null);
   const [precosEditando, setPrecosEditando] = useState({});
   const [escolhas, setEscolhas] = useState({});
+  const [quantidadesRecebimento, setQuantidadesRecebimento] = useState({});
 
   const carregar = () => {
     setLoading(true);
@@ -1280,6 +1281,27 @@ function ComprasLogistica() {
     }
   };
 
+  const receberPedido = async () => {
+    const itensParaReceber = Object.entries(quantidadesRecebimento)
+      .filter(([, qtd]) => Number(qtd) > 0)
+      .map(([itemId, qtd]) => ({ item_id: Number(itemId), quantidade_recebida_agora: Number(qtd) }));
+
+    if (itensParaReceber.length === 0) {
+      alert("Informe a quantidade recebida de ao menos um item.");
+      return;
+    }
+
+    try {
+      const resultado = await api.post(`/compras/pedidos/${pedidoDetalhe.id}/receber`, { itens: itensParaReceber });
+      alert(`Recebimento registrado. Status do pedido: ${labelStatus(resultado.data.status)}`);
+      setQuantidadesRecebimento({});
+      carregar();
+      abrirDetalhe(pedidoDetalhe.id);
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao registrar recebimento.");
+    }
+  };
+
   const CORES_STATUS_PEDIDO = { rascunho: "#888", enviado: "#60a5fa", confirmado: "#a78bfa", parcialmente_recebido: "#fbbf24", recebido: "#4ade80", cancelado: "#f87171" };
   const PROXIMO_STATUS = { rascunho: "enviado", enviado: "confirmado", confirmado: "recebido" };
 
@@ -1364,16 +1386,37 @@ function ComprasLogistica() {
                 <h2 style={{ color: cor.text, marginBottom: 6, fontSize: 17 }}>Pedido #{pedidoDetalhe.id}</h2>
                 <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 16 }}>{pedidoDetalhe.fornecedor_nome} · {formatarMoeda(pedidoDetalhe.valor_total)}</p>
 
-                <p style={{ color: cor.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Itens</p>
-                {pedidoDetalhe.itens.map(item => (
-                  <div key={item.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}`, fontSize: 12.5 }}>
-                    <span style={{ color: cor.text }}>{item.produto_nome} ({item.sku})</span>
-                    <span style={{ color: cor.textMuted }}>{item.quantidade} × {formatarMoeda(item.preco_unitario)}</span>
-                  </div>
-                ))}
+                             <p style={{ color: cor.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Itens</p>
+                {pedidoDetalhe.itens.map(item => {
+                  const faltaReceber = item.quantidade - item.quantidade_recebida;
+                  const podeReceber = ["enviado", "confirmado", "parcialmente_recebido"].includes(pedidoDetalhe.status) && faltaReceber > 0;
+                  return (
+                    <div key={item.id} style={{ padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: podeReceber ? 6 : 0 }}>
+                        <span style={{ color: cor.text }}>{item.produto_nome} ({item.sku})</span>
+                        <span style={{ color: cor.textMuted }}>{item.quantidade} × {formatarMoeda(item.preco_unitario)} · recebido: {item.quantidade_recebida}/{item.quantidade}</span>
+                      </div>
+                      {podeReceber && (
+                        <input
+                          type="number" min="0" max={faltaReceber}
+                          placeholder={`Receber agora (faltam ${faltaReceber})`}
+                          value={quantidadesRecebimento[item.id] || ""}
+                          onChange={e => setQuantidadesRecebimento({ ...quantidadesRecebimento, [item.id]: e.target.value })}
+                          style={{ width: "100%", padding: "6px 10px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 6, color: cor.text, fontSize: 12, boxSizing: "border-box", fontFamily: "inherit" }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {["enviado", "confirmado", "parcialmente_recebido"].includes(pedidoDetalhe.status) && (
+                  <button onClick={receberPedido} style={{ background: "#4ade80", color: "#0a0a0a", border: "none", borderRadius: 8, padding: "10px", width: "100%", marginTop: 16, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+                    Registrar Recebimento
+                  </button>
+                )}
 
                 {PROXIMO_STATUS[pedidoDetalhe.status] && (
-                  <button onClick={() => mudarStatus(pedidoDetalhe.id, PROXIMO_STATUS[pedidoDetalhe.status])} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px", width: "100%", marginTop: 16, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button onClick={() => mudarStatus(pedidoDetalhe.id, PROXIMO_STATUS[pedidoDetalhe.status])} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px", width: "100%", marginTop: 10, cursor: "pointer", fontFamily: "inherit" }}>
                     Avançar para "{labelStatus(PROXIMO_STATUS[pedidoDetalhe.status])}"
                   </button>
                 )}
