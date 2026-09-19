@@ -1109,6 +1109,7 @@ function ComprasLogistica() {
   const [precosEditando, setPrecosEditando] = useState({});
   const [escolhas, setEscolhas] = useState({});
   const [quantidadesRecebimento, setQuantidadesRecebimento] = useState({});
+  const [indicadoresCompras, setIndicadoresCompras] = useState(null);
 
   const carregar = () => {
     setLoading(true);
@@ -1121,6 +1122,12 @@ function ComprasLogistica() {
       .catch(() => {})
       .finally(() => setLoading(false));
   };
+  
+  useEffect(() => {
+    if (subaba === "indicadores" && !indicadoresCompras) {
+      api.get("/compras/indicadores").then(r => setIndicadoresCompras(r.data)).catch(() => {});
+    }
+  }, [subaba]);
 
   useEffect(() => { carregar(); }, []);
 
@@ -1312,7 +1319,8 @@ function ComprasLogistica() {
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         <button onClick={() => setSubaba("pedidos")} style={{ background: subaba === "pedidos" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Pedidos de Compra</button>
         <button onClick={() => setSubaba("cotacoes")} style={{ background: subaba === "cotacoes" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cotações</button>
-        <button onClick={() => setSubaba("fornecedores")} style={{ background: subaba === "fornecedores" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Fornecedores</button>
+              <button onClick={() => setSubaba("fornecedores")} style={{ background: subaba === "fornecedores" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Fornecedores</button>
+        <button onClick={() => setSubaba("indicadores")} style={{ background: subaba === "indicadores" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Indicadores</button>
       </div>
 
       {subaba === "pedidos" && (
@@ -1580,13 +1588,66 @@ function ComprasLogistica() {
                     <p style={{ color: cor.text, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{f.nome}</p>
                     <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>{f.contato || "sem contato"} · prazo: {f.prazo_entrega_dias || "?"} dias</p>
                   </div>
-                  {f.ativo && <button onClick={() => desativarFornecedor(f.id)} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f87171", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>Desativar</button>}
+           
+                         {f.ativo && <button onClick={() => desativarFornecedor(f.id)} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f87171", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>Desativar</button>}
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
-    </div>
+
+      {subaba === "indicadores" && (
+        <div>
+          {!indicadoresCompras ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+                <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Total de Pedidos</p><h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{indicadoresCompras.total_pedidos}</h2></div>
+                <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Valor Total</p><h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{formatarMoeda(indicadoresCompras.valor_total_periodo)}</h2></div>
+                <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Recebidos</p><h2 style={{ color: "#4ade80", fontSize: 20, fontWeight: 700, margin: 0 }}>{indicadoresCompras.total_recebidos}</h2></div>
+                <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Em Andamento</p><h2 style={{ color: "#fbbf24", fontSize: 20, fontWeight: 700, margin: 0 }}>{indicadoresCompras.total_em_andamento}</h2></div>
+                <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Prazo Médio Recebimento</p><h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: 0 }}>{indicadoresCompras.prazo_medio_recebimento_dias != null ? `${indicadoresCompras.prazo_medio_recebimento_dias}d` : "-"}</h2></div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                <div>
+                  <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Por Fornecedor</h3>
+                  <div style={cardStyle}>
+                    {indicadoresCompras.por_fornecedor.length === 0 ? (
+                      <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum dado ainda.</p>
+                    ) : (
+                      indicadoresCompras.por_fornecedor.map((f, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                          <span style={{ color: cor.text, fontSize: 13 }}>{f.nome}</span>
+                          <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{f.total_pedidos} ped. · {formatarMoeda(f.valor_total)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style={{ color: cor.text, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Produtos Mais Comprados</h3>
+                  <div style={cardStyle}>
+                    {indicadoresCompras.produtos_mais_comprados.length === 0 ? (
+                      <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum dado ainda.</p>
+                    ) : (
+                      indicadoresCompras.produtos_mais_comprados.map((p, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                          <span style={{ color: cor.text, fontSize: 13 }}>{p.nome} ({p.sku})</span>
+                          <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.quantidade_total}un · {formatarMoeda(p.valor_total)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      </div>
   );
-}
+};
