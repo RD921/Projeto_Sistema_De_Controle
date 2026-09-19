@@ -2,11 +2,12 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const twoFactor = require("../services/twoFactorService");
 
 exports.login = async (req, res) => {
   const ip = req.ip || req.connection?.remoteAddress || null;
   try {
-    const { email, senha } = req.body || {};
+    const { email, senha, codigo_2fa } = req.body || {};
     if (!email || !senha)
       return res.status(400).json({ error: "Email e senha sao obrigatorios" });
     const [users] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
@@ -24,6 +25,32 @@ exports.login = async (req, res) => {
       await pool.query("INSERT INTO login_attempts (email, user_id, tenant_id, sucesso, motivo_falha, ip) VALUES (?, ?, ?, FALSE, 'senha_invalida', ?)", [email, user.id, user.tenant_id, ip]);
       return res.status(401).json({ error: "Senha invalida" });
     }
+
+    // Se o usuario tem 2FA ativado, senha correta nao basta - precisa do codigo tambem.
+    // Se o codigo nao foi enviado ainda, avisa o frontend para pedir o segundo fator
+    // (sem emitir token, e sem contar como tentativa de login falha - a senha estava certa).
+    if (user.totp_enabled) {
+      if (!codigo_2fa) {
+        return res.status(200).json({ requer_2fa: true, message: "Senha correta. Informe o codigo do autenticador." });
+      }
+
+      const twoFactor = require("../services/twoFactorService");
+      const codigoValido = twoFactor.verificarCodigo(user.totp_secret, codigo_2fa);
+
+      let usouBackup = false;
+      if (!codigoValido) {
+        const codigosBackup = user.totp_backup_codes ? JSON.parse(user.totp_backup_codes) : [];
+        if (codigosBackup.includes(codigo_2fa)) {
+          usouBackup = true;
+          const restantes = codigosBackup.filter(c => c !== codigo_2fa);
+          await pool.query("UPDATE users SET totp_backup_codes = ? WHERE id = ?", [JSON.stringify(restantes), user.id]);
+        } else {
+          await pool.query("INSERT INTO login_attempts (email, user_id, tenant_id, sucesso, motivo_falha, ip) VALUES (?, ?, ?, FALSE, 'codigo_2fa_invalido', ?)", [email, user.id, user.tenant_id, ip]);
+          return res.status(401).json({ error: "Codigo de autenticacao invalido" });
+        }
+      }
+    }
+
     await pool.query("INSERT INTO login_attempts (email, user_id, tenant_id, sucesso, ip) VALUES (?, ?, ?, TRUE, ?)", [email, user.id, user.tenant_id, ip]);
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id || 1 },
@@ -165,3 +192,86 @@ exports.trocarEmpresa = async (req, res) => {
       return res.status(500).json({ error: "Erro ao trocar de empresa", details: err.message });
     }
   };
+
+  // ── 2FA: Configuracao ──
+exports.iniciar2FA = async (req, res) => {
+  try {
+    const [[user]] = await pool.query("SELECT email, totp_enabled FROM users WHERE id = ?", [req.user.id]);
+    if (user.totp_enabled) return res.status(409).json({ error: "2FA ja esta ativado. Desative antes de configurar novamente." });
+
+    const { base32, otpauthUrl } = twoFactor.gerarSegredo(user.email);
+    const qrCodeDataUrl = await twoFactor.gerarQrCode(otpauthUrl);
+
+    // Guarda o segredo temporariamente (ainda nao habilitado) ate a confirmacao
+    await pool.query("UPDATE users SET totp_secret = ? WHERE id = ?", [base32, req.user.id]);
+
+    res.json({ qr_code: qrCodeDataUrl, segredo_manual: base32 });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao iniciar configuracao de 2FA", details: err.message });
+  }
+};
+
+exports.confirmar2FA = async (req, res) => {
+  try {
+    const { codigo } = req.body;
+    if (!codigo) return res.status(400).json({ error: "codigo e obrigatorio" });
+
+    const [[user]] = await pool.query("SELECT totp_secret FROM users WHERE id = ?", [req.user.id]);
+    if (!user.totp_secret) return res.status(400).json({ error: "Nenhuma configuracao de 2FA pendente. Inicie o processo primeiro." });
+
+    const valido = twoFactor.verificarCodigo(user.totp_secret, codigo);
+    if (!valido) return res.status(400).json({ error: "Codigo invalido. Confira o app autenticador e tente novamente." });
+
+    const codigosBackup = twoFactor.gerarCodigosBackup();
+    await pool.query(
+      "UPDATE users SET totp_enabled = TRUE, totp_backup_codes = ? WHERE id = ?",
+      [JSON.stringify(codigosBackup), req.user.id]
+    );
+
+    try {
+      const audit = require("../services/auditService");
+      await audit.registrar({
+        tenantId: req.user.tenant_id, usuarioId: req.user.id, usuarioNome: req.user.email,
+        acao: "Ativou autenticação em dois fatores", origem: "Segurança",
+      });
+    } catch {}
+
+    res.json({ message: "2FA ativado com sucesso", codigos_backup: codigosBackup });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao confirmar 2FA", details: err.message });
+  }
+};
+
+exports.desativar2FA = async (req, res) => {
+  try {
+    const { senha } = req.body;
+    if (!senha) return res.status(400).json({ error: "senha atual e obrigatoria para desativar 2FA" });
+
+    const [[user]] = await pool.query("SELECT senha, email FROM users WHERE id = ?", [req.user.id]);
+    const confere = await bcrypt.compare(senha, user.senha);
+    if (!confere) return res.status(401).json({ error: "Senha incorreta" });
+
+    await pool.query("UPDATE users SET totp_enabled = FALSE, totp_secret = NULL, totp_backup_codes = NULL WHERE id = ?", [req.user.id]);
+
+    try {
+      const audit = require("../services/auditService");
+      await audit.registrar({
+        tenantId: req.user.tenant_id, usuarioId: req.user.id, usuarioNome: user.email,
+        acao: "Desativou autenticação em dois fatores", origem: "Segurança",
+      });
+    } catch {}
+
+    res.json({ message: "2FA desativado" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao desativar 2FA", details: err.message });
+  }
+};
+
+exports.status2FA = async (req, res) => {
+  try {
+    const [[user]] = await pool.query("SELECT totp_enabled FROM users WHERE id = ?", [req.user.id]);
+    res.json({ ativado: !!user.totp_enabled });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar status de 2FA", details: err.message });
+  }
+};

@@ -1,10 +1,14 @@
 const auth = require("../middleware/authMiddleware");
 const express = require("express");
 const router = express.Router();
-const { login, register, suporte, minhasEmpresas, trocarEmpresa } = require("../controllers/authController");
+const { login, register, suporte, minhasEmpresas, trocarEmpresa, iniciar2FA, confirmar2FA, desativar2FA, status2FA } = require("../controllers/authController");
 router.post("/login", login);
 router.post("/register", register);
 router.post("/suporte", suporte);
 router.get("/minhas-empresas", auth, minhasEmpresas);
 router.post("/trocar-empresa", auth, trocarEmpresa);
+router.get("/2fa/status", auth, status2FA);
+router.post("/2fa/iniciar", auth, iniciar2FA);
+router.post("/2fa/confirmar", auth, confirmar2FA);
+router.post("/2fa/desativar", auth, desativar2FA);
 module.exports = router;
