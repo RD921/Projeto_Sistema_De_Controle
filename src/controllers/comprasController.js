@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { registrar } = require("../services/auditoriaService");
+const financeiroService = require("../services/financeiroComprasService");
 
 // ── Fornecedores ──
 exports.listarFornecedores = async (req, res) => {
@@ -150,11 +151,32 @@ exports.mudarStatusPedido = async (req, res) => {
     const validos = ["rascunho", "enviado", "confirmado", "parcialmente_recebido", "recebido", "cancelado"];
     if (!validos.includes(status)) return res.status(400).json({ error: `status deve ser um de: ${validos.join(", ")}` });
 
-    const [[pedido]] = await pool.query("SELECT status FROM compras_pedidos WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    const [[pedido]] = await pool.query(
+      `SELECT p.status, p.valor_total, p.data_prevista, f.nome AS fornecedor_nome
+       FROM compras_pedidos p JOIN compras_fornecedores f ON f.id = p.fornecedor_id
+       WHERE p.id = ? AND p.tenant_id = ?`,
+      [req.params.id, req.tenant_id]
+    );
     if (!pedido) return res.status(404).json({ error: "Pedido nao encontrado" });
 
     await pool.query("UPDATE compras_pedidos SET status = ? WHERE id = ? AND tenant_id = ?", [status, req.params.id, req.tenant_id]);
     await registrar(req.tenant_id, req.user, "mudar_status_pedido_compra", "compras_pedido", req.params.id, `Status: ${pedido.status} -> ${status}`);
+
+    // Ao confirmar o pedido, a obrigacao financeira se torna real - gera a
+    // Conta a Pagar automaticamente, reaproveitando o Financeiro existente.
+    // So gera uma vez (se o status ja era 'confirmado' antes, nao duplica).
+    if (status === "confirmado" && pedido.status !== "confirmado") {
+      try {
+        const contaId = await financeiroService.gerarContaAPagar({
+          tenantId: req.tenant_id, pedidoId: req.params.id, fornecedorNome: pedido.fornecedor_nome,
+          valorTotal: pedido.valor_total, dataPrevista: pedido.data_prevista,
+        });
+        await registrar(req.tenant_id, req.user, "gerar_conta_a_pagar_compra", "financial_entry", contaId, `Gerou Conta a Pagar de R$ ${pedido.valor_total} para o pedido #${req.params.id}`);
+      } catch (errFinanceiro) {
+        console.error("[COMPRAS] Erro ao gerar Conta a Pagar automatica:", errFinanceiro.message);
+        // Nao bloqueia a mudanca de status do pedido por falha na geracao financeira
+      }
+    }
 
     res.json({ message: "Status atualizado" });
   } catch (err) {
