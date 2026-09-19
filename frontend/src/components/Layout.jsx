@@ -288,6 +288,7 @@ const configuracoesLinks = [
   { to: "/logistica/custos", label: "Custos", icon: "💸" },
   { to: "/logistica/alertas", label: "Alertas", icon: "🚨" },
   { to: "/logistica/simulador", label: "Simulador", icon: "🔮" },
+  { to: "/logistica/compras", label: "Compras", icon: "🛒" },
 ];
 
   const linksAtivos = isCentral ? centralLinks

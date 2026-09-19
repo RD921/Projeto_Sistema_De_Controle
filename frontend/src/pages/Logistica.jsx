@@ -1058,9 +1058,10 @@ export default function Logistica() {
   const secaoAtiva = secao || "dashboard";
 
   const TITULOS = {
-    dashboard: "Torre de Controle", envios: "Envios", entregas: "Entregas",
+     dashboard: "Torre de Controle", envios: "Envios", entregas: "Entregas",
     depositos: "Depósitos", transferencias: "Transferências", transportadoras: "Transportadoras",
     devolucoes: "Devoluções", indicadores: "Indicadores", custos: "Custos", alertas: "Alertas", simulador: "Simulador",
+    compras: "Compras",
   };
 
   return (
@@ -1077,6 +1078,251 @@ export default function Logistica() {
       {secaoAtiva === "custos" && <CustosLogistica />}
       {secaoAtiva === "alertas" && <AlertasLogistica />}
       {secaoAtiva === "simulador" && <SimuladorLogistica />}
+      {secaoAtiva === "compras" && <ComprasLogistica />}
+    </div>
+  );
+}
+
+function ComprasLogistica() {
+  const { cor } = useOutletContext();
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
+  const inputStyle = { width: "100%", padding: "9px 12px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
+  const labelStyle = { color: cor.textMuted, fontSize: 11, display: "block", marginBottom: 4 };
+
+  const [subaba, setSubaba] = useState("pedidos");
+  const [fornecedores, setFornecedores] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [produtos, setProdutos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mostrarFormFornecedor, setMostrarFormFornecedor] = useState(false);
+  const [novoFornecedor, setNovoFornecedor] = useState({ nome: "", cnpj: "", contato: "", telefone: "", email: "", prazo_entrega_dias: "" });
+  const [mostrarFormPedido, setMostrarFormPedido] = useState(false);
+  const [novoPedido, setNovoPedido] = useState({ fornecedor_id: "", data_prevista: "", observacoes: "" });
+  const [itensPedido, setItensPedido] = useState([{ product_id: "", quantidade: 1, preco_unitario: "" }]);
+  const [pedidoDetalhe, setPedidoDetalhe] = useState(null);
+
+  const carregar = () => {
+    setLoading(true);
+    Promise.all([
+      api.get("/compras/fornecedores"),
+      api.get("/compras/pedidos"),
+      api.get("/products"),
+    ]).then(([f, p, pr]) => { setFornecedores(f.data || []); setPedidos(p.data || []); setProdutos(pr.data.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const criarFornecedor = async (e) => {
+    e.preventDefault();
+    if (!novoFornecedor.nome) return;
+    try {
+      await api.post("/compras/fornecedores", { ...novoFornecedor, prazo_entrega_dias: novoFornecedor.prazo_entrega_dias || undefined });
+      setNovoFornecedor({ nome: "", cnpj: "", contato: "", telefone: "", email: "", prazo_entrega_dias: "" });
+      setMostrarFormFornecedor(false);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao criar fornecedor.");
+    }
+  };
+
+  const desativarFornecedor = async (id) => {
+    if (!confirm("Desativar este fornecedor?")) return;
+    try {
+      await api.delete(`/compras/fornecedores/${id}`);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao desativar (pode exigir permissao de admin).");
+    }
+  };
+
+  const adicionarLinhaItem = () => setItensPedido([...itensPedido, { product_id: "", quantidade: 1, preco_unitario: "" }]);
+  const removerLinhaItem = (i) => setItensPedido(itensPedido.filter((_, idx) => idx !== i));
+  const atualizarItem = (i, campo, valor) => {
+    const copia = [...itensPedido];
+    copia[i][campo] = valor;
+    setItensPedido(copia);
+  };
+
+  const valorTotalPedido = itensPedido.reduce((acc, item) => acc + (Number(item.quantidade) || 0) * (Number(item.preco_unitario) || 0), 0);
+
+  const criarPedido = async (e) => {
+    e.preventDefault();
+    if (!novoPedido.fornecedor_id) { alert("Selecione um fornecedor."); return; }
+    const itensValidos = itensPedido.filter(i => i.product_id && i.quantidade && i.preco_unitario);
+    if (itensValidos.length === 0) { alert("Adicione ao menos um item valido."); return; }
+    try {
+      await api.post("/compras/pedidos", {
+        ...novoPedido,
+        itens: itensValidos.map(i => ({ product_id: Number(i.product_id), quantidade: Number(i.quantidade), preco_unitario: Number(i.preco_unitario) })),
+      });
+      setNovoPedido({ fornecedor_id: "", data_prevista: "", observacoes: "" });
+      setItensPedido([{ product_id: "", quantidade: 1, preco_unitario: "" }]);
+      setMostrarFormPedido(false);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao criar pedido.");
+    }
+  };
+
+  const abrirDetalhe = async (id) => {
+    try {
+      const r = await api.get(`/compras/pedidos/${id}`);
+      setPedidoDetalhe(r.data);
+    } catch { alert("Erro ao carregar detalhe."); }
+  };
+
+  const mudarStatus = async (id, status) => {
+    try {
+      await api.put(`/compras/pedidos/${id}/status`, { status });
+      carregar();
+      if (pedidoDetalhe?.id === id) abrirDetalhe(id);
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao mudar status.");
+    }
+  };
+
+  const CORES_STATUS_PEDIDO = { rascunho: "#888", enviado: "#60a5fa", confirmado: "#a78bfa", parcialmente_recebido: "#fbbf24", recebido: "#4ade80", cancelado: "#f87171" };
+  const PROXIMO_STATUS = { rascunho: "enviado", enviado: "confirmado", confirmado: "recebido" };
+
+  if (loading) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando...</p>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <button onClick={() => setSubaba("pedidos")} style={{ background: subaba === "pedidos" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Pedidos de Compra</button>
+        <button onClick={() => setSubaba("fornecedores")} style={{ background: subaba === "fornecedores" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Fornecedores</button>
+      </div>
+
+      {subaba === "pedidos" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <button onClick={() => setMostrarFormPedido(!mostrarFormPedido)} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>
+              {mostrarFormPedido ? "Cancelar" : "+ Novo Pedido"}
+            </button>
+          </div>
+
+          {mostrarFormPedido && (
+            <form onSubmit={criarPedido} style={{ ...cardStyle, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={labelStyle}>Fornecedor</label>
+                  <select value={novoPedido.fornecedor_id} onChange={e => setNovoPedido({ ...novoPedido, fornecedor_id: e.target.value })} style={{ ...inputStyle, appearance: "none" }}>
+                    <option value="">Selecione...</option>
+                    {fornecedores.filter(f => f.ativo).map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Data prevista</label>
+                  <input type="date" value={novoPedido.data_prevista} onChange={e => setNovoPedido({ ...novoPedido, data_prevista: e.target.value })} style={inputStyle} />
+                </div>
+              </div>
+
+              <p style={{ color: cor.text, fontWeight: 700, fontSize: 13, margin: "10px 0" }}>Itens</p>
+              {itensPedido.map((item, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 120px auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <select value={item.product_id} onChange={e => atualizarItem(i, "product_id", e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
+                    <option value="">Produto...</option>
+                    {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  </select>
+                  <input type="number" min="1" placeholder="Qtd" value={item.quantidade} onChange={e => atualizarItem(i, "quantidade", e.target.value)} style={inputStyle} />
+                  <input type="number" step="0.01" placeholder="Preço unit." value={item.preco_unitario} onChange={e => atualizarItem(i, "preco_unitario", e.target.value)} style={inputStyle} />
+                  <button type="button" onClick={() => removerLinhaItem(i)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 18 }}>×</button>
+                </div>
+              ))}
+              <button type="button" onClick={adicionarLinhaItem} style={{ background: "none", border: `1px dashed ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginBottom: 10 }}>+ Adicionar item</button>
+
+              <p style={{ color: cor.text, fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Total: {formatarMoeda(valorTotalPedido)}</p>
+
+              <textarea value={novoPedido.observacoes} onChange={e => setNovoPedido({ ...novoPedido, observacoes: e.target.value })} style={{ ...inputStyle, minHeight: 60, resize: "vertical", marginBottom: 10 }} placeholder="Observações (opcional)" />
+
+              <button type="submit" style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>Criar Pedido</button>
+            </form>
+          )}
+
+          {pedidos.length === 0 ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum pedido de compra registrado ainda.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {pedidos.map(p => (
+                <div key={p.id} onClick={() => abrirDetalhe(p.id)} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ color: cor.text, fontSize: 13.5, fontWeight: 600, margin: 0 }}>Pedido #{p.id} — {p.fornecedor_nome}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>{formatarMoeda(p.valor_total)} · previsto: {p.data_prevista ? new Date(p.data_prevista).toLocaleDateString("pt-BR") : "sem data"}</p>
+                  </div>
+                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: (CORES_STATUS_PEDIDO[p.status] || cor.textMuted) + "22", color: CORES_STATUS_PEDIDO[p.status] || cor.textMuted, textTransform: "capitalize" }}>
+                    {labelStatus(p.status)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {pedidoDetalhe && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setPedidoDetalhe(null)} />
+              <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
+                <h2 style={{ color: cor.text, marginBottom: 6, fontSize: 17 }}>Pedido #{pedidoDetalhe.id}</h2>
+                <p style={{ color: cor.textMuted, fontSize: 12.5, marginBottom: 16 }}>{pedidoDetalhe.fornecedor_nome} · {formatarMoeda(pedidoDetalhe.valor_total)}</p>
+
+                <p style={{ color: cor.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Itens</p>
+                {pedidoDetalhe.itens.map(item => (
+                  <div key={item.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}`, fontSize: 12.5 }}>
+                    <span style={{ color: cor.text }}>{item.produto_nome} ({item.sku})</span>
+                    <span style={{ color: cor.textMuted }}>{item.quantidade} × {formatarMoeda(item.preco_unitario)}</span>
+                  </div>
+                ))}
+
+                {PROXIMO_STATUS[pedidoDetalhe.status] && (
+                  <button onClick={() => mudarStatus(pedidoDetalhe.id, PROXIMO_STATUS[pedidoDetalhe.status])} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px", width: "100%", marginTop: 16, cursor: "pointer", fontFamily: "inherit" }}>
+                    Avançar para "{labelStatus(PROXIMO_STATUS[pedidoDetalhe.status])}"
+                  </button>
+                )}
+                <button onClick={() => setPedidoDetalhe(null)} style={{ marginTop: 10, width: "100%", padding: 10, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Fechar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subaba === "fornecedores" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <button onClick={() => setMostrarFormFornecedor(!mostrarFormFornecedor)} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>
+              {mostrarFormFornecedor ? "Cancelar" : "+ Novo Fornecedor"}
+            </button>
+          </div>
+          {mostrarFormFornecedor && (
+            <form onSubmit={criarFornecedor} style={{ ...cardStyle, marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <input value={novoFornecedor.nome} onChange={e => setNovoFornecedor({ ...novoFornecedor, nome: e.target.value })} style={inputStyle} placeholder="Nome" required />
+              <input value={novoFornecedor.cnpj} onChange={e => setNovoFornecedor({ ...novoFornecedor, cnpj: e.target.value })} style={inputStyle} placeholder="CNPJ (opcional)" />
+              <input value={novoFornecedor.contato} onChange={e => setNovoFornecedor({ ...novoFornecedor, contato: e.target.value })} style={inputStyle} placeholder="Contato" />
+              <input value={novoFornecedor.telefone} onChange={e => setNovoFornecedor({ ...novoFornecedor, telefone: e.target.value })} style={inputStyle} placeholder="Telefone" />
+              <input value={novoFornecedor.email} onChange={e => setNovoFornecedor({ ...novoFornecedor, email: e.target.value })} style={inputStyle} placeholder="E-mail" />
+              <input type="number" value={novoFornecedor.prazo_entrega_dias} onChange={e => setNovoFornecedor({ ...novoFornecedor, prazo_entrega_dias: e.target.value })} style={inputStyle} placeholder="Prazo de entrega (dias)" />
+              <div style={{ gridColumn: "span 2" }}>
+                <button type="submit" style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>Criar</button>
+              </div>
+            </form>
+          )}
+          {fornecedores.length === 0 ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum fornecedor cadastrado ainda.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {fornecedores.map(f => (
+                <div key={f.id} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, opacity: f.ativo ? 1 : 0.5 }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ color: cor.text, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{f.nome}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>{f.contato || "sem contato"} · prazo: {f.prazo_entrega_dias || "?"} dias</p>
+                  </div>
+                  {f.ativo && <button onClick={() => desativarFornecedor(f.id)} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#f87171", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>Desativar</button>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
