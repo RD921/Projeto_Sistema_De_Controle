@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const eventDispatcher = require("../automation/engine/EventDispatcher");
+const { registrar } = require("../services/auditoriaService");
 
 const LIMITE_ESTOQUE_BAIXO = 10;
 
@@ -63,7 +64,7 @@ exports.ajustar = async (req, res) => {
       [req.tenant_id, id, tipo, quantidade, estoqueAnterior, estoqueNovo, motivo || null, req.user?.id || null]
     );
 
-    await conn.commit();
+        await conn.commit();
     conn.release();
 
     try {
@@ -71,6 +72,11 @@ exports.ajustar = async (req, res) => {
         product_id: Number(id), nome: produto.nome, tipo, quantidade, estoque_anterior: estoqueAnterior, estoque_novo: estoqueNovo,
       });
     } catch { /* nao bloqueia o ajuste por erro de automacao */ }
+
+    try {
+      await registrar(req.tenant_id, req.user, "ajustar_estoque", "product", id,
+        `${tipo} de ${quantidade} em "${produto.nome}" (${estoqueAnterior} -> ${estoqueNovo})${motivo ? `. Motivo: ${motivo}` : ""}`);
+    } catch { /* nao bloqueia o ajuste por erro de auditoria */ }
 
     if (estoqueAnterior > LIMITE_ESTOQUE_BAIXO && estoqueNovo <= LIMITE_ESTOQUE_BAIXO) {
       try {

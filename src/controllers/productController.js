@@ -1,4 +1,6 @@
 const pool = require("../config/db");
+const { registrar } = require("../services/auditoriaService");
+
 exports.getProducts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -34,10 +36,11 @@ exports.createProduct = async (req, res) => {
     }
     const [existing] = await pool.query("SELECT id FROM products WHERE sku = ? AND tenant_id = ?", [sku, req.tenant_id]);
     if (existing.length > 0) return res.status(409).json({ error: "SKU ja cadastrado" });
-    await pool.query(
+    const [result] = await pool.query(
       "INSERT INTO products (nome, descricao, sku, preco, estoque, tenant_id) VALUES (?, ?, ?, ?, ?, ?)",
       [nome, descricao || null, sku, preco, estoque || 0, req.tenant_id]
     );
+    await registrar(req.tenant_id, req.user, "criar_produto", "product", result.insertId, `Criou produto "${nome}" (SKU ${sku}) por R$ ${preco}`);
     res.status(201).json({ message: "Produto criado com sucesso" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar produto", details: err.message });
@@ -55,12 +58,13 @@ exports.updateProduct = async (req, res) => {
     }
 
     const { nome, descricao, preco, ativo } = req.body || {};
-    const [existing] = await pool.query("SELECT id FROM products WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    const [existing] = await pool.query("SELECT nome FROM products WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (existing.length === 0) return res.status(404).json({ error: "Produto nao encontrado" });
     await pool.query(
       "UPDATE products SET nome = COALESCE(?, nome), descricao = COALESCE(?, descricao), preco = COALESCE(?, preco), ativo = COALESCE(?, ativo) WHERE id = ? AND tenant_id = ?",
       [nome, descricao, preco, ativo, req.params.id, req.tenant_id]
     );
+    await registrar(req.tenant_id, req.user, "editar_produto", "product", req.params.id, `Editou produto "${existing[0].nome}"`);
     res.json({ message: "Produto atualizado com sucesso" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao atualizar produto", details: err.message });
@@ -68,9 +72,10 @@ exports.updateProduct = async (req, res) => {
 };
 exports.deleteProduct = async (req, res) => {
   try {
-    const [existing] = await pool.query("SELECT id FROM products WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    const [existing] = await pool.query("SELECT nome FROM products WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (existing.length === 0) return res.status(404).json({ error: "Produto nao encontrado" });
     await pool.query("DELETE FROM products WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    await registrar(req.tenant_id, req.user, "excluir_produto", "product", req.params.id, `Excluiu produto "${existing[0].nome}"`);
     res.json({ message: "Produto removido com sucesso" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao remover produto", details: err.message });
