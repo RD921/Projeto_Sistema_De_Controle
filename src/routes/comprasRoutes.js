@@ -21,5 +21,6 @@ router.post("/cotacoes/precos", auth, permission("logistica.editar"), ctrl.regis
 router.post("/cotacoes/:id/converter", auth, permission("logistica.editar"), ctrl.converterEmPedido);
 router.post("/cotacoes/:id/fechar", auth, permission("logistica.editar"), ctrl.fecharCotacao);
 router.post("/pedidos/:id/receber", auth, permission("logistica.editar"), ctrl.receberPedido);
+router.get("/indicadores", auth, permission("logistica.ver"), ctrl.indicadores);
 
 module.exports = router;

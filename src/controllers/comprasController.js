@@ -437,3 +437,55 @@ exports.receberPedido = async (req, res) => {
     res.status(err.status || 500).json({ error: err.status ? err.message : "Erro ao registrar recebimento", details: err.status ? undefined : err.message });
   }
 };
+
+// ── FASE 5: Indicadores ──
+exports.indicadores = async (req, res) => {
+  try {
+    const tenantId = req.tenant_id;
+
+    const [[resumo]] = await pool.query(
+      `SELECT COUNT(*) AS total_pedidos, COALESCE(SUM(valor_total), 0) AS valor_total_periodo,
+              SUM(CASE WHEN status = 'recebido' THEN 1 ELSE 0 END) AS total_recebidos,
+              SUM(CASE WHEN status IN ('enviado','confirmado','parcialmente_recebido') THEN 1 ELSE 0 END) AS total_em_andamento
+       FROM compras_pedidos WHERE tenant_id = ?`,
+      [tenantId]
+    );
+
+    const [porFornecedor] = await pool.query(
+      `SELECT f.nome, COUNT(p.id) AS total_pedidos, COALESCE(SUM(p.valor_total), 0) AS valor_total
+       FROM compras_pedidos p JOIN compras_fornecedores f ON f.id = p.fornecedor_id
+       WHERE p.tenant_id = ? GROUP BY f.id ORDER BY valor_total DESC LIMIT 10`,
+      [tenantId]
+    );
+
+    // Prazo medio real: diferenca entre criacao do pedido e o momento em que
+    // ele foi totalmente recebido (usa updated_at como proxy do recebimento final,
+    // ja que nao guardamos um "recebido_em" separado).
+    const [[prazoMedio]] = await pool.query(
+      `SELECT AVG(TIMESTAMPDIFF(DAY, created_at, updated_at)) AS media_dias
+       FROM compras_pedidos WHERE tenant_id = ? AND status = 'recebido'`,
+      [tenantId]
+    );
+
+    const [produtosMaisComprados] = await pool.query(
+      `SELECT pr.nome, pr.sku, SUM(i.quantidade) AS quantidade_total, COALESCE(SUM(i.quantidade * i.preco_unitario), 0) AS valor_total
+       FROM compras_itens i
+       JOIN compras_pedidos p ON p.id = i.pedido_id
+       JOIN products pr ON pr.id = i.product_id
+       WHERE p.tenant_id = ? GROUP BY pr.id ORDER BY quantidade_total DESC LIMIT 10`,
+      [tenantId]
+    );
+
+    res.json({
+      total_pedidos: Number(resumo.total_pedidos) || 0,
+      valor_total_periodo: Number(resumo.valor_total_periodo) || 0,
+      total_recebidos: Number(resumo.total_recebidos) || 0,
+      total_em_andamento: Number(resumo.total_em_andamento) || 0,
+      prazo_medio_recebimento_dias: prazoMedio.media_dias != null ? Math.round(prazoMedio.media_dias) : null,
+      por_fornecedor: porFornecedor,
+      produtos_mais_comprados: produtosMaisComprados,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao calcular indicadores de compras", details: err.message });
+  }
+};
