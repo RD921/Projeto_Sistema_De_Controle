@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const scheduler = require("../automation/engine/Scheduler");
+const { registrar } = require("../services/auditoriaService");
 
 exports.listar = async (req, res) => {
   try {
@@ -36,6 +37,7 @@ exports.criar = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.tenant_id, nome, objetivo || null, tipo || "outro", segment_id || null, automation_id || null, orcamento || null, data_inicio || null, data_fim || null, req.user?.id || null]
     );
+    await registrar(req.tenant_id, req.user, "criar_campanha", "marketing_campaign", result.insertId, `Criou campanha "${nome}"`);
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar campanha", details: err.message });
@@ -56,6 +58,8 @@ exports.ativar = async (req, res) => {
       scheduler.reloadAutomation(campanha.automation_id);
     }
 
+    await registrar(req.tenant_id, req.user, "ativar_campanha", "marketing_campaign", campanha.id, `Ativou campanha "${campanha.nome}"`);
+
     res.json({ message: "Campanha ativada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao ativar campanha", details: err.message });
@@ -72,6 +76,7 @@ exports.pausar = async (req, res) => {
       await pool.query("UPDATE automations SET status = 'paused' WHERE id = ? AND tenant_id = ?", [campanha.automation_id, req.tenant_id]);
       scheduler.pararJobs(campanha.automation_id);
     }
+    await registrar(req.tenant_id, req.user, "pausar_campanha", "marketing_campaign", campanha.id, `Pausou campanha "${campanha.nome}"`);
     res.json({ message: "Campanha pausada" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao pausar campanha", details: err.message });
@@ -80,8 +85,10 @@ exports.pausar = async (req, res) => {
 
 exports.excluir = async (req, res) => {
   try {
+    const [[campanha]] = await pool.query("SELECT nome FROM marketing_campaigns WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     const [result] = await pool.query("DELETE FROM marketing_campaigns WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Campanha nao encontrada" });
+    await registrar(req.tenant_id, req.user, "excluir_campanha", "marketing_campaign", req.params.id, campanha ? `Excluiu campanha "${campanha.nome}"` : "Excluiu campanha");
     res.json({ message: "Campanha excluida" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir campanha", details: err.message });

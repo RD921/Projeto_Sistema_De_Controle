@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const eventDispatcher = require("../automation/engine/EventDispatcher");
 const { aplicarRegras } = require("../services/marketingScoringService");
+const { registrar } = require("../services/auditoriaService");
 
 exports.listar = async (req, res) => {
   try {
@@ -39,6 +40,8 @@ exports.criar = async (req, res) => {
       await aplicarRegras(req.tenant_id, leadId, "lead_created");
     } catch { /* nao bloqueia criacao por erro de scoring */ }
 
+    await registrar(req.tenant_id, req.user, "criar_lead", "marketing_lead", leadId, `Criou lead "${nome}"${canal ? ` via ${canal}` : ""}`);
+
     res.status(201).json({ id: leadId, message: "Lead criado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao criar lead", details: err.message });
@@ -52,6 +55,7 @@ exports.atualizarStatus = async (req, res) => {
     const statusValidos = ["novo","contactado","engajado","qualificado","oportunidade","cliente","perdido","inativo"];
     if (!statusValidos.includes(status)) return res.status(400).json({ error: "status invalido" });
 
+    const [[leadAntes]] = await pool.query("SELECT nome, status FROM marketing_leads WHERE id = ? AND tenant_id = ?", [id, req.tenant_id]);
     const [result] = await pool.query(
       "UPDATE marketing_leads SET status = ? WHERE id = ? AND tenant_id = ?",
       [status, id, req.tenant_id]
@@ -65,6 +69,8 @@ exports.atualizarStatus = async (req, res) => {
     try {
       await aplicarRegras(req.tenant_id, Number(id), `lead_${status}`);
     } catch { /* nao bloqueia */ }
+
+    await registrar(req.tenant_id, req.user, "atualizar_status_lead", "marketing_lead", id, `"${leadAntes?.nome}": ${leadAntes?.status} -> ${status}`);
 
     res.json({ message: "Status atualizado" });
   } catch (err) {
@@ -83,6 +89,7 @@ exports.ajustarScore = async (req, res) => {
       [delta, id, req.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lead nao encontrado" });
+    await registrar(req.tenant_id, req.user, "ajustar_score_lead", "marketing_lead", id, `Ajustou score em ${delta > 0 ? "+" : ""}${delta}`);
     res.json({ message: "Score ajustado" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao ajustar score", details: err.message });
@@ -106,6 +113,8 @@ exports.vincularCliente = async (req, res) => {
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lead nao encontrado" });
 
+    await registrar(req.tenant_id, req.user, "vincular_cliente_lead", "marketing_lead", id, `Vinculou lead ao cliente #${customer_id}`);
+
     res.json({ message: "Lead vinculado ao cliente" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao vincular cliente", details: err.message });
@@ -114,8 +123,10 @@ exports.vincularCliente = async (req, res) => {
 
 exports.excluir = async (req, res) => {
   try {
+    const [[lead]] = await pool.query("SELECT nome FROM marketing_leads WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     const [result] = await pool.query("DELETE FROM marketing_leads WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Lead nao encontrado" });
+    await registrar(req.tenant_id, req.user, "excluir_lead", "marketing_lead", req.params.id, lead ? `Excluiu lead "${lead.nome}"` : "Excluiu lead");
     res.json({ message: "Lead excluido" });
   } catch (err) {
     res.status(500).json({ error: "Erro ao excluir lead", details: err.message });

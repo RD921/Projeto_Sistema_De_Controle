@@ -14,14 +14,16 @@ async function registrar(tenantId, user, acao, entidadeTipo, entidadeId, detalhe
     }
   } catch { /* mantem o fallback do email se a busca falhar */ }
 
-    // Origem deduzida a partir do tipo de entidade, ja que este servico e
-  // compartilhado por varios modulos (Financeiro, CRM, Contabilidade, Tesouraria).
-  const mapaOrigem = {
+       // Origem deduzida a partir do tipo de entidade, ja que este servico e
+  // compartilhado por varios modulos (Financeiro, CRM, Marketing, Contabilidade, Tesouraria).
+    const mapaOrigem = {
     financial_entry: "Financeiro",
     company_fiscal_data: "Financeiro",
     crm_deal: "CRM",
     crm_interaction: "CRM",
     crm_task: "CRM",
+    marketing_lead: "Marketing",
+    marketing_campaign: "Marketing",
   };
   const origem = mapaOrigem[entidadeTipo] || "Financeiro";
 
