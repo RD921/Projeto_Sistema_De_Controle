@@ -1100,6 +1100,14 @@ function ComprasLogistica() {
   const [novoPedido, setNovoPedido] = useState({ fornecedor_id: "", data_prevista: "", observacoes: "" });
   const [itensPedido, setItensPedido] = useState([{ product_id: "", quantidade: 1, preco_unitario: "" }]);
   const [pedidoDetalhe, setPedidoDetalhe] = useState(null);
+  const [cotacoes, setCotacoes] = useState([]);
+  const [mostrarFormCotacao, setMostrarFormCotacao] = useState(false);
+  const [novaCotacao, setNovaCotacao] = useState({ titulo: "", data_limite: "", observacoes: "" });
+  const [itensCotacao, setItensCotacao] = useState([{ product_id: "", quantidade: 1 }]);
+  const [fornecedoresConvidados, setFornecedoresConvidados] = useState([]);
+  const [cotacaoDetalhe, setCotacaoDetalhe] = useState(null);
+  const [precosEditando, setPrecosEditando] = useState({});
+  const [escolhas, setEscolhas] = useState({});
 
   const carregar = () => {
     setLoading(true);
@@ -1107,7 +1115,8 @@ function ComprasLogistica() {
       api.get("/compras/fornecedores"),
       api.get("/compras/pedidos"),
       api.get("/products"),
-    ]).then(([f, p, pr]) => { setFornecedores(f.data || []); setPedidos(p.data || []); setProdutos(pr.data.data || []); })
+      api.get("/compras/cotacoes"),
+    ]).then(([f, p, pr, c]) => { setFornecedores(f.data || []); setPedidos(p.data || []); setProdutos(pr.data.data || []); setCotacoes(c.data || []); })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
@@ -1136,6 +1145,94 @@ function ComprasLogistica() {
       alert(err.response?.data?.error || "Erro ao desativar (pode exigir permissao de admin).");
     }
   };
+
+  const adicionarLinhaItemCotacao = () => setItensCotacao([...itensCotacao, { product_id: "", quantidade: 1 }]);
+  const removerLinhaItemCotacao = (i) => setItensCotacao(itensCotacao.filter((_, idx) => idx !== i));
+  const atualizarItemCotacao = (i, campo, valor) => {
+    const copia = [...itensCotacao];
+    copia[i][campo] = valor;
+    setItensCotacao(copia);
+  };
+
+  const toggleFornecedorConvidado = (id) => {
+    setFornecedoresConvidados(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
+  };
+
+  const criarCotacao = async (e) => {
+    e.preventDefault();
+    const itensValidos = itensCotacao.filter(i => i.product_id && i.quantidade);
+    if (!novaCotacao.titulo || itensValidos.length === 0 || fornecedoresConvidados.length === 0) {
+      alert("Preencha título, ao menos um item e convide ao menos um fornecedor.");
+      return;
+    }
+    try {
+      await api.post("/compras/cotacoes", {
+        ...novaCotacao,
+        itens: itensValidos.map(i => ({ product_id: Number(i.product_id), quantidade: Number(i.quantidade) })),
+        fornecedor_ids: fornecedoresConvidados,
+      });
+      setNovaCotacao({ titulo: "", data_limite: "", observacoes: "" });
+      setItensCotacao([{ product_id: "", quantidade: 1 }]);
+      setFornecedoresConvidados([]);
+      setMostrarFormCotacao(false);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao criar cotação.");
+    }
+  };
+
+  const abrirCotacao = async (id) => {
+    try {
+      const r = await api.get(`/compras/cotacoes/${id}`);
+      setCotacaoDetalhe(r.data);
+      setEscolhas({});
+    } catch { alert("Erro ao carregar cotação."); }
+  };
+
+  const salvarPreco = async (cotacaoItemId, fornecedorId) => {
+    const chave = `${cotacaoItemId}-${fornecedorId}`;
+    const valores = precosEditando[chave];
+    if (!valores?.preco_unitario) return;
+    try {
+      await api.post("/compras/cotacoes/precos", {
+        cotacao_item_id: cotacaoItemId,
+        fornecedor_id: fornecedorId,
+        preco_unitario: Number(valores.preco_unitario),
+        prazo_entrega_dias: valores.prazo_entrega_dias ? Number(valores.prazo_entrega_dias) : undefined,
+      });
+      abrirCotacao(cotacaoDetalhe.id);
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao salvar preço.");
+    }
+  };
+
+  const converterCotacao = async () => {
+    const escolhasArray = Object.entries(escolhas).map(([itemId, fornecedorId]) => ({ cotacao_item_id: Number(itemId), fornecedor_id: Number(fornecedorId) }));
+    if (escolhasArray.length !== cotacaoDetalhe.itens.length) {
+      alert("Escolha um fornecedor vencedor para cada item antes de converter.");
+      return;
+    }
+    try {
+      const resultado = await api.post(`/compras/cotacoes/${cotacaoDetalhe.id}/converter`, { escolhas: escolhasArray });
+      alert(`Cotação convertida em ${resultado.data.pedidos_criados.length} pedido(s) de compra.`);
+      setCotacaoDetalhe(null);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao converter cotação.");
+    }
+  };
+
+  const fecharCotacao = async (id) => {
+    if (!confirm("Fechar esta cotação sem converter em pedido?")) return;
+    try {
+      await api.post(`/compras/cotacoes/${id}/fechar`);
+      carregar();
+    } catch (err) {
+      alert(err.response?.data?.error || "Erro ao fechar cotação.");
+    }
+  };
+
+  const CORES_STATUS_COTACAO = { aberta: "#60a5fa", fechada: "#888", convertida: "#4ade80" };
 
   const adicionarLinhaItem = () => setItensPedido([...itensPedido, { product_id: "", quantidade: 1, preco_unitario: "" }]);
   const removerLinhaItem = (i) => setItensPedido(itensPedido.filter((_, idx) => idx !== i));
@@ -1192,6 +1289,7 @@ function ComprasLogistica() {
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         <button onClick={() => setSubaba("pedidos")} style={{ background: subaba === "pedidos" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Pedidos de Compra</button>
+        <button onClick={() => setSubaba("cotacoes")} style={{ background: subaba === "cotacoes" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cotações</button>
         <button onClick={() => setSubaba("fornecedores")} style={{ background: subaba === "fornecedores" ? cor.border : "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Fornecedores</button>
       </div>
 
@@ -1280,6 +1378,129 @@ function ComprasLogistica() {
                   </button>
                 )}
                 <button onClick={() => setPedidoDetalhe(null)} style={{ marginTop: 10, width: "100%", padding: 10, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Fechar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subaba === "cotacoes" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <button onClick={() => setMostrarFormCotacao(!mostrarFormCotacao)} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>
+              {mostrarFormCotacao ? "Cancelar" : "+ Nova Cotação"}
+            </button>
+          </div>
+
+          {mostrarFormCotacao && (
+            <form onSubmit={criarCotacao} style={{ ...cardStyle, marginBottom: 16 }}>
+              <input value={novaCotacao.titulo} onChange={e => setNovaCotacao({ ...novaCotacao, titulo: e.target.value })} style={{ ...inputStyle, marginBottom: 10 }} placeholder="Título da cotação" required />
+              <input type="date" value={novaCotacao.data_limite} onChange={e => setNovaCotacao({ ...novaCotacao, data_limite: e.target.value })} style={{ ...inputStyle, marginBottom: 10 }} />
+
+              <p style={{ color: cor.text, fontWeight: 700, fontSize: 13, margin: "10px 0" }}>Itens</p>
+              {itensCotacao.map((item, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px auto", gap: 8, marginBottom: 8 }}>
+                  <select value={item.product_id} onChange={e => atualizarItemCotacao(i, "product_id", e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
+                    <option value="">Produto...</option>
+                    {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  </select>
+                  <input type="number" min="1" placeholder="Qtd" value={item.quantidade} onChange={e => atualizarItemCotacao(i, "quantidade", e.target.value)} style={inputStyle} />
+                  <button type="button" onClick={() => removerLinhaItemCotacao(i)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 18 }}>×</button>
+                </div>
+              ))}
+              <button type="button" onClick={adicionarLinhaItemCotacao} style={{ background: "none", border: `1px dashed ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginBottom: 14 }}>+ Adicionar item</button>
+
+              <p style={{ color: cor.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Convidar fornecedores</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                {fornecedores.filter(f => f.ativo).map(f => (
+                  <label key={f.id} style={{ display: "flex", alignItems: "center", gap: 6, background: fornecedoresConvidados.includes(f.id) ? "#a78bfa22" : cor.bg, border: `1px solid ${fornecedoresConvidados.includes(f.id) ? "#a78bfa" : cor.border}`, borderRadius: 20, padding: "5px 12px", fontSize: 12.5, cursor: "pointer", color: cor.text }}>
+                    <input type="checkbox" checked={fornecedoresConvidados.includes(f.id)} onChange={() => toggleFornecedorConvidado(f.id)} style={{ display: "none" }} />
+                    {f.nome}
+                  </label>
+                ))}
+              </div>
+
+              <button type="submit" style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }}>Criar Cotação</button>
+            </form>
+          )}
+
+          {cotacoes.length === 0 ? (
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma cotação criada ainda.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {cotacoes.map(c => (
+                <div key={c.id} onClick={() => abrirCotacao(c.id)} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ color: cor.text, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{c.titulo}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>{c.data_limite ? `Limite: ${new Date(c.data_limite).toLocaleDateString("pt-BR")}` : "sem prazo"}</p>
+                  </div>
+                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: CORES_STATUS_COTACAO[c.status] + "22", color: CORES_STATUS_COTACAO[c.status], textTransform: "capitalize" }}>{c.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {cotacaoDetalhe && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setCotacaoDetalhe(null)} />
+              <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 700, maxHeight: "85vh", overflowY: "auto" }}>
+                <h2 style={{ color: cor.text, marginBottom: 6, fontSize: 17 }}>{cotacaoDetalhe.titulo}</h2>
+                <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 20, textTransform: "capitalize" }}>Status: {cotacaoDetalhe.status}</p>
+
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: "left", padding: 8, color: cor.textMuted, borderBottom: `1px solid ${cor.border}` }}>Item</th>
+                        {cotacaoDetalhe.fornecedores.map(f => (
+                          <th key={f.id} style={{ textAlign: "left", padding: 8, color: cor.textMuted, borderBottom: `1px solid ${cor.border}` }}>{f.nome}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cotacaoDetalhe.itens.map(item => (
+                        <tr key={item.id}>
+                          <td style={{ padding: 8, color: cor.text, borderBottom: `1px solid ${cor.border}` }}>{item.produto_nome} ({item.quantidade}un)</td>
+                          {item.precos.map(p => {
+                            const chave = `${item.id}-${p.fornecedor_id}`;
+                            const menorPreco = Math.min(...item.precos.filter(x => x.preco_unitario != null).map(x => x.preco_unitario));
+                            const ehMenor = p.preco_unitario === menorPreco;
+                            return (
+                              <td key={p.fornecedor_id} style={{ padding: 8, borderBottom: `1px solid ${cor.border}` }}>
+                                {p.preco_unitario != null ? (
+                                  <div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: cotacaoDetalhe.status === "aberta" ? "pointer" : "default" }}>
+                                      {cotacaoDetalhe.status === "aberta" && (
+                                        <input type="radio" name={`item-${item.id}`} checked={escolhas[item.id] === p.fornecedor_id} onChange={() => setEscolhas({ ...escolhas, [item.id]: p.fornecedor_id })} />
+                                      )}
+                                      <span style={{ color: ehMenor ? "#4ade80" : cor.text, fontWeight: ehMenor ? 700 : 400 }}>{formatarMoeda(p.preco_unitario)}</span>
+                                    </label>
+                                    <p style={{ color: cor.textMuted, fontSize: 10.5, margin: "2px 0 0" }}>{p.prazo_entrega_dias ? `${p.prazo_entrega_dias}d` : ""}</p>
+                                  </div>
+                                ) : cotacaoDetalhe.status === "aberta" ? (
+                                  <div style={{ display: "flex", gap: 4 }}>
+                                    <input type="number" step="0.01" placeholder="Preço" style={{ ...inputStyle, width: 70, padding: "4px 6px", fontSize: 11 }} onChange={e => setPrecosEditando({ ...precosEditando, [chave]: { ...precosEditando[chave], preco_unitario: e.target.value } })} />
+                                    <button onClick={() => salvarPreco(item.id, p.fornecedor_id)} style={{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 4, padding: "0 8px", cursor: "pointer", fontSize: 11 }}>OK</button>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: cor.textMuted, fontSize: 11 }}>sem preço</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {cotacaoDetalhe.status === "aberta" && (
+                  <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                    <button onClick={() => fecharCotacao(cotacaoDetalhe.id)} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Fechar sem converter</button>
+                    <button onClick={converterCotacao} style={{ ...{ background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" }, flex: 1 }}>Converter em Pedido(s)</button>
+                  </div>
+                )}
+                <button onClick={() => setCotacaoDetalhe(null)} style={{ marginTop: 10, width: "100%", padding: 10, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, cursor: "pointer", fontFamily: "inherit" }}>Fechar</button>
               </div>
             </div>
           )}
