@@ -103,5 +103,6 @@ app.use("/api/logistica/devolucoes", require("./routes/logisticsReturnsRoutes"))
 app.use("/api/settings", require("./routes/settingsRoutes"));
 app.use("/api/sac", require("./routes/sacRoutes"));
 app.use("/api/compras", require("./routes/comprasRoutes"));
+app.use("/api/certificado-digital", require("./routes/certificadoDigitalRoutes"));
 
 module.exports = app;
