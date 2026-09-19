@@ -22,9 +22,11 @@ async function registrar(tenantId, user, acao, entidadeTipo, entidadeId, detalhe
     crm_deal: "CRM",
     crm_interaction: "CRM",
     crm_task: "CRM",
-        marketing_lead: "Marketing",
+    marketing_lead: "Marketing",
     marketing_campaign: "Marketing",
     product: "Estoque",
+    compras_fornecedor: "Logística",
+    compras_pedido: "Logística",
   };
   const origem = mapaOrigem[entidadeTipo] || "Financeiro";
 
