@@ -357,3 +357,61 @@ exports.fecharCotacao = async (req, res) => {
     res.status(500).json({ error: "Erro ao fechar cotacao", details: err.message });
   }
 };
+
+// ── FASE 3: Recebimento (integra com Estoque) ──
+const { ajustarEstoque } = require("../services/estoqueService");
+
+// Registra o recebimento (total ou parcial) de um pedido de compra:
+// da entrada real no estoque via estoqueService (mesma logica usada em /stock/:id/ajustar,
+// sem duplicar), atualiza quantidade_recebida do item, e move o pedido para
+// "parcialmente_recebido" ou "recebido" automaticamente conforme o que falta.
+exports.receberPedido = async (req, res) => {
+  try {
+    const { itens } = req.body; // [{ item_id, quantidade_recebida_agora }]
+    if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ error: "informe ao menos um item recebido" });
+
+    const [[pedido]] = await pool.query("SELECT * FROM compras_pedidos WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
+    if (!pedido) return res.status(404).json({ error: "Pedido nao encontrado" });
+    if (!["enviado", "confirmado", "parcialmente_recebido"].includes(pedido.status)) {
+      return res.status(409).json({ error: "So e possivel receber pedidos enviados, confirmados ou parcialmente recebidos" });
+    }
+
+    const movimentacoes = [];
+    for (const entrada of itens) {
+      const [[item]] = await pool.query(
+        `SELECT i.* FROM compras_itens i WHERE i.id = ? AND i.pedido_id = ?`,
+        [entrada.item_id, pedido.id]
+      );
+      if (!item) return res.status(400).json({ error: `Item ${entrada.item_id} nao pertence a este pedido` });
+
+      const faltaReceber = item.quantidade - item.quantidade_recebida;
+      if (entrada.quantidade_recebida_agora > faltaReceber) {
+        return res.status(400).json({ error: `Item ${entrada.item_id}: tentando receber ${entrada.quantidade_recebida_agora}, mas so faltam ${faltaReceber}` });
+      }
+      if (entrada.quantidade_recebida_agora <= 0) continue;
+
+      // Entrada real no estoque - mesma funcao usada pelo ajuste manual de estoque
+      const resultado = await ajustarEstoque({
+        tenantId: req.tenant_id, userId: req.user?.id, productId: item.product_id,
+        tipo: "entrada", quantidade: entrada.quantidade_recebida_agora,
+        motivo: `Recebimento do pedido de compra #${pedido.id}`,
+      });
+
+      await pool.query("UPDATE compras_itens SET quantidade_recebida = quantidade_recebida + ? WHERE id = ?", [entrada.quantidade_recebida_agora, item.id]);
+      movimentacoes.push({ item_id: item.id, product_id: item.product_id, quantidade: entrada.quantidade_recebida_agora, estoque_novo: resultado.estoque_novo });
+    }
+
+    // Recalcula se o pedido ficou totalmente recebido ou ainda parcial
+    const [itensAtualizados] = await pool.query("SELECT quantidade, quantidade_recebida FROM compras_itens WHERE pedido_id = ?", [pedido.id]);
+    const totalmenteRecebido = itensAtualizados.every(i => i.quantidade_recebida >= i.quantidade);
+    const novoStatus = totalmenteRecebido ? "recebido" : "parcialmente_recebido";
+
+    await pool.query("UPDATE compras_pedidos SET status = ? WHERE id = ?", [novoStatus, pedido.id]);
+
+    await registrar(req.tenant_id, req.user, "receber_pedido_compra", "compras_pedido", pedido.id, `Recebeu ${movimentacoes.length} item(ns), status: ${novoStatus}`);
+
+    res.json({ message: "Recebimento registrado", status: novoStatus, movimentacoes });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.status ? err.message : "Erro ao registrar recebimento", details: err.status ? undefined : err.message });
+  }
+};
