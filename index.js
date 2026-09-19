@@ -5,6 +5,7 @@ const financialEventsCron = require("./src/automation/engine/FinancialEventsCron
 const waitResumer = require("./src/automation/engine/WaitResumer");
 const segmentRecalcCron = require("./src/automation/engine/SegmentRecalcCron");
 const crmTasksCron = require("./src/automation/engine/CrmTasksCron");
+const sacSlaCron = require("./src/automation/engine/SacSlaCron");
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
@@ -14,4 +15,5 @@ app.listen(PORT, () => {
   waitResumer.init();
   segmentRecalcCron.init();
   crmTasksCron.init();
+  sacSlaCron.init();
 });

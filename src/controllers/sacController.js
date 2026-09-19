@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const audit = require("../services/auditService");
 const role = require("../middleware/roleMiddleware");
 const eventDispatcher = require("../automation/engine/EventDispatcher");
+const { calcularSlaStatus } = require("../services/sacSlaService");
 
 // Transicoes de status validas - o sistema controla, nao aceita qualquer string
 const STATUS_VALIDOS = ["novo", "em_atendimento", "aguardando_cliente", "aguardando_empresa", "resolvido", "encerrado", "reaberto"];
@@ -442,26 +443,6 @@ exports.contextoTicket = async (req, res) => {
 };
 
 // ── FASE 5: SLA ──
-function calcularSlaStatus(ticket, regra) {
-  if (!regra) return null;
-  const agora = new Date();
-  const criado = new Date(ticket.created_at);
-  const minutosDecorridos = (agora - criado) / 60000;
-
-  // Se ja foi resolvido/encerrado, o SLA de resolucao esta "cumprido" se resolveu dentro do prazo
-  if (ticket.resolvido_em || ticket.encerrado_em) {
-    const dataConclusao = new Date(ticket.resolvido_em || ticket.encerrado_em);
-    const minutosAteConcluir = (dataConclusao - criado) / 60000;
-    return minutosAteConcluir <= regra.resolucao_minutos ? "cumprido" : "vencido_mas_concluido";
-  }
-
-  // Ainda aberto: verifica primeira resposta e resolucao
-  if (!ticket.primeira_resposta_em && minutosDecorridos > regra.primeira_resposta_minutos) return "vencido";
-  if (minutosDecorridos > regra.resolucao_minutos) return "vencido";
-  if (minutosDecorridos > regra.resolucao_minutos * 0.8) return "proximo_vencimento";
-  return "dentro_prazo";
-}
-
 exports.listarSlaRegras = async (req, res) => {
   try {
     const [regras] = await pool.query("SELECT * FROM sac_sla_rules WHERE tenant_id = ? ORDER BY FIELD(prioridade, 'urgente','alta','normal','baixa')", [req.tenant_id]);
@@ -669,7 +650,7 @@ exports.verificarSlaVencimentos = async (req, res) => {
       }
     }
 
-    res.json({ message: "Verificacao concluida", tickets_avaliados: tickets.length, eventos_disparados: disparados });
+      res.json({ message: "Verificacao concluida", tickets_avaliados: tickets.length, eventos_disparados: disparados });
   } catch (err) {
     res.status(500).json({ error: "Erro ao verificar SLA", details: err.message });
   }
