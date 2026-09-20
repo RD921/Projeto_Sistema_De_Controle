@@ -5,3 +5,7 @@ git status
 teste_*.xlsx
 teste_*.pdf
 .env
+
+arvore_completa.txt
+lote_*.txt
+schema_completo.sql
