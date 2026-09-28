@@ -271,7 +271,97 @@ exports.status2FA = async (req, res) => {
   try {
     const [[user]] = await pool.query("SELECT totp_enabled FROM users WHERE id = ?", [req.user.id]);
     res.json({ ativado: !!user.totp_enabled });
-  } catch (err) {
+    } catch (err) {
     res.status(500).json({ error: "Erro ao buscar status de 2FA", details: err.message });
+  }
+};
+
+// ── Recuperacao de senha ──
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "E-mail é obrigatório" });
+
+    const [users] = await pool.query("SELECT id, nome FROM users WHERE email = ?", [email]);
+
+    // Nao revela se o e-mail existe ou nao (evita que alguem descubra quais
+    // e-mails estao cadastrados testando essa rota). A resposta e a mesma
+    // em qualquer caso; so envia o e-mail se o usuario existir de fato.
+    if (users.length > 0) {
+      const user = users[0];
+      const crypto = require("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const expira = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+      await pool.query(
+        "UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?",
+        [tokenHash, expira, user.id]
+      );
+
+      const linkBase = process.env.FRONTEND_URL || "http://localhost:5173";
+      const link = `${linkBase}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+
+      try {
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+        });
+        await transporter.sendMail({
+          from: `"EcomFlow" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: "Redefinição de senha - EcomFlow",
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #1d1d1f;">Redefinir senha</h2>
+              <p style="color:#1d1d1f; font-size:15px; line-height:1.6;">Olá, ${user.nome}. Clique no botão abaixo para redefinir sua senha. O link expira em 1 hora.</p>
+              <p><a href="${link}" style="background:#1d1d1f; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; display:inline-block;">Redefinir senha</a></p>
+              <p style="color:#6e6e73; font-size:12px;">Se você não pediu essa redefinição, ignore este e-mail.</p>
+            </div>
+          `,
+        });
+      } catch (mailErr) {
+        console.error("[forgotPassword] erro ao enviar e-mail:", mailErr.message);
+      }
+    }
+
+    return res.json({ message: "Se o e-mail existir na nossa base, enviaremos um link de redefinição." });
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao processar solicitação", details: err.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, token, senha } = req.body || {};
+    if (!email || !token || !senha)
+      return res.status(400).json({ error: "Email, token e senha são obrigatórios" });
+    if (senha.length < 8)
+      return res.status(400).json({ error: "A senha precisa ter no mínimo 8 caracteres" });
+
+    const crypto = require("crypto");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [users] = await pool.query(
+      "SELECT id, reset_token_expires FROM users WHERE email = ? AND reset_token = ?",
+      [email, tokenHash]
+    );
+    if (users.length === 0)
+      return res.status(400).json({ error: "Link inválido ou expirado" });
+
+    const user = users[0];
+    if (!user.reset_token_expires || new Date(user.reset_token_expires) < new Date()) {
+      return res.status(400).json({ error: "Link inválido ou expirado" });
+    }
+
+    const hash = await bcrypt.hash(senha, 10);
+    await pool.query(
+      "UPDATE users SET senha = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?",
+      [hash, user.id]
+    );
+
+    return res.json({ message: "Senha redefinida com sucesso" });
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao redefinir senha", details: err.message });
   }
 };

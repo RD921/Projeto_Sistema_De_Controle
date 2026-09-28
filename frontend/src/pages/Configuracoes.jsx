@@ -339,7 +339,7 @@ function SecaoSistema({ cor }) {
         {erro && <p style={{ color: "#f87171", fontSize: 12.5, marginBottom: 10 }}>{erro}</p>}
         {msg && <p style={{ color: "#4ade80", fontSize: 12.5, marginBottom: 10 }}>{msg}</p>}
         <button onClick={salvar} style={s.btnStyle}>Salvar</button>
-        <p style={{ color: cor.textMuted, fontSize: 11.5, marginTop: 16 }}>Idioma e tema já são configurados no topo da tela (ícones de globo e paleta de cores).</p>
+        <p style={{ color: cor.textMuted, fontSize: 11.5, marginTop: 16 }}>Idioma e tema agora ficam em "Aparência e Idioma", no menu de Configurações.</p>
       </div>
 
       <div style={s.cardStyleFixo}>
@@ -546,6 +546,67 @@ function SecaoUsuarios({ cor }) {
   );
 }
 
+function SecaoPinAria({ cor }) {
+  const s = getStyles(cor);
+  const [form, setForm] = useState({ senha_atual: "", novo_pin: "", confirmar_pin: "" });
+  const [msg, setMsg] = useState("");
+  const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async (e) => {
+    e.preventDefault();
+    setErro(""); setMsg("");
+
+    if (form.novo_pin !== form.confirmar_pin) {
+      setErro("O PIN e a confirmação não coincidem.");
+      return;
+    }
+    if (!/^\d{4,6}$/.test(form.novo_pin)) {
+      setErro("O PIN deve ter entre 4 e 6 dígitos numéricos.");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      await api.put("/assistente/pin", { senha_atual: form.senha_atual, novo_pin: form.novo_pin });
+      setMsg("PIN definido com sucesso.");
+      setForm({ senha_atual: "", novo_pin: "", confirmar_pin: "" });
+    } catch (err) {
+      setErro(err.response?.data?.error || "Erro ao definir PIN.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <form onSubmit={salvar} style={s.cardStyleFixo}>
+      <p style={{ color: cor.text, fontWeight: 700, marginBottom: 6 }}>🔐 PIN de Autorização da Aria</p>
+      <p style={{ color: cor.textMuted, fontSize: 11.5, marginBottom: 14, lineHeight: 1.5 }}>
+        Esse PIN é pedido toda vez que a Aria propõe uma ação (lançar receita/despesa, emitir nota fiscal, criar automação) e você decide confirmar. Sem ele configurado, nenhuma proposta pode ser executada — só consultada.
+      </p>
+      <label style={s.labelStyle}>Senha atual da sua conta</label>
+      <input type="password" value={form.senha_atual} onChange={e => setForm({ ...form, senha_atual: e.target.value })} style={s.inputStyle} required />
+      <label style={s.labelStyle}>Novo PIN (4 a 6 dígitos)</label>
+      <input
+        type="password" inputMode="numeric" maxLength={6}
+        value={form.novo_pin}
+        onChange={e => setForm({ ...form, novo_pin: e.target.value.replace(/\D/g, "") })}
+        style={s.inputStyle} required
+      />
+      <label style={s.labelStyle}>Confirmar novo PIN</label>
+      <input
+        type="password" inputMode="numeric" maxLength={6}
+        value={form.confirmar_pin}
+        onChange={e => setForm({ ...form, confirmar_pin: e.target.value.replace(/\D/g, "") })}
+        style={s.inputStyle} required
+      />
+      {erro && <p style={{ color: "#f87171", fontSize: 12.5, marginBottom: 10 }}>{erro}</p>}
+      {msg && <p style={{ color: "#4ade80", fontSize: 12.5, marginBottom: 10 }}>{msg}</p>}
+      <button type="submit" style={s.btnStyle} disabled={salvando}>{salvando ? "Salvando..." : "Definir PIN"}</button>
+    </form>
+  );
+}
+
 function SecaoIA({ cor }) {
   const s = getStyles(cor);
   const [dados, setDados] = useState(null);
@@ -580,7 +641,7 @@ function SecaoIA({ cor }) {
         <div style={{ width: 44, height: 44, borderRadius: 10, background: "#4ade8022", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🧠</div>
         <div>
           <p style={{ color: cor.text, fontWeight: 700, fontSize: 15, margin: 0 }}>Inteligência Artificial Estratégica (Aria)</p>
-          <p style={{ color: "#4ade80", fontSize: 12, margin: "2px 0 0" }}>● Ativa — operando no nível "Somente Análise"</p>
+          <p style={{ color: "#4ade80", fontSize: 12, margin: "2px 0 0" }}>● Ativa — Consulta + Propostas com Confirmação</p>
         </div>
       </div>
 
@@ -590,12 +651,14 @@ function SecaoIA({ cor }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10, background: cor.bg, border: "1px solid #4ade8033", borderRadius: 8, padding: 12, marginBottom: 10 }}>
             <span style={{ color: "#4ade80", fontSize: 16 }}>●</span>
             <div>
-              <p style={{ color: cor.text, fontSize: 13, fontWeight: 600, margin: 0 }}>Somente Análise</p>
-              <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>A Aria consulta dados e responde perguntas — não executa nenhuma ação no sistema.</p>
+              <p style={{ color: cor.text, fontSize: 13, fontWeight: 600, margin: 0 }}>Consulta + Proposta com Confirmação</p>
+              <p style={{ color: cor.textMuted, fontSize: 11.5, margin: "2px 0 0" }}>
+                A Aria consulta dados livremente. Para lançar financeiro, emitir nota fiscal ou criar automação, ela monta uma proposta com análise de risco — a execução só acontece se você confirmar com o PIN de autorização, ao lado.
+              </p>
             </div>
           </div>
           <p style={{ color: cor.textMuted, fontSize: 11 }}>
-            Níveis de Recomendação, Aprovação e Execução Automática exigem ferramentas de execução que ainda não existem no sistema. Ficarão disponíveis conforme a Aria evoluir.
+            Execução automática sem confirmação humana ainda não existe — toda ação passa por essa etapa de revisão antes de acontecer de verdade.
           </p>
         </div>
 
@@ -620,6 +683,10 @@ function SecaoIA({ cor }) {
           <button onClick={salvar} style={s.btnStyle}>Salvar</button>
           <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 12 }}>Essas preferências mudam de verdade como a Aria formula as respostas no chat.</p>
         </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <SecaoPinAria cor={cor} />
       </div>
 
       <div style={{ ...s.cardStyleFixo, marginBottom: 16 }}>
@@ -750,12 +817,68 @@ function SecaoSeguranca({ cor }) {
   );
 }
 
+const OPCOES_TEMA = [
+  { id: "preto", label: "🌑 Preto", sublabel: "Dark" },
+  { id: "branco", label: "⚪ Branco", sublabel: "Light" },
+  { id: "sistema", label: "🔵 Sistema", sublabel: "Navy (MidNight)" },
+];
+const OPCOES_IDIOMA = [
+  { id: "pt", label: "🇧🇷 Português" },
+  { id: "en", label: "🇺🇸 English" },
+  { id: "es", label: "🇪🇸 Español" },
+];
+
+function SecaoAparencia({ cor, tema, idioma, setTema, setIdioma }) {
+  const s = getStyles(cor);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={s.cardStyleFixo}>
+        <p style={{ color: cor.text, fontWeight: 700, marginBottom: 14 }}>Tema</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {OPCOES_TEMA.map(op => (
+            <button key={op.id} onClick={() => setTema(op.id)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%",
+                padding: "12px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                background: tema === op.id ? cor.cardHover : "none",
+                border: `1px solid ${tema === op.id ? cor.accent || "#38bdf8" : cor.border}`,
+              }}>
+              <span style={{ fontSize: 13.5, color: cor.text, fontWeight: tema === op.id ? 700 : 400 }}>{op.label}</span>
+              <span style={{ fontSize: 11.5, color: cor.textMuted }}>{op.sublabel}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={s.cardStyleFixo}>
+        <p style={{ color: cor.text, fontWeight: 700, marginBottom: 14 }}>Idioma</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {OPCOES_IDIOMA.map(op => (
+            <button key={op.id} onClick={() => setIdioma(op.id)}
+              style={{
+                display: "flex", alignItems: "center", width: "100%",
+                padding: "12px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                background: idioma === op.id ? cor.cardHover : "none",
+                border: `1px solid ${idioma === op.id ? cor.accent || "#38bdf8" : cor.border}`,
+                fontSize: 13.5, color: cor.text, fontWeight: idioma === op.id ? 700 : 400,
+              }}>
+              {op.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Configuracoes() {
   const { secao } = useParams();
   const navigate = useNavigate();
-  const { cor } = useOutletContext();
+  const { cor, tema, idioma, setTema, setIdioma } = useOutletContext();
   const secaoAtiva = secao || "visao-geral";
   const s = getStyles(cor);
+
+  const SECOES_VALIDAS = ["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia", "auditoria", "backup", "aparencia"];
 
   return (
     <div>
@@ -771,7 +894,8 @@ export default function Configuracoes() {
       {secaoAtiva === "ia" && <SecaoIA cor={cor} />}
       {secaoAtiva === "auditoria" && <SecaoAuditoria cor={cor} />}
       {secaoAtiva === "backup" && <SecaoSeguranca cor={cor} />}
-      {!["visao-geral", "conta", "tipo-empresa", "pagamento", "sistema", "usuarios", "ia", "auditoria", "backup"].includes(secaoAtiva) && (
+      {secaoAtiva === "aparencia" && <SecaoAparencia cor={cor} tema={tema} idioma={idioma} setTema={setTema} setIdioma={setIdioma} />}
+      {!SECOES_VALIDAS.includes(secaoAtiva) && (
         <div style={{ ...s.cardStyleFixo, textAlign: "center", padding: 60 }}>
           <p style={{ color: cor.textMuted, fontSize: 14 }}>Essa seção ainda está em desenvolvimento.</p>
         </div>

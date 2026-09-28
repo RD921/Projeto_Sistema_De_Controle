@@ -1,11 +1,23 @@
-﻿Remove-Item .git -Recurse -Force
-git init
-git add .
-git status
+﻿# Dependências (o Render instala sozinho)
+node_modules/
+frontend/node_modules/
+
+# Build do painel (o Render gera sozinho)
+frontend/dist/
+
+# Senhas e configurações locais
+.env
+.env.*
+!.env.example
+
+# Arquivos enviados pelos usuários
+uploads/
+
+# Arquivos de diagnóstico e testes
 teste_*.xlsx
 teste_*.pdf
-.env
-
 arvore_completa.txt
 lote_*.txt
 schema_completo.sql
+copiar-banco.js
+*.log

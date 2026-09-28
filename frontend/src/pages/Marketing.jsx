@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useOutletContext } from "react-router-dom";
 import api from "../api";
 import LandingPageEditor from "../components/marketing/LandingPageEditor";
 
@@ -28,6 +28,8 @@ export default function Marketing() {
   const secaoAtiva = secao || "visao-geral";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { cor } = useOutletContext();
+  const accent = cor.accent || "#38bdf8";
 
   const [stats, setStats] = useState(null);
   const [clientes, setClientes] = useState([]);
@@ -158,8 +160,8 @@ export default function Marketing() {
     finally { setLoadingScripts(false); }
   };
 
-  const cardStyle = { background: "#111", border: "1px solid #222", borderRadius: 12, padding: 24 };
-  const inputStyle = { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#fff", fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 24 };
+  const inputStyle = { width: "100%", padding: "10px 14px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
 
   const pedidosPagos = orders.filter(o => o.status === "pago").length;
   const pedidosPendentes = orders.filter(o => o.status === "pendente").length;
@@ -182,7 +184,7 @@ export default function Marketing() {
 
   return (
     <div>
-      <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 24 }}>{SECOES[secaoAtiva]}</h1>
+      <h1 style={{ color: cor.text, fontWeight: 700, marginBottom: 24 }}>{SECOES[secaoAtiva]}</h1>
 
       {aviso && (
         <div style={{
@@ -199,19 +201,19 @@ export default function Marketing() {
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 24 }}>
             <div style={cardStyle}>
-              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Total Clientes</p>
-              <h2 style={{ color: "#38bdf8", fontSize: 26, fontWeight: 700 }}>{stats?.clientes ?? totalClientesCadastrados}</h2>
+              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Total Clientes</p>
+              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{stats?.clientes ?? totalClientesCadastrados}</h2>
             </div>
             <div style={cardStyle}>
-              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Taxa Conversão</p>
-              <h2 style={{ color: "#a78bfa", fontSize: 26, fontWeight: 700 }}>{((pedidosPagos / totalOrders) * 100).toFixed(1)}%</h2>
+              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Taxa Conversão</p>
+              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{((pedidosPagos / totalOrders) * 100).toFixed(1)}%</h2>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ ...cardStyle, cursor: "pointer" }} onClick={() => navigate("/orders")}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", fontSize: 15, margin: 0 }}>Status dos Pedidos</h3>
-                <span style={{ color: "#555", fontSize: 12 }}>Ver todos →</span>
+                <h3 style={{ color: cor.text, fontSize: 15, margin: 0 }}>Status dos Pedidos</h3>
+                <span style={{ color: cor.textMuted, fontSize: 12 }}>Ver todos →</span>
               </div>
               {[
                 { label: "Pagos", value: pedidosPagos, cor: "#4ade80" },
@@ -220,10 +222,10 @@ export default function Marketing() {
               ].map(item => (
                 <div key={item.label} style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: "#888", fontSize: 13 }}>{item.label}</span>
+                    <span style={{ color: cor.textMuted, fontSize: 13 }}>{item.label}</span>
                     <span style={{ color: item.cor, fontSize: 13, fontWeight: 600 }}>{item.value}</span>
                   </div>
-                  <div style={{ background: "#222", borderRadius: 4, height: 6 }}>
+                  <div style={{ background: cor.border, borderRadius: 4, height: 6 }}>
                     <div style={{ background: item.cor, borderRadius: 4, height: 6, width: `${(item.value / totalOrders) * 100}%` }} />
                   </div>
                 </div>
@@ -231,14 +233,14 @@ export default function Marketing() {
             </div>
             <div style={{ ...cardStyle, cursor: "pointer" }} onClick={() => navigate("/customers")}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", fontSize: 15, margin: 0 }}>Clientes</h3>
-                <span style={{ color: "#555", fontSize: 12 }}>Ver todos →</span>
+                <h3 style={{ color: cor.text, fontSize: 15, margin: 0 }}>Clientes</h3>
+                <span style={{ color: cor.textMuted, fontSize: 12 }}>Ver todos →</span>
               </div>
               {clientes.slice(0, 5).map(c => (
-                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
                   <div>
-                    <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{c.nome}</p>
-                    <p style={{ color: "#555", fontSize: 11, margin: 0 }}>{c.email}</p>
+                    <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{c.nome}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.email}</p>
                   </div>
                   <span style={{ color: "#4ade80", fontSize: 11, alignSelf: "center" }}>Ativo</span>
                 </div>
@@ -250,7 +252,7 @@ export default function Marketing() {
 
       {secaoAtiva === "alcance-metricas" && (
         <div>
-          <div style={{ background: "#1a1a1a", border: "1px solid #2d2000", borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ background: cor.cardHover, border: "1px solid #f59e0b40", borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 16 }}>⚠️</span>
             <p style={{ color: "#fbbf24", fontSize: 13, margin: 0 }}>
               Dados de estado/cidade e acessos são <strong>simulados</strong>.
@@ -259,57 +261,57 @@ export default function Marketing() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
             <div style={cardStyle}>
-              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>👁️ Acessos à Loja</p>
-              <h2 style={{ color: "#38bdf8", fontSize: 26, fontWeight: 700 }}>{totalAcessos.toLocaleString("pt-BR")}</h2>
-              <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>últimos 30 dias (simulado)</p>
+              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>👁️ Acessos à Loja</p>
+              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{totalAcessos.toLocaleString("pt-BR")}</h2>
+              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>últimos 30 dias (simulado)</p>
             </div>
             <div style={cardStyle}>
-              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>👥 Clientes Cadastrados</p>
+              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>👥 Clientes Cadastrados</p>
               <h2 style={{ color: "#4ade80", fontSize: 26, fontWeight: 700 }}>{totalClientesCadastrados}</h2>
-              <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>total na base</p>
+              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>total na base</p>
             </div>
             <div style={cardStyle}>
-              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>🔁 Clientes Recorrentes</p>
-              <h2 style={{ color: "#a78bfa", fontSize: 26, fontWeight: 700 }}>{clientesRecorrentes}</h2>
-              <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>com +1 compra</p>
+              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>🔁 Clientes Recorrentes</p>
+              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{clientesRecorrentes}</h2>
+              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>com +1 compra</p>
             </div>
             <div style={cardStyle}>
-              <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>📊 Taxa de Recorrência</p>
+              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>📊 Taxa de Recorrência</p>
               <h2 style={{ color: "#f59e0b", fontSize: 26, fontWeight: 700 }}>{taxaRecorrencia}%</h2>
-              <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>clientes que voltaram</p>
+              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>clientes que voltaram</p>
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={cardStyle}>
-              <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>📍 Alcance por Estado</h3>
+              <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>📍 Alcance por Estado</h3>
               {estadosSimulados
                 .map(e => ({ ...e, total: e.cidades.reduce((a, c) => a + c.acessos, 0) }))
                 .sort((a, b) => b.total - a.total)
                 .map(e => (
                   <div key={e.uf} style={{ marginBottom: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ color: "#ccc", fontSize: 13 }}>{e.nome} <span style={{ color: "#555" }}>({e.uf})</span></span>
-                      <span style={{ color: "#38bdf8", fontSize: 13, fontWeight: 600 }}>{e.total.toLocaleString("pt-BR")}</span>
+                      <span style={{ color: cor.text, fontSize: 13 }}>{e.nome} <span style={{ color: cor.textMuted }}>({e.uf})</span></span>
+                      <span style={{ color: accent, fontSize: 13, fontWeight: 600 }}>{e.total.toLocaleString("pt-BR")}</span>
                     </div>
-                    <div style={{ background: "#222", borderRadius: 4, height: 6 }}>
-                      <div style={{ background: "#38bdf8", borderRadius: 4, height: 6, width: `${(e.total / totalAcessos) * 100}%` }} />
+                    <div style={{ background: cor.border, borderRadius: 4, height: 6 }}>
+                      <div style={{ background: accent, borderRadius: 4, height: 6, width: `${(e.total / totalAcessos) * 100}%` }} />
                     </div>
                   </div>
                 ))}
             </div>
 
             <div style={cardStyle}>
-              <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>🏙️ Top Cidades</h3>
+              <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>🏙️ Top Cidades</h3>
               {estadosSimulados
                 .flatMap(e => e.cidades.map(c => ({ ...c, uf: e.uf })))
                 .sort((a, b) => b.acessos - a.acessos)
                 .slice(0, 8)
                 .map((c, i) => (
-                  <div key={c.nome} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                  <div key={c.nome} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ color: "#444", fontSize: 12, width: 16 }}>{i + 1}</span>
-                      <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{c.nome} <span style={{ color: "#555" }}>— {c.uf}</span></p>
+                      <span style={{ color: cor.textMuted, fontSize: 12, width: 16 }}>{i + 1}</span>
+                      <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{c.nome} <span style={{ color: cor.textMuted }}>— {c.uf}</span></p>
                     </div>
                     <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 600 }}>{c.acessos.toLocaleString("pt-BR")}</span>
                   </div>
@@ -322,19 +324,19 @@ export default function Marketing() {
       {secaoAtiva === "copy-ia" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={cardStyle}>
-            <h3 style={{ color: "#fff", marginBottom: 8, fontSize: 15 }}>🤖 Gerador de Copy com IA</h3>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>A IA cria mensagens persuasivas para seu produto</p>
+            <h3 style={{ color: cor.text, marginBottom: 8, fontSize: 15 }}>🤖 Gerador de Copy com IA</h3>
+            <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>A IA cria mensagens persuasivas para seu produto</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
-                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Produto ou Serviço</label>
+                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Produto ou Serviço</label>
                 <input value={produto} onChange={e => setProduto(e.target.value)} placeholder="Ex: Ventilador Industrial 65cm" style={inputStyle} />
               </div>
               <div>
-                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Público-alvo</label>
+                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Público-alvo</label>
                 <input value={publico} onChange={e => setPublico(e.target.value)} placeholder="Ex: Donos de indústrias no interior de SP" style={inputStyle} />
               </div>
               <div>
-                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Canal</label>
+                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Canal</label>
                 <select value={canal} onChange={e => setCanal(e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
                   <option>WhatsApp</option>
                   <option>Email</option>
@@ -345,26 +347,26 @@ export default function Marketing() {
               </div>
 
               <div>
-                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Imagem (opcional)</label>
+                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Imagem (opcional)</label>
                 {!googleConectado ? (
-                  <button onClick={conectarGoogle} style={{ width: "100%", background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
+                  <button onClick={conectarGoogle} style={{ width: "100%", background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
                     🔗 Conectar Google Drive/Fotos
                   </button>
                 ) : imagemSelecionada ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <img src={imagemSelecionada.thumbnail} alt={imagemSelecionada.nome} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: "1px solid #333" }} />
-                    <span style={{ color: "#888", fontSize: 12, flex: 1 }}>{imagemSelecionada.nome}</span>
+                    <img src={imagemSelecionada.thumbnail} alt={imagemSelecionada.nome} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: `1px solid ${cor.border}` }} />
+                    <span style={{ color: cor.textMuted, fontSize: 12, flex: 1 }}>{imagemSelecionada.nome}</span>
                     <button onClick={() => setImagemSelecionada(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12 }}>Remover</button>
                   </div>
                 ) : (
-                  <button onClick={abrirSeletorImagens} style={{ width: "100%", background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
+                  <button onClick={abrirSeletorImagens} style={{ width: "100%", background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
                     🖼️ Escolher imagem do Google
                   </button>
                 )}
               </div>
 
               <button onClick={gerarCopy} disabled={loadingCopy || !produto || !publico} style={{
-                background: produto && publico ? "#a78bfa" : "#333", color: "#fff",
+                background: produto && publico ? accent : cor.border, color: "#fff",
                 border: "none", borderRadius: 8, padding: "12px", fontSize: 14,
                 fontWeight: 600, cursor: produto && publico ? "pointer" : "not-allowed",
                 fontFamily: "sans-serif", transition: "all 0.2s",
@@ -375,20 +377,20 @@ export default function Marketing() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ color: "#fff", marginBottom: 8, fontSize: 15 }}>📝 Copy Gerada</h3>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>Resultado da IA aparece aqui</p>
+            <h3 style={{ color: cor.text, marginBottom: 8, fontSize: 15 }}>📝 Copy Gerada</h3>
+            <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>Resultado da IA aparece aqui</p>
             {copy ? (
               <>
-                <div style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 10, padding: 16, minHeight: 200, color: "#fff", fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+                <div style={{ background: cor.cardHover, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 16, minHeight: 200, color: cor.text, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
                   {copy}
                 </div>
-                <button onClick={() => navigator.clipboard.writeText(copy)} style={{ marginTop: 12, background: "#222", border: "1px solid #333", color: "#888", borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: "sans-serif" }}>
+                <button onClick={() => navigator.clipboard.writeText(copy)} style={{ marginTop: 12, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: "sans-serif" }}>
                   📋 Copiar texto
                 </button>
               </>
             ) : (
-              <div style={{ background: "#1a1a1a", border: "1px dashed #333", borderRadius: 10, padding: 16, minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <p style={{ color: "#444", fontSize: 14, textAlign: "center" }}>Preencha os campos e clique em<br/>"Gerar Copy com IA"</p>
+              <div style={{ background: cor.cardHover, border: `1px dashed ${cor.border}`, borderRadius: 10, padding: 16, minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <p style={{ color: cor.textMuted, fontSize: 14, textAlign: "center" }}>Preencha os campos e clique em<br/>"Gerar Copy com IA"</p>
               </div>
             )}
           </div>
@@ -399,11 +401,11 @@ export default function Marketing() {
         <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
-              <h3 style={{ color: "#fff", fontSize: 15, margin: 0 }}>🎯 Lead Scoring com IA</h3>
-              <p style={{ color: "#555", fontSize: 13, margin: "4px 0 0" }}>A IA analisa cada cliente e dá uma pontuação de compra</p>
+              <h3 style={{ color: cor.text, fontSize: 15, margin: 0 }}>🎯 Lead Scoring com IA</h3>
+              <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 0" }}>A IA analisa cada cliente e dá uma pontuação de compra</p>
             </div>
             <button onClick={calcularLeadScore} disabled={loadingScore} style={{
-              background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8,
+              background: accent, color: "#fff", border: "none", borderRadius: 8,
               padding: "10px 20px", fontSize: 13, fontWeight: 600,
               cursor: loadingScore ? "not-allowed" : "pointer", fontFamily: "sans-serif",
             }}>
@@ -414,28 +416,28 @@ export default function Marketing() {
           {leadScores.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {leadScores.sort((a, b) => b.score - a.score).map(lead => (
-                <div key={lead.id} style={{ background: "#1a1a1a", border: "1px solid #222", borderRadius: 10, padding: 16, display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#222", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ color: tempCor[lead.temperatura] || "#fff", fontWeight: 700, fontSize: 16 }}>{lead.score}</span>
+                <div key={lead.id} style={{ background: cor.cardHover, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 16, display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: cor.border, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ color: tempCor[lead.temperatura] || cor.text, fontWeight: 700, fontSize: 16 }}>{lead.score}</span>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, margin: 0 }}>{lead.nome}</p>
-                      <span style={{ background: lead.temperatura === "quente" ? "#2d0a0a" : lead.temperatura === "morno" ? "#2d2000" : "#0a1a2d", color: tempCor[lead.temperatura] || "#fff", fontSize: 11, padding: "2px 10px", borderRadius: 20 }}>
+                      <p style={{ color: cor.text, fontSize: 14, fontWeight: 600, margin: 0 }}>{lead.nome}</p>
+                      <span style={{ background: lead.temperatura === "quente" ? "#f8717122" : lead.temperatura === "morno" ? "#fbbf2422" : "#60a5fa22", color: tempCor[lead.temperatura] || cor.text, fontSize: 11, padding: "2px 10px", borderRadius: 20 }}>
                         {lead.temperatura}
                       </span>
                     </div>
-                    <div style={{ background: "#222", borderRadius: 4, height: 6, marginBottom: 6 }}>
-                      <div style={{ background: tempCor[lead.temperatura] || "#fff", borderRadius: 4, height: 6, width: `${lead.score}%`, transition: "width 0.8s" }} />
+                    <div style={{ background: cor.border, borderRadius: 4, height: 6, marginBottom: 6 }}>
+                      <div style={{ background: tempCor[lead.temperatura] || cor.text, borderRadius: 4, height: 6, width: `${lead.score}%`, transition: "width 0.8s" }} />
                     </div>
-                    <p style={{ color: "#555", fontSize: 12, margin: 0 }}>👉 {lead.proxima_acao}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 12, margin: 0 }}>👉 {lead.proxima_acao}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ background: "#1a1a1a", border: "1px dashed #333", borderRadius: 10, padding: 40, textAlign: "center" }}>
-              <p style={{ color: "#444", fontSize: 14 }}>Clique em "Analisar com IA" para pontuar seus leads</p>
+            <div style={{ background: cor.cardHover, border: `1px dashed ${cor.border}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
+              <p style={{ color: cor.textMuted, fontSize: 14 }}>Clique em "Analisar com IA" para pontuar seus leads</p>
             </div>
           )}
         </div>
@@ -446,31 +448,31 @@ export default function Marketing() {
       {secaoAtiva === "leads-campanhas" && (
         <div>
           {loadingMkt ? (
-            <p style={{ color: "#555", fontSize: 14 }}>Carregando dados de marketing...</p>
+            <p style={{ color: cor.textMuted, fontSize: 14 }}>Carregando dados de marketing...</p>
           ) : (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
                 <div style={cardStyle}>
-                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Total de Leads</p>
-                  <h2 style={{ color: "#38bdf8", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.leads?.total ?? 0}</h2>
-                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>score médio: {dashboardMkt?.leads?.score_medio ?? "0.0"}</p>
+                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Total de Leads</p>
+                  <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.leads?.total ?? 0}</h2>
+                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>score médio: {dashboardMkt?.leads?.score_medio ?? "0.0"}</p>
                 </div>
                 <div style={cardStyle}>
-                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Campanhas</p>
-                  <h2 style={{ color: "#a78bfa", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.campanhas?.total ?? 0}</h2>
-                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>cadastradas</p>
+                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Campanhas</p>
+                  <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.campanhas?.total ?? 0}</h2>
+                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>cadastradas</p>
                 </div>
                 <div style={cardStyle}>
-                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Conversões</p>
+                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Conversões</p>
                   <h2 style={{ color: "#4ade80", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.conversoes?.total ?? 0}</h2>
-                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>R$ {dashboardMkt?.conversoes?.receita_total_atribuida ?? "0.00"} atribuído</p>
+                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>R$ {dashboardMkt?.conversoes?.receita_total_atribuida ?? "0.00"} atribuído</p>
                 </div>
                 <div style={cardStyle}>
-                  <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>ROI Médio</p>
+                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>ROI Médio</p>
                   <h2 style={{ color: "#f59e0b", fontSize: 26, fontWeight: 700 }}>
                     {dashboardMkt?.roi?.medio != null ? `${dashboardMkt.roi.medio}%` : "—"}
                   </h2>
-                  <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>
+                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>
                     {dashboardMkt?.roi?.melhor_campanha ? `melhor: ${dashboardMkt.roi.melhor_campanha.nome}` : "sem dados"}
                   </p>
                 </div>
@@ -478,19 +480,19 @@ export default function Marketing() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div style={cardStyle}>
-                  <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>👥 Leads Recentes</h3>
+                  <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>👥 Leads Recentes</h3>
                   {leadsMkt.length === 0 ? (
-                    <p style={{ color: "#444", fontSize: 13 }}>Nenhum lead cadastrado ainda.</p>
+                    <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum lead cadastrado ainda.</p>
                   ) : (
                     leadsMkt.slice(0, 10).map(lead => (
-                      <div key={lead.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
+                      <div key={lead.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cor.border}` }}>
                         <div>
-                          <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{lead.nome}</p>
-                          <p style={{ color: "#555", fontSize: 11, margin: 0 }}>{lead.email || "sem e-mail"} · {lead.status}</p>
+                          <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{lead.nome}</p>
+                          <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{lead.email || "sem e-mail"} · {lead.status}</p>
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <span style={{ color: tempCor[lead.temperatura] || "#888", fontSize: 12, fontWeight: 600 }}>{lead.score}</span>
-                          <p style={{ color: "#555", fontSize: 10, margin: 0 }}>{lead.temperatura}</p>
+                          <span style={{ color: tempCor[lead.temperatura] || cor.textMuted, fontSize: 12, fontWeight: 600 }}>{lead.score}</span>
+                          <p style={{ color: cor.textMuted, fontSize: 10, margin: 0 }}>{lead.temperatura}</p>
                         </div>
                       </div>
                     ))
@@ -498,19 +500,19 @@ export default function Marketing() {
                 </div>
 
                 <div style={cardStyle}>
-                  <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>🚀 Campanhas</h3>
+                  <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>🚀 Campanhas</h3>
                   {campanhasMkt.length === 0 ? (
-                    <p style={{ color: "#444", fontSize: 13 }}>Nenhuma campanha cadastrada ainda.</p>
+                    <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma campanha cadastrada ainda.</p>
                   ) : (
                     campanhasMkt.slice(0, 10).map(c => {
-                      const corStatus = { ativa: "#4ade80", pausada: "#fbbf24", rascunho: "#888", finalizada: "#60a5fa", cancelada: "#f87171", agendada: "#a78bfa" };
+                      const corStatus = { ativa: "#4ade80", pausada: "#fbbf24", rascunho: cor.textMuted, finalizada: "#60a5fa", cancelada: "#f87171", agendada: accent };
                       return (
-                        <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
+                        <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cor.border}` }}>
                           <div>
-                            <p style={{ color: "#fff", fontSize: 13, margin: 0 }}>{c.nome}</p>
-                            <p style={{ color: "#555", fontSize: 11, margin: 0 }}>{c.tipo} {c.segmento_nome ? `· ${c.segmento_nome}` : ""}</p>
+                            <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{c.nome}</p>
+                            <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.tipo} {c.segmento_nome ? `· ${c.segmento_nome}` : ""}</p>
                           </div>
-                          <span style={{ color: corStatus[c.status] || "#888", fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>{c.status}</span>
+                          <span style={{ color: corStatus[c.status] || cor.textMuted, fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>{c.status}</span>
                         </div>
                       );
                     })
@@ -525,19 +527,19 @@ export default function Marketing() {
       {secaoAtiva === "scripts-ia" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={cardStyle}>
-            <h3 style={{ color: "#fff", marginBottom: 8, fontSize: 15 }}>🎭 Gerador de Scripts com IA</h3>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>A IA cria scripts personalizados por canal</p>
+            <h3 style={{ color: cor.text, marginBottom: 8, fontSize: 15 }}>🎭 Gerador de Scripts com IA</h3>
+            <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>A IA cria scripts personalizados por canal</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
-                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Persona do Cliente</label>
+                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Persona do Cliente</label>
                 <input value={persona} onChange={e => setPersona(e.target.value)} placeholder="Ex: Empresário do setor industrial, 40 anos" style={inputStyle} />
               </div>
               <div>
-                <label style={{ color: "#555", fontSize: 12, display: "block", marginBottom: 6 }}>Produto</label>
+                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Produto</label>
                 <input value={produtoScript} onChange={e => setProdutoScript(e.target.value)} placeholder="Ex: Ventilador Industrial 65cm" style={inputStyle} />
               </div>
               <button onClick={gerarScripts} disabled={loadingScripts || !persona || !produtoScript} style={{
-                background: persona && produtoScript ? "#a78bfa" : "#333", color: "#fff",
+                background: persona && produtoScript ? accent : cor.border, color: "#fff",
                 border: "none", borderRadius: 8, padding: "12px", fontSize: 14,
                 fontWeight: 600, cursor: persona && produtoScript ? "pointer" : "not-allowed",
                 fontFamily: "sans-serif",
@@ -548,24 +550,24 @@ export default function Marketing() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>📋 Scripts Gerados</h3>
+            <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>📋 Scripts Gerados</h3>
             {scripts.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {scripts.map((s, i) => (
-                  <div key={i} style={{ background: "#1a1a1a", border: "1px solid #222", borderRadius: 10, padding: 14 }}>
+                  <div key={i} style={{ background: cor.cardHover, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{s.canal}</span>
-                      <button onClick={() => navigator.clipboard.writeText(s.script)} style={{ background: "#222", border: "1px solid #333", color: "#888", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontFamily: "sans-serif" }}>
+                      <span style={{ color: cor.text, fontSize: 13, fontWeight: 600 }}>{s.canal}</span>
+                      <button onClick={() => navigator.clipboard.writeText(s.script)} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontFamily: "sans-serif" }}>
                         📋 Copiar
                       </button>
                     </div>
-                    <p style={{ color: "#888", fontSize: 13, lineHeight: 1.6, margin: 0 }}>{s.script}</p>
+                    <p style={{ color: cor.textMuted, fontSize: 13, lineHeight: 1.6, margin: 0 }}>{s.script}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ background: "#1a1a1a", border: "1px dashed #333", borderRadius: 10, padding: 40, textAlign: "center" }}>
-                <p style={{ color: "#444", fontSize: 14 }}>Scripts gerados pela IA aparecerão aqui</p>
+              <div style={{ background: cor.cardHover, border: `1px dashed ${cor.border}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
+                <p style={{ color: cor.textMuted, fontSize: 14 }}>Scripts gerados pela IA aparecerão aqui</p>
               </div>
             )}
           </div>
@@ -575,12 +577,12 @@ export default function Marketing() {
       {modalImagensAberto && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModalImagensAberto(false)} />
-          <div style={{ position: "relative", background: "#111", border: "1px solid #222", borderRadius: 16, padding: 24, width: "100%", maxWidth: 560, maxHeight: "70vh", overflowY: "auto" }}>
-            <h2 style={{ color: "#fff", fontSize: 16, marginBottom: 16 }}>Escolher imagem</h2>
+          <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 24, width: "100%", maxWidth: 560, maxHeight: "70vh", overflowY: "auto" }}>
+            <h2 style={{ color: cor.text, fontSize: 16, marginBottom: 16 }}>Escolher imagem</h2>
             {carregandoImagens ? (
-              <p style={{ color: "#555", fontSize: 13 }}>Carregando imagens...</p>
+              <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando imagens...</p>
             ) : imagensGoogle.length === 0 ? (
-              <p style={{ color: "#555", fontSize: 13 }}>Nenhuma imagem encontrada no Drive ou Fotos.</p>
+              <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma imagem encontrada no Drive ou Fotos.</p>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10 }}>
                 {imagensGoogle.map(img => (
@@ -590,12 +592,12 @@ export default function Marketing() {
                     alt={img.nome}
                     title={img.nome}
                     onClick={() => { setImagemSelecionada(img); setModalImagensAberto(false); }}
-                    style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid #222" }}
+                    style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, cursor: "pointer", border: `1px solid ${cor.border}` }}
                   />
                 ))}
               </div>
             )}
-            <button onClick={() => setModalImagensAberto(false)} style={{ marginTop: 16, background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontFamily: "sans-serif" }}>
+            <button onClick={() => setModalImagensAberto(false)} style={{ marginTop: 16, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontFamily: "sans-serif" }}>
               Fechar
             </button>
           </div>

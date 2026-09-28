@@ -10,10 +10,14 @@ exports.getOrders = async (req, res) => {
     const [[countRows], [rows]] = await Promise.all([
       pool.query("SELECT COUNT(*) as total FROM orders WHERE tenant_id = ?", [tid]),
       pool.query(
-        `SELECT o.id, o.total, o.status, o.created_at,
-                c.nome as cliente, c.email as cliente_email
+        `SELECT o.id, o.total, o.status, o.created_at, o.canal,
+                c.nome as cliente, c.email as cliente_email,
+                sc.nome as canal_venda_nome, sc.tipo as canal_venda_tipo,
+                s.nome as loja_nome
          FROM orders o
          JOIN customers c ON c.id = o.customer_id
+         LEFT JOIN sales_channels sc ON sc.id = o.sales_channel_id
+         LEFT JOIN stores s ON s.id = o.store_id
          WHERE o.tenant_id = ?
          ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
         [tid, limit, offset]
@@ -29,9 +33,13 @@ exports.getOrderById = async (req, res) => {
   try {
     const [orders] = await pool.query(
       `SELECT o.id, o.total, o.status, o.observacao, o.created_at,
-              c.nome as cliente, c.email as cliente_email
+              c.nome as cliente, c.email as cliente_email,
+              sc.nome as canal_venda_nome, sc.tipo as canal_venda_tipo,
+              s.nome as loja_nome
        FROM orders o
        JOIN customers c ON c.id = o.customer_id
+       LEFT JOIN sales_channels sc ON sc.id = o.sales_channel_id
+       LEFT JOIN stores s ON s.id = o.store_id
        WHERE o.id = ? AND o.tenant_id = ?`,
       [req.params.id, req.tenant_id]
     );
@@ -53,14 +61,24 @@ exports.getOrderById = async (req, res) => {
 exports.createOrder = async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { customer_id, items, observacao } = req.body || {};
+    const { customer_id, items, observacao, sales_channel_id, store_id, vendedor_id } = req.body || {};
     if (!customer_id || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "customer_id e items sao obrigatorios" });
     }
+
+    if (sales_channel_id) {
+      const [canal] = await conn.query("SELECT id FROM sales_channels WHERE id = ? AND tenant_id = ?", [sales_channel_id, req.tenant_id]);
+      if (canal.length === 0) throw new Error("Canal de venda inválido");
+    }
+    if (store_id) {
+      const [loja] = await conn.query("SELECT id FROM stores WHERE id = ? AND tenant_id = ?", [store_id, req.tenant_id]);
+      if (loja.length === 0) throw new Error("Loja inválida");
+    }
+
     await conn.beginTransaction();
     const [orderResult] = await conn.query(
-      "INSERT INTO orders (customer_id, total, observacao, tenant_id) VALUES (?, 0, ?, ?)",
-      [customer_id, observacao || null, req.tenant_id]
+      "INSERT INTO orders (customer_id, total, observacao, tenant_id, sales_channel_id, store_id, vendedor_id) VALUES (?, 0, ?, ?, ?, ?, ?)",
+      [customer_id, observacao || null, req.tenant_id, sales_channel_id || null, store_id || null, vendedor_id || null]
     );
     const orderId = orderResult.insertId;
     let total = 0;
@@ -96,7 +114,6 @@ exports.createOrder = async (req, res) => {
     await conn.query("UPDATE orders SET total = ? WHERE id = ?", [total, orderId]);
     await conn.commit();
 
-    // Dispara os eventos para o Automation Engine (nao bloqueia a resposta ao usuario)
     eventDispatcher.dispatch("ORDER_CREATED", req.tenant_id, {
       orderId, customer_id, total, items
     }).catch(err => console.error("[EVENT] Falha ao disparar ORDER_CREATED:", err.message));

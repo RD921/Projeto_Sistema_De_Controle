@@ -24,5 +24,5 @@ router.get("/permissoes", auth, ctrl.listarPermissoes);
 router.get("/usuarios/:id/permissoes", auth, ctrl.permissoesDoUsuario);
 router.put("/usuarios/:id/permissoes", auth, role("admin"), ctrl.atualizarPermissoesUsuario);
 router.get("/seguranca", auth, ctrl.seguranca);
-
+router.get("/backup", auth, ctrl.backup);
 module.exports = router;

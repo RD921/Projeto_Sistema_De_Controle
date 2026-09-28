@@ -104,5 +104,8 @@ app.use("/api/settings", require("./routes/settingsRoutes"));
 app.use("/api/sac", require("./routes/sacRoutes"));
 app.use("/api/compras", require("./routes/comprasRoutes"));
 app.use("/api/certificado-digital", require("./routes/certificadoDigitalRoutes"));
+app.use("/assistente", require("./routes/ariaAcoes"));
+app.use("/api/canais-venda", require("./routes/salesChannelsRoutes"));
+app.use("/api/lojas", require("./routes/storesRoutes"));
 
 module.exports = app;

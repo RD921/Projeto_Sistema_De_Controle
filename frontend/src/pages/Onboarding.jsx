@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import AriaAssistant from "../components/AriaAssistant";
 
 const STEPS = [
   { id: 1, label: "Dados da Empresa" },
   { id: 2, label: "Perguntas sobre o Negócio" },
-  { id: 3, label: "Recomendações de Módulos" },
-  { id: 4, label: "Instalação dos Módulos" },
+  { id: 3, label: "Segurança da Aria" },
+  { id: 4, label: "Recomendações de Módulos" },
   { id: 5, label: "Pronto para Usar" },
 ];
 
@@ -40,14 +41,11 @@ const SISTEMAS = [
 
 const AREAS = [
   { id: "pedidos", label: "Gestão de Pedidos", desc: "Processamento e controle de pedidos", icon: "📦", modulo: { label: "Pedidos", rota: "/orders", disponivel: true } },
-  { id: "produtos", label: "Estoque", desc: "Controle e gestão de inventário", icon: "📊", modulo: { label: "Produtos (com controle de estoque)", rota: "/products", disponivel: true } },
-  { id: "financeiro", label: "Financeiro", desc: "Contas a pagar/receber e fluxo de caixa", icon: "💰", modulo: { label: "Financeiro", disponivel: false } },
+  { id: "financeiro", label: "Financeiro", desc: "Contas a pagar/receber e fluxo de caixa", icon: "💰", modulo: { label: "Financeiro", disponivel: true } },
   { id: "marketing", label: "Marketing", desc: "Campanhas e gestão de leads", icon: "📣", modulo: { label: "Marketing", rota: "/marketing", disponivel: true } },
-  { id: "atendimento", label: "Atendimento", desc: "Suporte e relacionamento com clientes", icon: "🎧", modulo: { label: "Atendimento", disponivel: false } },
   { id: "clientes", label: "CRM", desc: "Gestão de clientes e oportunidades", icon: "👥", modulo: { label: "Clientes", rota: "/customers", disponivel: true } },
-  { id: "relatorios", label: "Relatórios e BI", desc: "Dashboards e análises inteligentes", icon: "📈", modulo: { label: "Relatórios", disponivel: false } },
-  { id: "logistica", label: "Logística", desc: "Envios e rastreamento de entregas", icon: "🚛", modulo: { label: "Logística", disponivel: false } },
-  { id: "fiscal", label: "Fiscal e Contábil", desc: "Notas fiscais e obrigações fiscais", icon: "🧾", modulo: { label: "Fiscal", disponivel: false } },
+  { id: "relatorios", label: "Relatórios e BI", desc: "Dashboards e análises inteligentes", icon: "📈", modulo: { label: "Relatórios", disponivel: true } },
+  { id: "logistica", label: "Logística", desc: "Envios e rastreamento de entregas", icon: "🚛", modulo: { label: "Logística", disponivel: true } },
   { id: "compras", label: "Compras", desc: "Gestão de fornecedores e compras", icon: "🛍️", modulo: { label: "Compras", disponivel: false } },
 ];
 
@@ -106,6 +104,13 @@ export default function Onboarding() {
   const [tamanho, setTamanho] = useState(null);
   const [objetivo, setObjetivo] = useState(null);
 
+  const [novoPin, setNovoPin] = useState("");
+  const [confirmarPin, setConfirmarPin] = useState("");
+  const [pinConfigurado, setPinConfigurado] = useState(false);
+
+  const [instalando, setInstalando] = useState(false);
+  const [progresso, setProgresso] = useState(0);
+
   const toggleEm = (lista, setLista, valor) => {
     setLista(lista.includes(valor) ? lista.filter(v => v !== valor) : [...lista, valor]);
   };
@@ -120,7 +125,37 @@ export default function Onboarding() {
 
   const podeAvancar = () => {
     if (step === 2) return segmento && canais.length > 0 && sistemaGestao && areas.length > 0 && tamanho && objetivo;
+    if (step === 3) return pinConfigurado || (/^\d{4,6}$/.test(novoPin) && novoPin === confirmarPin);
     return true;
+  };
+
+  const instalarModulos = async () => {
+    setErro("");
+    setInstalando(true);
+    setProgresso(0);
+
+    const modulosRecomendados = AREAS.filter(a => areas.includes(a.id) && a.modulo.disponivel).map(a => a.id);
+
+    const chamadaApi = api.post("/onboarding/complete", { modulos_selecionados: modulosRecomendados })
+      .catch(err => {
+        setErro(err.response?.data?.error || "Erro ao concluir onboarding.");
+      });
+
+    await new Promise(resolve => {
+      let atual = 0;
+      const intervalo = setInterval(() => {
+        atual = Math.min(100, atual + Math.random() * 12 + 6);
+        setProgresso(Math.round(atual));
+        if (atual >= 100) {
+          clearInterval(intervalo);
+          resolve();
+        }
+      }, 180);
+    });
+
+    await chamadaApi;
+    setInstalando(false);
+    setStep(5);
   };
 
   const avancar = async () => {
@@ -139,19 +174,32 @@ export default function Onboarding() {
         setSalvando(false);
       }
     } else if (step === 3) {
-      setStep(4);
-      setTimeout(() => setStep(5), 1200);
-    } else if (step === 5) {
+      if (pinConfigurado) {
+        setStep(4);
+        return;
+      }
+      if (!/^\d{4,6}$/.test(novoPin)) {
+        setErro("O PIN deve ter entre 4 e 6 dígitos numéricos.");
+        return;
+      }
+      if (novoPin !== confirmarPin) {
+        setErro("Os PINs digitados não coincidem.");
+        return;
+      }
       setSalvando(true);
       try {
-        const modulosRecomendados = AREAS.filter(a => areas.includes(a.id) && a.modulo.disponivel).map(a => a.id);
-        await api.post("/onboarding/complete", { modulos_selecionados: modulosRecomendados });
-        navigate("/");
+        await api.put("/assistente/pin", { novo_pin: novoPin });
+        setPinConfigurado(true);
+        setStep(4);
       } catch (err) {
-        setErro(err.response?.data?.error || "Erro ao concluir onboarding.");
+        setErro(err.response?.data?.error || "Erro ao configurar o PIN.");
       } finally {
         setSalvando(false);
       }
+    } else if (step === 4) {
+      instalarModulos();
+    } else if (step === 5) {
+      navigate("/");
     }
   };
 
@@ -159,6 +207,7 @@ export default function Onboarding() {
 
   const btnPrimary = { background: cor.accent, color: "#fff", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" };
   const btnGhost = { background: "none", color: cor.textMuted, border: `1px solid ${cor.border}`, borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "inherit" };
+  const inputStyle = { width: "100%", padding: "11px 14px", borderRadius: 10, border: `1px solid ${cor.border}`, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box" };
 
   return (
     <div style={{ minHeight: "100vh", background: cor.bg, display: "flex", fontFamily: "-apple-system, sans-serif" }}>
@@ -170,7 +219,7 @@ export default function Onboarding() {
         <p style={{ color: "#888", fontSize: 11.5, marginBottom: 28 }}>Vamos configurar seu negócio</p>
 
         <p style={{ color: "#666", fontSize: 10.5, letterSpacing: "0.06em", marginBottom: 4 }}>PROGRESSO</p>
-        <p style={{ color: "#fff", fontSize: 13, marginBottom: 20 }}>{step} de 5 · {Math.round((step / 5) * 100)}%</p>
+        <p style={{ color: "#fff", fontSize: 13, marginBottom: 20 }}>{step} de {STEPS.length} · {Math.round((step / STEPS.length) * 100)}%</p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {STEPS.map(s => (
@@ -245,6 +294,50 @@ export default function Onboarding() {
 
           {step === 3 && (
             <>
+              <h1 style={{ fontSize: 24, fontWeight: 700, color: cor.text, marginBottom: 4 }}>Proteja as ações da Aria</h1>
+              <p style={{ color: cor.textMuted, fontSize: 13.5, marginBottom: 28 }}>
+                A Aria, sua assistente virtual, pode consultar dados livremente, mas nunca executa uma ação real (lançar receita/despesa, emitir nota fiscal, criar automação)
+                sem antes montar uma proposta com análise de risco e pedir esse PIN para confirmar. Isso garante que nenhuma mudança acontece sem a sua autorização direta.
+              </p>
+
+              <div style={{ background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 14, padding: 24, maxWidth: 420 }}>
+                {pinConfigurado ? (
+                  <div style={{ textAlign: "center", padding: "12px 0" }}>
+                    <p style={{ fontSize: 30, marginBottom: 8 }}>🔒</p>
+                    <p style={{ fontWeight: 600, color: cor.text, fontSize: 14.5 }}>PIN configurado com sucesso!</p>
+                    <p style={{ color: cor.textMuted, fontSize: 12.5, marginTop: 4 }}>Você pode alterá-lo depois em Configurações → IA.</p>
+                  </div>
+                ) : (
+                  <>
+                    <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: cor.text, marginBottom: 6 }}>Criar PIN (4 a 6 dígitos)</label>
+                    <input
+                      type="password" inputMode="numeric" maxLength={6}
+                      value={novoPin}
+                      onChange={e => setNovoPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="••••"
+                      style={{ ...inputStyle, marginBottom: 16, letterSpacing: "0.3em" }}
+                    />
+
+                    <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: cor.text, marginBottom: 6 }}>Confirmar PIN</label>
+                    <input
+                      type="password" inputMode="numeric" maxLength={6}
+                      value={confirmarPin}
+                      onChange={e => setConfirmarPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="••••"
+                      style={{ ...inputStyle, letterSpacing: "0.3em" }}
+                    />
+
+                    <p style={{ color: cor.textMuted, fontSize: 11.5, marginTop: 14 }}>
+                      Esse PIN é obrigatório para continuar. Ele é diferente da sua senha de login e fica guardado de forma criptografada — nem a equipe do sistema consegue vê-lo.
+                    </p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {step === 4 && !instalando && (
+            <>
               <h1 style={{ fontSize: 24, fontWeight: 700, color: cor.text, marginBottom: 4 }}>Recomendações para o seu negócio</h1>
               <p style={{ color: cor.textMuted, fontSize: 13.5, marginBottom: 28 }}>Com base nas suas respostas, estes são os módulos que fazem mais sentido.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -271,11 +364,13 @@ export default function Onboarding() {
             </>
           )}
 
-          {step === 4 && (
+          {step === 4 && instalando && (
             <div style={{ textAlign: "center", padding: "80px 0" }}>
-              <div style={{ width: 48, height: 48, border: `4px solid ${cor.border}`, borderTopColor: cor.accent, borderRadius: "50%", margin: "0 auto 20px", animation: "spin 0.8s linear infinite" }} />
-              <p style={{ fontWeight: 600, color: cor.text }}>Preparando seus módulos...</p>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <p style={{ fontWeight: 600, color: cor.text, marginBottom: 20, fontSize: 15 }}>Instalando seus módulos...</p>
+              <div style={{ width: "100%", maxWidth: 360, margin: "0 auto 14px", background: cor.border, borderRadius: 20, height: 10, overflow: "hidden" }}>
+                <div style={{ width: `${progresso}%`, height: "100%", background: cor.accent, borderRadius: 20, transition: "width 0.18s ease-out" }} />
+              </div>
+              <p style={{ color: cor.textMuted, fontSize: 13.5 }}>{progresso}%</p>
             </div>
           )}
 
@@ -289,7 +384,7 @@ export default function Onboarding() {
 
           {erro && <p style={{ color: "#dc2626", fontSize: 13, marginTop: 8 }}>{erro}</p>}
 
-          {step !== 4 && (
+          {!instalando && (
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 32, paddingTop: 20, borderTop: `1px solid ${cor.border}` }}>
               {step > 2 && step !== 5 ? (
                 <button onClick={() => setStep(step - 1)} style={btnGhost}>← Voltar</button>
@@ -301,6 +396,8 @@ export default function Onboarding() {
           )}
         </div>
       </div>
+
+      <AriaAssistant />
     </div>
   );
 }

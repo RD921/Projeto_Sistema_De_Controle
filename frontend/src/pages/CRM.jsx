@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useOutletContext } from "react-router-dom";
 import api from "../api";
 
 const SECOES = {
@@ -14,19 +14,19 @@ const ESTAGIOS_KANBAN = [
   { key: "negociacao", label: "Negociacao", cor: "#fb923c" },
 ];
 
-const cardStyle = { background: "#111", border: "1px solid #222", borderRadius: 12, padding: 20 };
-const btnStyle = { background: "#a78bfa", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" };
-const btnGhost = { background: "none", border: "1px solid #333", color: "#888", borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontFamily: "sans-serif" };
-const inputStyle = { width: "100%", padding: "9px 12px", background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#fff", fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
-const inputSmall = { ...inputStyle, padding: "6px 10px", fontSize: 12 };
-const linkBtn = { background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: "2px 4px", color: "#60a5fa", fontFamily: "sans-serif", textDecoration: "underline" };
-
 function formatarMoeda(valor) {
   const n = Number(valor || 0);
   return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function PipelineKanban() {
+function PipelineKanban({ cor, accent }) {
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
+  const btnStyle = { background: accent, color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "sans-serif" };
+  const btnGhost = { background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontFamily: "sans-serif" };
+  const inputStyle = { width: "100%", padding: "9px 12px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 13, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
+  const inputSmall = { ...inputStyle, padding: "6px 10px", fontSize: 12 };
+  const linkBtn = { background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: "2px 4px", color: accent, fontFamily: "sans-serif", textDecoration: "underline" };
+
   const [pipeline, setPipeline] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -126,7 +126,7 @@ function PipelineKanban() {
     }
   };
 
-  if (!pipeline) return <p style={{ color: "#555", fontSize: 13 }}>Carregando pipeline...</p>;
+  if (!pipeline) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando pipeline...</p>;
 
   return (
     <div>
@@ -139,18 +139,18 @@ function PipelineKanban() {
       {mostrarForm && (
         <div style={{ ...cardStyle, marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
           <div>
-            <label style={{ color: "#555", fontSize: 11, display: "block", marginBottom: 4 }}>Cliente</label>
+            <label style={{ color: cor.textMuted, fontSize: 11, display: "block", marginBottom: 4 }}>Cliente</label>
             <select value={novoCustomerId} onChange={function (e) { setNovoCustomerId(e.target.value); }} style={{ ...inputStyle, appearance: "none" }}>
               <option value="">Selecione...</option>
               {customers.map(function (c) { return <option key={c.id} value={c.id}>{c.nome}</option>; })}
             </select>
           </div>
           <div>
-            <label style={{ color: "#555", fontSize: 11, display: "block", marginBottom: 4 }}>Titulo</label>
+            <label style={{ color: cor.textMuted, fontSize: 11, display: "block", marginBottom: 4 }}>Titulo</label>
             <input value={novoTitulo} onChange={function (e) { setNovoTitulo(e.target.value); }} style={inputStyle} placeholder="Ex: Venda de equipamento" />
           </div>
           <div>
-            <label style={{ color: "#555", fontSize: 11, display: "block", marginBottom: 4 }}>Valor (R$)</label>
+            <label style={{ color: cor.textMuted, fontSize: 11, display: "block", marginBottom: 4 }}>Valor (R$)</label>
             <input value={novoValor} onChange={function (e) { setNovoValor(e.target.value); }} style={inputStyle} placeholder="0.00" type="number" />
           </div>
           <button style={btnStyle} onClick={criarDeal} disabled={salvando}>{salvando ? "Salvando..." : "Criar"}</button>
@@ -162,16 +162,16 @@ function PipelineKanban() {
           const deals = pipeline[estagio.key] || [];
           const valorTotal = deals.reduce(function (acc, d) { return acc + Number(d.valor || 0); }, 0);
           return (
-            <div key={estagio.key} style={{ background: "#0a0a0a", borderRadius: 10, padding: 12, minHeight: 300 }}>
+            <div key={estagio.key} style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 12, minHeight: 300 }}>
               <div style={{ borderBottom: "2px solid " + estagio.cor, paddingBottom: 8, marginBottom: 10 }}>
                 <p style={{ color: estagio.cor, fontSize: 12, fontWeight: 700, margin: 0, textTransform: "uppercase" }}>{estagio.label}</p>
-                <p style={{ color: "#555", fontSize: 11, margin: "2px 0 0" }}>{deals.length} deal(s) - {formatarMoeda(valorTotal)}</p>
+                <p style={{ color: cor.textMuted, fontSize: 11, margin: "2px 0 0" }}>{deals.length} deal(s) - {formatarMoeda(valorTotal)}</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {deals.map(function (deal) {
                   const emEdicao = editingDealId === deal.id;
                   return (
-                    <div key={deal.id} style={{ background: "#111", border: "1px solid #222", borderRadius: 8, padding: 10 }}>
+                    <div key={deal.id} style={{ background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 8, padding: 10 }}>
                       {emEdicao ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                           <input value={editTitulo} onChange={function (e) { setEditTitulo(e.target.value); }} style={inputSmall} placeholder="Titulo" />
@@ -187,14 +187,14 @@ function PipelineKanban() {
                         <>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <p
-                              style={{ color: "#fff", fontSize: 12, margin: 0, fontWeight: 600, cursor: "pointer", flex: 1 }}
+                              style={{ color: cor.text, fontSize: 12, margin: 0, fontWeight: 600, cursor: "pointer", flex: 1 }}
                               onClick={function () { window.location.href = "/crm/customer/" + deal.customer_id; }}
                             >
                               {deal.titulo}
                             </p>
                             <button style={linkBtn} onClick={function () { iniciarEdicao(deal); }}>editar</button>
                           </div>
-                          <p style={{ color: "#555", fontSize: 11, margin: "4px 0 8px" }}>{deal.customer_nome} - {formatarMoeda(deal.valor)}</p>
+                          <p style={{ color: cor.textMuted, fontSize: 11, margin: "4px 0 8px" }}>{deal.customer_nome} - {formatarMoeda(deal.valor)}</p>
                           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                             <button style={{ ...btnGhost, color: "#4ade80", borderColor: "#4ade8040" }} onClick={function () { avancarEstagio(deal.id, deal.estagio); }}>
                               Avancar
@@ -202,7 +202,7 @@ function PipelineKanban() {
                             <button style={{ ...btnGhost, color: "#f87171", borderColor: "#f8717140" }} onClick={function () { marcarPerdido(deal.id); }}>
                               Perder
                             </button>
-                            <button style={{ ...btnGhost, color: "#888" }} onClick={function () { excluirDeal(deal.id); }}>
+                            <button style={btnGhost} onClick={function () { excluirDeal(deal.id); }}>
                               Excluir
                             </button>
                           </div>
@@ -211,7 +211,7 @@ function PipelineKanban() {
                     </div>
                   );
                 })}
-                {deals.length === 0 && <p style={{ color: "#333", fontSize: 11, textAlign: "center", padding: 20 }}>Vazio</p>}
+                {deals.length === 0 && <p style={{ color: cor.textMuted, fontSize: 11, textAlign: "center", padding: 20 }}>Vazio</p>}
               </div>
             </div>
           );
@@ -221,68 +221,69 @@ function PipelineKanban() {
   );
 }
 
-function DashboardCRM() {
+function DashboardCRM({ cor }) {
+  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 20 };
   const [dados, setDados] = useState(null);
 
   useEffect(function () {
     api.get("/crm/dashboard/resumo").then(function (r) { setDados(r.data); }).catch(function () {});
   }, []);
 
-  if (!dados) return <p style={{ color: "#555", fontSize: 13 }}>Carregando dashboard...</p>;
+  if (!dados) return <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando dashboard...</p>;
 
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
         <div style={cardStyle}>
-          <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Taxa de Conversao</p>
+          <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Taxa de Conversao</p>
           <h2 style={{ color: "#4ade80", fontSize: 26, fontWeight: 700 }}>
             {dados.fechamentos.taxa_conversao != null ? dados.fechamentos.taxa_conversao + "%" : "-"}
           </h2>
-          <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>{dados.fechamentos.ganhos} ganhos / {dados.fechamentos.perdidos} perdidos</p>
+          <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>{dados.fechamentos.ganhos} ganhos / {dados.fechamentos.perdidos} perdidos</p>
         </div>
         <div style={cardStyle}>
-          <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Receita Ganha</p>
+          <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Receita Ganha</p>
           <h2 style={{ color: "#38bdf8", fontSize: 26, fontWeight: 700 }}>{formatarMoeda(dados.fechamentos.receita_ganha)}</h2>
-          <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>total fechado</p>
+          <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>total fechado</p>
         </div>
         <div style={cardStyle}>
-          <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Ciclo Medio de Venda</p>
+          <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Ciclo Medio de Venda</p>
           <h2 style={{ color: "#a78bfa", fontSize: 26, fontWeight: 700 }}>
             {dados.ciclo_medio_dias != null ? dados.ciclo_medio_dias + " dias" : "-"}
           </h2>
-          <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>criacao ate fechamento</p>
+          <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>criacao ate fechamento</p>
         </div>
         <div style={cardStyle}>
-          <p style={{ color: "#555", fontSize: 13, marginBottom: 8 }}>Tarefas</p>
+          <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Tarefas</p>
           <h2 style={{ color: dados.tarefas.vencidas > 0 ? "#f87171" : "#4ade80", fontSize: 26, fontWeight: 700 }}>
             {dados.tarefas.vencidas} vencida(s)
           </h2>
-          <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>{dados.tarefas.pendentes} pendente(s) - {dados.tarefas.concluidas} concluida(s)</p>
+          <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>{dados.tarefas.pendentes} pendente(s) - {dados.tarefas.concluidas} concluida(s)</p>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={cardStyle}>
-          <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>Pipeline por Estagio</h3>
+          <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>Pipeline por Estagio</h3>
           {dados.pipeline_por_estagio.map(function (p) {
             return (
-              <div key={p.estagio} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
-                <span style={{ color: "#ccc", fontSize: 13, textTransform: "capitalize" }}>{p.estagio}</span>
-                <span style={{ color: "#fff", fontSize: 13 }}>{p.total} - {formatarMoeda(p.valor_total)}</span>
+              <div key={p.estagio} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                <span style={{ color: cor.textMuted, fontSize: 13, textTransform: "capitalize" }}>{p.estagio}</span>
+                <span style={{ color: cor.text, fontSize: 13 }}>{p.total} - {formatarMoeda(p.valor_total)}</span>
               </div>
             );
           })}
         </div>
 
         <div style={cardStyle}>
-          <h3 style={{ color: "#fff", marginBottom: 20, fontSize: 15 }}>Motivos de Perda</h3>
+          <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>Motivos de Perda</h3>
           {dados.motivos_perda.length === 0 ? (
-            <p style={{ color: "#444", fontSize: 13 }}>Nenhuma perda registrada ainda.</p>
+            <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma perda registrada ainda.</p>
           ) : (
             dados.motivos_perda.map(function (m, i) {
               return (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
-                  <span style={{ color: "#ccc", fontSize: 13 }}>{m.motivo_perda}</span>
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
+                  <span style={{ color: cor.textMuted, fontSize: 13 }}>{m.motivo_perda}</span>
                   <span style={{ color: "#f87171", fontSize: 13 }}>{m.total}</span>
                 </div>
               );
@@ -297,12 +298,14 @@ function DashboardCRM() {
 export default function CRM() {
   const { secao } = useParams();
   const secaoAtiva = secao || "pipeline";
+  const { cor } = useOutletContext();
+  const accent = cor.accent || "#38bdf8";
 
   return (
     <div>
-      <h1 style={{ color: "#fff", fontWeight: 700, marginBottom: 24 }}>{SECOES[secaoAtiva] || "CRM"}</h1>
-      {secaoAtiva === "pipeline" && <PipelineKanban />}
-      {secaoAtiva === "dashboard" && <DashboardCRM />}
+      <h1 style={{ color: cor.text, fontWeight: 700, marginBottom: 24 }}>{SECOES[secaoAtiva] || "CRM"}</h1>
+      {secaoAtiva === "pipeline" && <PipelineKanban cor={cor} accent={accent} />}
+      {secaoAtiva === "dashboard" && <DashboardCRM cor={cor} />}
     </div>
   );
 }

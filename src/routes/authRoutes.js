@@ -1,10 +1,12 @@
 const auth = require("../middleware/authMiddleware");
 const express = require("express");
 const router = express.Router();
-const { login, register, suporte, minhasEmpresas, trocarEmpresa, iniciar2FA, confirmar2FA, desativar2FA, status2FA } = require("../controllers/authController");
+const { login, register, suporte, minhasEmpresas, trocarEmpresa, iniciar2FA, confirmar2FA, desativar2FA, status2FA, forgotPassword, resetPassword } = require("../controllers/authController");
 router.post("/login", login);
 router.post("/register", register);
 router.post("/suporte", suporte);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 router.get("/minhas-empresas", auth, minhasEmpresas);
 router.post("/trocar-empresa", auth, trocarEmpresa);
 router.get("/2fa/status", auth, status2FA);

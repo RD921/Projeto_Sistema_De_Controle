@@ -22,6 +22,7 @@ import Relatorios from "./pages/Relatorios";
 import Logistica from "./pages/Logistica";
 import Sac from "./pages/Sac";
 import Configuracoes from "./pages/Configuracoes";
+import ResetPassword from "./pages/ResetPassword";
 
 function PrivateRoute({ children }) {
   return localStorage.getItem("token") ? children : <Navigate to="/login" />;
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="configuracoes/sac" element={<Sac />} />
           <Route path="configuracoes" element={<Navigate to="/configuracoes/visao-geral" replace />} />
           <Route path="configuracoes/:secao" element={<Configuracoes />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Route>
       </Routes>
     </BrowserRouter>

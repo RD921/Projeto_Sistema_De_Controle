@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useOutletContext } from "react-router-dom";
+import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import api from "../api";
 import AutomationEditor from "../components/automation/AutomationEditor";
 
@@ -14,16 +14,20 @@ const estadosSimulados = [
 
 const AREAS = {
   resumo: { label: "Resumo", icon: "📊", cor: "#a78bfa", sub: "Visão consolidada de todas as áreas — clique nos cards para detalhes." },
-  financeiro: { label: "Financeiro", icon: "💰", cor: "#4ade80", sub: "Para onde está indo o seu faturamento." },
+  financeiro: { label: "Financeiro", icon: "💰", cor: "#4ade80", sub: "Dados reais do motor financeiro — receita, despesas e saldo." },
   ecommerce: { label: "E-commerce", icon: "🛒", cor: "#6366f1", sub: "Clientes, pedidos e produtos em um só lugar." },
+  crm: { label: "CRM", icon: "🤝", cor: "#f472b6", sub: "Pipeline de vendas, fechamentos e tarefas — dados reais do CRM." },
   marketing: { label: "Marketing", icon: "📣", cor: "#fb7185", sub: "Alcance da loja e engajamento (dados simulados marcados abaixo)." },
+  logistica: { label: "Logística", icon: "🚚", cor: "#22d3ee", sub: "Envios, entregas e transportadoras — dados reais da logística." },
   integracoes: { label: "Integrações", icon: "🔗", cor: "#60a5fa", sub: "Status das conexões externas — gerencie em Integrações." },
   automacoes: { label: "Automações", icon: "⚡", cor: "#facc15", sub: "Apollo Automation Engine — motor próprio, sem depender do n8n." },
+  relatorios: { label: "Relatórios", icon: "📈", cor: "#fb923c", sub: "Atalhos rápidos para os relatórios completos do sistema." },
 };
 
 export default function CentralControle() {
   const { cor } = useOutletContext();
   const { secao } = useParams();
+  const navigate = useNavigate();
   const secaoAtiva = secao || "resumo";
   const area = AREAS[secaoAtiva] || AREAS.resumo;
 
@@ -36,6 +40,12 @@ export default function CentralControle() {
   const [automacaoSelecionada, setAutomacaoSelecionada] = useState(null);
   const [abaEcommerce, setAbaEcommerce] = useState("clientes");
 
+  const [financeiro, setFinanceiro] = useState(null);
+  const [contasPagar, setContasPagar] = useState([]);
+  const [contasReceber, setContasReceber] = useState([]);
+  const [crmResumo, setCrmResumo] = useState(null);
+  const [logisticaDash, setLogisticaDash] = useState(null);
+
   useEffect(() => {
     const tid = localStorage.getItem("tenant_id") || 1;
     api.get(`/tenants/${tid}/stats`).then(r => setStats(r.data)).catch(() => {});
@@ -43,6 +53,12 @@ export default function CentralControle() {
     api.get("/customers").then(r => setClientes(r.data.data || [])).catch(() => {});
     api.get("/products").then(r => setProdutos(r.data.data || r.data || [])).catch(() => {});
     api.get("/automations").then(r => setAutomations(r.data || [])).catch(() => {});
+
+    api.get("/financeiro/resumo").then(r => setFinanceiro(r.data)).catch(() => {});
+    api.get("/financeiro/contas-pagar").then(r => setContasPagar(r.data || [])).catch(() => {});
+    api.get("/financeiro/contas-receber").then(r => setContasReceber(r.data || [])).catch(() => {});
+    api.get("/crm/dashboard/resumo").then(r => setCrmResumo(r.data)).catch(() => {});
+    api.get("/logistica/dashboard").then(r => setLogisticaDash(r.data)).catch(() => {});
   }, []);
 
   const receita = orders.reduce((a, o) => a + Number(o.total || 0), 0);
@@ -88,11 +104,7 @@ export default function CentralControle() {
     return { ...e, pct, estimativa };
   }).sort((a, b) => b.pct - a.pct);
 
-  const margemLucroMedia = 32;
-  const impostoMedio = 11.5;
-  const freteMedia = receita > 0 ? receita * 0.08 : 0;
-  const lucroEstimado = receita * (margemLucroMedia / 100);
-  const impostoEstimado = receita * (impostoMedio / 100);
+  const formatarMoeda = (v) => `R$ ${Number(v || 0).toFixed(2)}`;
 
   const cardStyle = { background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 14, padding: 18 };
   const clickCard = { ...cardStyle, cursor: "pointer", transition: "all 0.2s" };
@@ -132,7 +144,7 @@ export default function CentralControle() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14, marginBottom: 22 }}>
             <div style={cardStyle}>
               <p style={{ color: cor.text, fontWeight: 600, margin: "0 0 4px", fontSize: 13 }}>Faturamento — últimos 7 dias</p>
               <p style={{ color: cor.text, fontSize: 20, fontWeight: 700, margin: "0 0 14px" }}>R$ {receita.toFixed(2)}</p>
@@ -160,39 +172,85 @@ export default function CentralControle() {
               ))}
             </div>
           </div>
+
+          <p style={{ color: cor.text, fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Visão geral por módulo</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            <div style={clickCard} onClick={() => navigate("/central-controle/financeiro")}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 8 }}>💰 Financeiro — Saldo</p>
+              <h2 style={{ color: financeiro ? (Number(financeiro.saldo) >= 0 ? "#4ade80" : "#f87171") : cor.textMuted, fontSize: 19, fontWeight: 700, margin: 0 }}>
+                {financeiro ? formatarMoeda(financeiro.saldo) : "—"}
+              </h2>
+            </div>
+            <div style={clickCard} onClick={() => navigate("/central-controle/crm")}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 8 }}>🤝 CRM — Receita Ganha</p>
+              <h2 style={{ color: "#f472b6", fontSize: 19, fontWeight: 700, margin: 0 }}>
+                {crmResumo ? formatarMoeda(crmResumo.fechamentos?.receita_ganha) : "—"}
+              </h2>
+            </div>
+            <div style={clickCard} onClick={() => navigate("/central-controle/logistica")}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 8 }}>🚚 Logística — Taxa de Entrega</p>
+              <h2 style={{ color: "#22d3ee", fontSize: 19, fontWeight: 700, margin: 0 }}>
+                {logisticaDash ? `${Number(logisticaDash.taxa_entrega).toFixed(1)}%` : "—"}
+              </h2>
+            </div>
+            <div style={clickCard} onClick={() => navigate("/central-controle/automacoes")}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 8 }}>⚡ Automações Ativas</p>
+              <h2 style={{ color: "#facc15", fontSize: 19, fontWeight: 700, margin: 0 }}>
+                {automations.filter(a => a.status === "active").length} / {automations.length}
+              </h2>
+            </div>
+            <div style={clickCard} onClick={() => navigate("/central-controle/marketing")}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 8 }}>📣 Marketing — Acessos (simulado)</p>
+              <h2 style={{ color: "#fb7185", fontSize: 19, fontWeight: 700, margin: 0 }}>{totalAcessos.toLocaleString("pt-BR")}</h2>
+            </div>
+            <div style={clickCard} onClick={() => navigate("/central-controle/integracoes")}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 8 }}>🔗 Integrações Conectadas</p>
+              <h2 style={{ color: "#60a5fa", fontSize: 19, fontWeight: 700, margin: 0 }}>0 / 2</h2>
+            </div>
+          </div>
         </div>
       )}
 
       {secaoAtiva === "financeiro" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Bruta</p>
-              <p style={{ color: cor.text, fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Lucro Estimado ({margemLucroMedia}%)</p>
-              <p style={{ color: "#4ade80", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {lucroEstimado.toFixed(2)}</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Impostos Est. ({impostoMedio}%)</p>
-              <p style={{ color: "#f87171", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {impostoEstimado.toFixed(2)}</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Frete Estimado (8%)</p>
-              <p style={{ color: "#fbbf24", fontSize: 17, fontWeight: 700, margin: 0 }}>R$ {freteMedia.toFixed(2)}</p>
-            </div>
-          </div>
-          <div style={cardStyle}>
-            <p style={{ color: cor.text, fontWeight: 600, marginBottom: 12, fontSize: 13 }}>Margem por produto (top 5)</p>
-            {produtosComVendas.slice(0, 5).map(p => (
-              <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}` }}>
-                <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{p.nome}</span>
-                <span style={{ color: "#a78bfa", fontSize: 12.5, fontWeight: 600 }}>~{margemLucroMedia}% margem</span>
+          {!financeiro ? (
+            <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 13, margin: 0 }}>Carregando dados financeiros...</p></div>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita (pedidos + manual)</p>
+                  <p style={{ color: "#16a34a", fontSize: 17, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.receita_total)}</p>
+                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>{financeiro.qtd_pedidos} pedidos pagos</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Despesas Pagas</p>
+                  <p style={{ color: "#dc2626", fontSize: 17, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.despesas_pagas)}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Despesas Pendentes</p>
+                  <p style={{ color: "#f59e0b", fontSize: 17, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.despesas_pendentes)}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Saldo</p>
+                  <p style={{ color: Number(financeiro.saldo) >= 0 ? "#16a34a" : "#dc2626", fontSize: 17, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.saldo)}</p>
+                </div>
               </div>
-            ))}
-            <p style={{ color: "#fbbf24", fontSize: 11.5, marginTop: 12 }}>⚠️ Margem, imposto e frete são estimativas fixas. Cadastre custo real por produto para valores precisos.</p>
-          </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Contas a Pagar</p>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 12 }}>{contasPagar.length} lançamento(s) cadastrado(s)</p>
+                  <p style={{ color: "#f87171", fontSize: 21, fontWeight: 700, margin: 0 }}>{contasPagar.length}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Contas a Receber</p>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 12 }}>{contasReceber.length} lançamento(s) cadastrado(s)</p>
+                  <p style={{ color: "#4ade80", fontSize: 21, fontWeight: 700, margin: 0 }}>{contasReceber.length}</p>
+                </div>
+              </div>
+              <p style={{ color: cor.textMuted, fontSize: 11.5, marginTop: 14 }}>Dados vindos direto do módulo Financeiro (/financeiro/resumo, /financeiro/contas-pagar, /financeiro/contas-receber). Para detalhes completos, acesse o módulo Financeiro.</p>
+            </>
+          )}
         </div>
       )}
 
@@ -311,6 +369,80 @@ export default function CentralControle() {
         </div>
       )}
 
+      {secaoAtiva === "crm" && (
+        <div>
+          {!crmResumo ? (
+            <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 13, margin: 0 }}>Carregando dados do CRM...</p></div>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Taxa de Conversão</p>
+                  <p style={{ color: "#f472b6", fontSize: 19, fontWeight: 700, margin: 0 }}>{Number(crmResumo.fechamentos?.taxa_conversao || 0).toFixed(1)}%</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Ganha</p>
+                  <p style={{ color: "#4ade80", fontSize: 19, fontWeight: 700, margin: 0 }}>{formatarMoeda(crmResumo.fechamentos?.receita_ganha)}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Negócios Ganhos / Perdidos</p>
+                  <p style={{ color: cor.text, fontSize: 19, fontWeight: 700, margin: 0 }}>{crmResumo.fechamentos?.ganhos ?? 0} / {crmResumo.fechamentos?.perdidos ?? 0}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Ciclo Médio</p>
+                  <p style={{ color: cor.text, fontSize: 19, fontWeight: 700, margin: 0 }}>{crmResumo.ciclo_medio_dias ?? "—"} dias</p>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Pipeline por Estágio</p>
+                  {(crmResumo.pipeline_por_estagio || []).length === 0 ? (
+                    <p style={{ color: cor.textMuted, fontSize: 12.5 }}>Nenhum negócio em aberto.</p>
+                  ) : crmResumo.pipeline_por_estagio.map(e => (
+                    <div key={e.estagio} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${cor.border}` }}>
+                      <span style={{ color: cor.textMuted, fontSize: 12.5, textTransform: "capitalize" }}>{e.estagio}</span>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ color: cor.text, fontWeight: 600, fontSize: 12.5 }}>{e.total} negócio(s)</span>
+                        <p style={{ color: "#f472b6", fontSize: 11, margin: 0 }}>{formatarMoeda(e.valor_total)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Tarefas</p>
+                  {[
+                    { label: "Vencidas", v: crmResumo.tarefas?.vencidas ?? 0, c: "#f87171" },
+                    { label: "Pendentes", v: crmResumo.tarefas?.pendentes ?? 0, c: "#fbbf24" },
+                    { label: "Concluídas", v: crmResumo.tarefas?.concluidas ?? 0, c: "#4ade80" },
+                  ].map(s => (
+                    <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${cor.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.c }} />
+                        <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{s.label}</span>
+                      </div>
+                      <span style={{ color: cor.text, fontWeight: 600, fontSize: 12.5 }}>{s.v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(crmResumo.motivos_perda || []).length > 0 && (
+                <div style={{ ...cardStyle, marginTop: 14 }}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 12, fontSize: 13 }}>Motivos de Perda</p>
+                  {crmResumo.motivos_perda.map(m => (
+                    <div key={m.motivo_perda} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}` }}>
+                      <span style={{ color: cor.textMuted, fontSize: 12.5 }}>{m.motivo_perda || "Não informado"}</span>
+                      <span style={{ color: "#f87171", fontSize: 12.5, fontWeight: 600 }}>{m.total}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {secaoAtiva === "marketing" && (
         <div>
           <div style={{ background: cor.bg, border: "1px solid #2d2000", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
@@ -335,6 +467,52 @@ export default function CentralControle() {
               <h2 style={{ color: "#fb7185", fontSize: 21, fontWeight: 700 }}>{estadosSimulados.flatMap(e => e.cidades).length}</h2>
             </div>
           </div>
+        </div>
+      )}
+
+      {secaoAtiva === "logistica" && (
+        <div>
+          {!logisticaDash ? (
+            <div style={cardStyle}><p style={{ color: cor.textMuted, fontSize: 13, margin: 0 }}>Carregando dados de logística...</p></div>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Total de Envios</p>
+                  <p style={{ color: cor.text, fontSize: 19, fontWeight: 700, margin: 0 }}>{logisticaDash.total_envios}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Taxa de Entrega</p>
+                  <p style={{ color: "#22d3ee", fontSize: 19, fontWeight: 700, margin: 0 }}>{Number(logisticaDash.taxa_entrega).toFixed(1)}%</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Atrasados</p>
+                  <p style={{ color: "#f87171", fontSize: 19, fontWeight: 700, margin: 0 }}>{logisticaDash.atrasados}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Frete Médio</p>
+                  <p style={{ color: cor.text, fontSize: 19, fontWeight: 700, margin: 0 }}>{formatarMoeda(logisticaDash.frete_medio)}</p>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Frete Total</p>
+                  <p style={{ color: "#22d3ee", fontSize: 21, fontWeight: 700, margin: 0 }}>{formatarMoeda(logisticaDash.frete_total)}</p>
+                </div>
+                <div style={cardStyle}>
+                  <p style={{ color: cor.text, fontWeight: 600, marginBottom: 12, fontSize: 13 }}>Envios por Status</p>
+                  {(logisticaDash.por_status || []).length === 0 ? (
+                    <p style={{ color: cor.textMuted, fontSize: 12.5 }}>Nenhum envio registrado.</p>
+                  ) : logisticaDash.por_status.map(s => (
+                    <div key={s.status} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${cor.border}` }}>
+                      <span style={{ color: cor.textMuted, fontSize: 12.5, textTransform: "capitalize" }}>{s.status}</span>
+                      <span style={{ color: cor.text, fontWeight: 600, fontSize: 12.5 }}>{s.total}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -412,6 +590,43 @@ export default function CentralControle() {
             )}
           </>
         )
+      )}
+
+      {secaoAtiva === "relatorios" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 18 }}>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Receita Real</p>
+              <p style={{ color: "#16a34a", fontSize: 19, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Pedidos Registrados</p>
+              <p style={{ color: cor.text, fontSize: 19, fontWeight: 700, margin: 0 }}>{orders.length}</p>
+            </div>
+            <div style={cardStyle}>
+              <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 6 }}>Clientes Cadastrados</p>
+              <p style={{ color: cor.text, fontSize: 19, fontWeight: 700, margin: 0 }}>{totalClientesCadastrados}</p>
+            </div>
+          </div>
+
+          <p style={{ color: cor.text, fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Relatórios completos</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[
+              { to: "/relatorios/executivo", label: "Executivo", icon: "📊" },
+              { to: "/relatorios/vendas", label: "Vendas", icon: "💰" },
+              { to: "/relatorios/clientes", label: "Clientes", icon: "👥" },
+              { to: "/relatorios/logistica", label: "Logística", icon: "🚚" },
+              { to: "/relatorios/produtos", label: "Produtos", icon: "📦" },
+              { to: "/relatorios/marketplaces", label: "Marketplaces", icon: "🛒" },
+            ].map(r => (
+              <div key={r.to} style={{ ...clickCard, display: "flex", alignItems: "center", gap: 12 }} onClick={() => navigate(r.to)}>
+                <span style={{ fontSize: 18 }}>{r.icon}</span>
+                <span style={{ color: cor.text, fontSize: 13, fontWeight: 600, flex: 1 }}>{r.label}</span>
+                <span style={{ color: "#fb923c", fontSize: 13 }}>→</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {modal && (
@@ -501,33 +716,32 @@ export default function CentralControle() {
             {modal === "faturamento" && (
               <>
                 <h2 style={{ color: cor.text, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>💰 Gestão Financeira</h2>
-                <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>Para onde está indo o seu faturamento</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                  <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
-                    <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Receita Bruta</p>
-                    <p style={{ color: cor.text, fontSize: 18, fontWeight: 700, margin: 0 }}>R$ {receita.toFixed(2)}</p>
+                <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>Dados reais vindos do módulo Financeiro</p>
+                {financeiro ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+                    <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
+                      <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Receita (pedidos + manual)</p>
+                      <p style={{ color: cor.text, fontSize: 18, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.receita_total)}</p>
+                    </div>
+                    <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
+                      <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Despesas Pagas</p>
+                      <p style={{ color: "#dc2626", fontSize: 18, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.despesas_pagas)}</p>
+                    </div>
+                    <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
+                      <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Despesas Pendentes</p>
+                      <p style={{ color: "#f59e0b", fontSize: 18, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.despesas_pendentes)}</p>
+                    </div>
+                    <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
+                      <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Saldo</p>
+                      <p style={{ color: Number(financeiro.saldo) >= 0 ? "#16a34a" : "#dc2626", fontSize: 18, fontWeight: 700, margin: 0 }}>{formatarMoeda(financeiro.saldo)}</p>
+                    </div>
                   </div>
-                  <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
-                    <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Lucro Estimado ({margemLucroMedia}%)</p>
-                    <p style={{ color: "#4ade80", fontSize: 18, fontWeight: 700, margin: 0 }}>R$ {lucroEstimado.toFixed(2)}</p>
-                  </div>
-                  <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
-                    <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Impostos Estimados ({impostoMedio}%)</p>
-                    <p style={{ color: "#f87171", fontSize: 18, fontWeight: 700, margin: 0 }}>R$ {impostoEstimado.toFixed(2)}</p>
-                  </div>
-                  <div style={{ background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16 }}>
-                    <p style={{ color: cor.textMuted, fontSize: 12, marginBottom: 4 }}>Frete Estimado (8%)</p>
-                    <p style={{ color: "#fbbf24", fontSize: 18, fontWeight: 700, margin: 0 }}>R$ {freteMedia.toFixed(2)}</p>
-                  </div>
-                </div>
-                <p style={{ color: cor.text, fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Margem por produto (top 5)</p>
-                {produtosComVendas.slice(0, 5).map(p => (
-                  <div key={p.id || p.nome} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${cor.border}` }}>
-                    <span style={{ color: cor.textMuted, fontSize: 13 }}>{p.nome}</span>
-                    <span style={{ color: "#a78bfa", fontSize: 13, fontWeight: 600 }}>~{margemLucroMedia}% margem</span>
-                  </div>
-                ))}
-                <p style={{ color: "#fbbf24", fontSize: 12, marginTop: 12 }}>⚠️ Margem, imposto e frete são estimativas fixas.</p>
+                ) : (
+                  <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando dados financeiros...</p>
+                )}
+                <button onClick={() => navigate("/central-controle/financeiro")} style={{ background: "none", border: `1px solid ${cor.border}`, color: "#4ade80", borderRadius: 8, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>
+                  Ver detalhes financeiros completos →
+                </button>
               </>
             )}
 

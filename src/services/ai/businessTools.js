@@ -1,10 +1,10 @@
 const pool = require("../../config/db");
 
-// DeclaraÃ§Ã£o das ferramentas no formato que a API do Gemini espera.
+// Declaração das ferramentas no formato que a API do Gemini espera.
 const toolDeclarations = [
   {
     name: "consultar_estoque",
-    description: "Consulta o estoque atual dos produtos cadastrados. Use para responder perguntas sobre estoque baixo, produtos parados, ou nÃ­vel de estoque de um produto especÃ­fico.",
+    description: "Consulta o estoque atual dos produtos cadastrados. Use para responder perguntas sobre estoque baixo, produtos parados, ou nível de estoque de um produto específico.",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -15,33 +15,33 @@ const toolDeclarations = [
   },
   {
     name: "consultar_pedidos",
-    description: "Consulta pedidos da loja, com filtro opcional por status e perÃ­odo. Use para responder sobre volume de vendas, pedidos pendentes, cancelados, etc.",
+    description: "Consulta pedidos da loja, com filtro opcional por status e período. Use para responder sobre volume de vendas, pedidos pendentes, cancelados, etc.",
     parameters: {
       type: "OBJECT",
       properties: {
         status: { type: "STRING", description: "Filtra por status: pendente, pago, cancelado, enviado, finalizado. Deixe vazio para todos." },
-        dias: { type: "NUMBER", description: "Considera apenas pedidos dos Ãºltimos N dias. Deixe vazio para todo o histÃ³rico." },
+        dias: { type: "NUMBER", description: "Considera apenas pedidos dos últimos N dias. Deixe vazio para todo o histórico." },
       },
     },
   },
   {
     name: "consultar_financeiro",
-    description: "Consulta o resumo financeiro: receita de pedidos pagos, receita manual, despesas pagas e pendentes, saldo. Use para perguntas sobre faturamento, lucro, despesas ou saÃºde financeira.",
+    description: "Consulta o resumo financeiro: receita de pedidos pagos, receita manual, despesas pagas e pendentes, saldo. Use para perguntas sobre faturamento, lucro, despesas ou saúde financeira.",
     parameters: {
       type: "OBJECT",
       properties: {
-        dias: { type: "NUMBER", description: "Considera apenas o perÃ­odo dos Ãºltimos N dias. Deixe vazio para todo o histÃ³rico." },
+        dias: { type: "NUMBER", description: "Considera apenas o período dos últimos N dias. Deixe vazio para todo o histórico." },
       },
     },
   },
   {
     name: "consultar_clientes",
-    description: "Consulta a base de clientes cadastrados. Use para perguntas sobre quantidade de clientes, clientes recentes, ou buscar um cliente especÃ­fico pelo nome.",
+    description: "Consulta a base de clientes cadastrados. Use para perguntas sobre quantidade de clientes, clientes recentes, ou buscar um cliente específico pelo nome.",
     parameters: {
       type: "OBJECT",
       properties: {
         nome: { type: "STRING", description: "Filtra por nome do cliente (busca parcial). Deixe vazio para listar todos." },
-        apenas_recentes: { type: "BOOLEAN", description: "Se true, retorna apenas clientes cadastrados nos Ãºltimos 7 dias." },
+        apenas_recentes: { type: "BOOLEAN", description: "Se true, retorna apenas clientes cadastrados nos últimos 7 dias." },
       },
     },
   },
@@ -51,7 +51,7 @@ const toolDeclarations = [
     parameters: {
       type: "OBJECT",
       properties: {
-        limite: { type: "NUMBER", description: "Quantidade de produtos a retornar no ranking. PadrÃ£o: 5." },
+        limite: { type: "NUMBER", description: "Quantidade de produtos a retornar no ranking. Padrão: 5." },
       },
     },
   },
@@ -63,7 +63,7 @@ const toolDeclarations = [
       properties: {
         status: { type: "STRING", description: "Filtra por status: novo, contactado, engajado, qualificado, oportunidade, cliente, perdido, inativo. Deixe vazio para todos." },
         temperatura: { type: "STRING", description: "Filtra por temperatura: frio, morno, quente. Deixe vazio para todas." },
-        limite: { type: "NUMBER", description: "Quantidade maxima de leads a retornar. PadrÃ£o: 20." },
+        limite: { type: "NUMBER", description: "Quantidade maxima de leads a retornar. Padrão: 20." },
       },
     },
   },
@@ -138,8 +138,7 @@ const toolDeclarations = [
       },
     },
   },
-
-    {
+  {
     name: "consultar_dashboard_logistica",
     description: "Consulta o dashboard geral da logistica: total de envios, taxa de entrega no prazo, quantidade de envios atrasados, frete medio e total, e envios agrupados por status. Use para perguntas sobre como esta a logistica de forma geral.",
     parameters: { type: "OBJECT", properties: {} },
@@ -159,7 +158,7 @@ const toolDeclarations = [
     description: "Consulta o desempenho real de cada transportadora cadastrada: pontualidade, taxa de ocorrencias (extravio/devolucao/problema), frete medio real cobrado, e um score consolidado de 0 a 100. Use para perguntas sobre qual transportadora e melhor, ou desempenho comparado entre elas.",
     parameters: { type: "OBJECT", properties: {} },
   },
-    {
+  {
     name: "consultar_alertas_logisticos",
     description: "Consulta os alertas criticos abertos na logistica: envios atrasados, produtos com estoque critico, e envios extraviados. Use quando o usuario perguntar o que precisa de atencao urgente na logistica, ou quais problemas existem agora.",
     parameters: { type: "OBJECT", properties: {} },
@@ -191,6 +190,46 @@ const toolDeclarations = [
     parameters: { type: "OBJECT", properties: {} },
   },
 
+  // --- Ferramentas de AÇÃO (propostas, nunca execução direta) ---
+  {
+    name: "propor_lancamento_financeiro",
+    description: "Cria uma PROPOSTA de lancamento financeiro (receita ou despesa) que fica pendente de confirmacao do usuario com PIN de autorizacao. NAO executa o lancamento — apenas analisa o impacto no saldo e registra a proposta. Use quando o usuario pedir para lancar, registrar ou cadastrar uma receita ou despesa.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        tipo: { type: "STRING", description: "'receita' ou 'despesa'." },
+        descricao: { type: "STRING", description: "Descricao do lancamento." },
+        valor: { type: "NUMBER", description: "Valor em reais." },
+        data_vencimento: { type: "STRING", description: "Data no formato AAAA-MM-DD." },
+        categoria: { type: "STRING", description: "Categoria do lancamento, se informada." },
+      },
+      required: ["tipo", "descricao", "valor", "data_vencimento"],
+    },
+  },
+  {
+    name: "propor_emissao_nota_fiscal",
+    description: "Cria uma PROPOSTA de emissao de nota fiscal para um pedido, pendente de confirmacao do usuario com PIN. NAO emite a nota — apenas valida o pedido e registra a proposta. Use quando o usuario pedir para emitir, gerar ou tirar nota fiscal de um pedido.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        pedido_id: { type: "NUMBER", description: "ID do pedido a faturar." },
+      },
+      required: ["pedido_id"],
+    },
+  },
+  {
+    name: "propor_criacao_automacao",
+    description: "Cria uma PROPOSTA de automacao nova, como rascunho pausado, pendente de confirmacao do usuario com PIN. NAO ativa nada. Use quando o usuario descrever uma automacao que quer criar (ex: 'quando estoque baixar de X, me avisar').",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        nome: { type: "STRING", description: "Nome da automacao." },
+        gatilho: { type: "STRING", description: "Descricao do gatilho/condicao, em linguagem natural." },
+        acao_desejada: { type: "STRING", description: "Descricao da acao que a automacao deve executar, em linguagem natural." },
+      },
+      required: ["nome", "gatilho", "acao_desejada"],
+    },
+  },
 ];
 
 async function consultar_estoque(args, tenantId) {
@@ -654,6 +693,112 @@ async function consultar_motivos_atendimento_sac(args, tenantId) {
   return { motivos: porCategoria };
 }
 
+// --- Ferramentas de AÇÃO: criam uma proposta pendente, nunca executam nada sozinhas ---
+
+async function propor_lancamento_financeiro(args, tenantId, usuarioId) {
+  const { tipo, descricao, valor, data_vencimento, categoria } = args;
+  if (!tipo || !["receita", "despesa"].includes(tipo)) return { erro: "tipo deve ser 'receita' ou 'despesa'." };
+  if (!descricao) return { erro: "descricao e obrigatoria." };
+  if (!valor || Number(valor) <= 0) return { erro: "valor deve ser um numero maior que zero." };
+  if (!data_vencimento) return { erro: "data_vencimento e obrigatoria (formato AAAA-MM-DD)." };
+
+  const financeiroAtual = await consultar_financeiro({}, tenantId);
+  const saldoAtual = Number(financeiroAtual.saldo);
+  const impacto = tipo === "despesa" ? -Number(valor) : Number(valor);
+  const saldoProjetado = saldoAtual + impacto;
+
+  let nivelRisco = "baixo";
+  const alertas = [];
+  if (tipo === "despesa" && saldoProjetado < 0) {
+    nivelRisco = "alto";
+    alertas.push(`Essa despesa deixaria o saldo projetado negativo (R$ ${saldoProjetado.toFixed(2)}).`);
+  } else if (tipo === "despesa" && saldoAtual > 0 && saldoProjetado < saldoAtual * 0.2) {
+    nivelRisco = "medio";
+    alertas.push("Essa despesa consome uma parte significativa do saldo atual.");
+  }
+
+  const analise = `Saldo atual: R$ ${saldoAtual.toFixed(2)}. Saldo projetado apos o lancamento: R$ ${saldoProjetado.toFixed(2)}.` +
+    (alertas.length ? " Alertas: " + alertas.join(" ") : " Nenhum risco identificado com base nos dados disponiveis.");
+
+  const resumo = `${tipo === "receita" ? "Lancar receita" : "Lancar despesa"} de R$ ${Number(valor).toFixed(2)} — ${descricao}${categoria ? ` (${categoria})` : ""}, vencimento em ${data_vencimento}.`;
+
+  const [result] = await pool.query(
+    `INSERT INTO aria_acoes (tenant_id, usuario_id, tipo, parametros, resumo, analise_impacto, nivel_risco, status)
+     VALUES (?, ?, 'lancamento_financeiro', ?, ?, ?, ?, 'pendente')`,
+    [tenantId, usuarioId, JSON.stringify({ tipo, descricao, valor, data_vencimento, categoria: categoria || null }), resumo, analise, nivelRisco]
+  );
+
+  return {
+    proposta_criada: true,
+    proposta_id: result.insertId,
+    tipo: "lancamento_financeiro",
+    resumo,
+    analise_impacto: analise,
+    nivel_risco: nivelRisco,
+    instrucao_para_aria: "Apresente esta proposta ao usuario de forma clara e diga que ela precisa ser confirmada com o PIN de autorizacao antes de ser executada. NUNCA diga que ja foi executada.",
+  };
+}
+
+async function propor_emissao_nota_fiscal(args, tenantId, usuarioId) {
+  const { pedido_id } = args;
+  if (!pedido_id) return { erro: "pedido_id e obrigatorio." };
+
+  const [[pedido]] = await pool.query(
+    "SELECT id, status, total FROM orders WHERE id = ? AND tenant_id = ?",
+    [pedido_id, tenantId]
+  );
+  if (!pedido) return { erro: `Pedido ${pedido_id} nao encontrado.` };
+
+  let nivelRisco = "baixo";
+  let analise = `Pedido #${pedido.id} encontrado, status atual: ${pedido.status}, valor R$ ${Number(pedido.total).toFixed(2)}.`;
+  if (pedido.status !== "pago") {
+    nivelRisco = "alto";
+    analise += " Atencao: o pedido nao esta marcado como pago — emitir nota fiscal para um pedido nao pago pode gerar inconsistencia fiscal.";
+  }
+
+  const resumo = `Emitir nota fiscal referente ao pedido #${pedido.id} (R$ ${Number(pedido.total).toFixed(2)}).`;
+
+  const [result] = await pool.query(
+    `INSERT INTO aria_acoes (tenant_id, usuario_id, tipo, parametros, resumo, analise_impacto, nivel_risco, status)
+     VALUES (?, ?, 'emissao_nota_fiscal', ?, ?, ?, ?, 'pendente')`,
+    [tenantId, usuarioId, JSON.stringify({ pedido_id }), resumo, analise, nivelRisco]
+  );
+
+  return {
+    proposta_criada: true,
+    proposta_id: result.insertId,
+    tipo: "emissao_nota_fiscal",
+    resumo,
+    analise_impacto: analise,
+    nivel_risco: nivelRisco,
+    instrucao_para_aria: "Apresente esta proposta ao usuario e explique que a emissao so ocorre apos confirmacao com o PIN. NUNCA diga que a nota ja foi emitida.",
+  };
+}
+
+async function propor_criacao_automacao(args, tenantId, usuarioId) {
+  const { nome, gatilho, acao_desejada } = args;
+  if (!nome || !gatilho || !acao_desejada) return { erro: "nome, gatilho e acao_desejada sao obrigatorios." };
+
+  const analise = `Nova automacao sera criada como RASCUNHO (nao ativa). Gatilho: "${gatilho}". Acao: "${acao_desejada}". Nenhuma automacao existente sera alterada.`;
+  const resumo = `Criar automacao "${nome}" — quando "${gatilho}", entao "${acao_desejada}".`;
+
+  const [result] = await pool.query(
+    `INSERT INTO aria_acoes (tenant_id, usuario_id, tipo, parametros, resumo, analise_impacto, nivel_risco, status)
+     VALUES (?, ?, 'criacao_automacao', ?, ?, ?, 'baixo', 'pendente')`,
+    [tenantId, usuarioId, JSON.stringify({ nome, gatilho, acao_desejada }), resumo, analise]
+  );
+
+  return {
+    proposta_criada: true,
+    proposta_id: result.insertId,
+    tipo: "criacao_automacao",
+    resumo,
+    analise_impacto: analise,
+    nivel_risco: "baixo",
+    instrucao_para_aria: "Apresente esta proposta ao usuario e explique que a automacao sera criada como rascunho, pausada, e so passa a valer apos confirmacao com o PIN. NUNCA diga que ja foi criada.",
+  };
+}
+
 const executores = {
   consultar_estoque,
   consultar_pedidos,
@@ -676,15 +821,18 @@ const executores = {
   consultar_sla_sac,
   consultar_satisfacao_sac,
   consultar_motivos_atendimento_sac,
+  propor_lancamento_financeiro,
+  propor_emissao_nota_fiscal,
+  propor_criacao_automacao,
 };
 
-async function executarFerramenta(nome, args, tenantId) {
+async function executarFerramenta(nome, args, tenantId, usuarioId) {
   const fn = executores[nome];
-  if (!fn) return { erro: `Ferramenta '${nome}' nÃ£o existe.` };
+  if (!fn) return { erro: `Ferramenta '${nome}' não existe.` };
   try {
-    return await fn(args || {}, tenantId);
+    return await fn(args || {}, tenantId, usuarioId);
   } catch (err) {
-    return { erro: `Falha ao consultar dados: ${err.message}` };
+    return { erro: `Falha ao processar: ${err.message}` };
   }
 }
 
