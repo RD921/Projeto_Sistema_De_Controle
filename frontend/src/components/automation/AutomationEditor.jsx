@@ -13,6 +13,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { API_URL, API_PUBLIC_URL } from '../../api';
 import './AutomationEditor.css';
 
 // ============================================================
@@ -495,7 +496,7 @@ function ConfigPanel({ node, onChange, onClose, onDelete, eventTypes }) {
           <input
             className="apollo-config__input"
             readOnly
-            value={`http://localhost:3000/api/webhooks/automation/${node.data.config.webhook_token}`}
+            value={`${API_PUBLIC_URL}/webhooks/automation/${node.data.config.webhook_token}`}
             onFocus={(e) => e.target.select()}
             style={{ fontSize: '11px', fontFamily: 'monospace' }}
           />
@@ -829,7 +830,7 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
         }
 
         try {
-          const resEvents = await fetch(`http://localhost:3000/api/events/types`, {
+          const resEvents = await fetch(`${API_URL}/events/types`, {
             headers: { Authorization: `Bearer ${getToken()}` },
           });
           if (resEvents.ok) {

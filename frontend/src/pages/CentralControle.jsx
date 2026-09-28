@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useOutletContext } from "react-router-dom";
-import api from "../api";
+import api, { API_URL } from "../api";
 import AutomationEditor from "../components/automation/AutomationEditor";
 
 const estadosSimulados = [
@@ -551,7 +551,7 @@ export default function CentralControle() {
             </button>
             <AutomationEditor
               automationId={automacaoSelecionada}
-              apiBaseUrl="http://localhost:3000/api/automations"
+              apiBaseUrl={`${API_URL}/automations`}
               embedded
             />
           </div>

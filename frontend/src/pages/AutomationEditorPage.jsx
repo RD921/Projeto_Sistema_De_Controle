@@ -1,5 +1,6 @@
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import AutomationEditor from '../components/automation/AutomationEditor';
+import { API_URL } from '../api';
 
 export default function AutomationEditorPage() {
   const { id } = useParams();
@@ -23,7 +24,7 @@ export default function AutomationEditorPage() {
       <div style={{ flex: 1, minHeight: 0 }}>
         <AutomationEditor
           automationId={id}
-          apiBaseUrl="http://localhost:3000/api/automations"
+          apiBaseUrl={`${API_URL}/automations`}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
-﻿import React from "react";
+import React from "react";
 import { useEffect, useState } from "react";
-import api from "../../api";
+import api, { API_PUBLIC_URL } from "../../api";
 
 const TIPOS_BLOCO = [
   { tipo: "titulo", label: "Titulo", icone: "1", padrao: { texto: "Novo titulo" } },
@@ -173,7 +173,7 @@ export default function LandingPageEditor() {
           { style: { display: "flex", flexDirection: "column", gap: 10 } },
           paginas.map(function (p) {
             const tenantIdAtual = localStorage.getItem("tenant_id") || 1;
-            const urlPublica = "http://localhost:3000/api/marketing/landing-pages/public/" + tenantIdAtual + "/" + p.slug;
+            const urlPublica = API_PUBLIC_URL + "/marketing/landing-pages/public/" + tenantIdAtual + "/" + p.slug;
             const statusCor = corStatus[p.status] || "#888";
             const subtitulo = p.status + " . " + p.total_visualizacoes + " visualizacoes" + (p.form_nome ? " . form: " + p.form_nome : "");
 

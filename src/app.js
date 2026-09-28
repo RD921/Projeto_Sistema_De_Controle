@@ -1,5 +1,7 @@
-﻿const automationRoutes = require("./automation/routes/automationRoutes");
+const automationRoutes = require("./automation/routes/automationRoutes");
 const express = require("express");
+const path = require("path");
+const fs = require("fs");
 const helmet = require("helmet");
 const cors = require("cors");
 const authRoutes        = require("./routes/authRoutes");
@@ -41,7 +43,8 @@ const scenarioRoutes = require("./routes/scenarioRoutes");
 
 const app = express();
 
-app.use(helmet());
+// CSP desligado: o painel React usa imagens e estilos de outros sites
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE"], allowedHeaders: ["Content-Type","Authorization"] }));
 app.use(express.json());
 
@@ -105,7 +108,22 @@ app.use("/api/sac", require("./routes/sacRoutes"));
 app.use("/api/compras", require("./routes/comprasRoutes"));
 app.use("/api/certificado-digital", require("./routes/certificadoDigitalRoutes"));
 app.use("/assistente", require("./routes/ariaAcoes"));
+app.use("/api/assistente", require("./routes/ariaAcoes")); // o painel chama por /api/assistente
 app.use("/api/canais-venda", require("./routes/salesChannelsRoutes"));
 app.use("/api/lojas", require("./routes/storesRoutes"));
+
+// ---------------------------------------------------------------------------
+// PAINEL (React): depois do "npm run build", o servidor entrega o painel
+// no mesmo endereço da API. Assim, painel e API ficam num lugar só.
+// ---------------------------------------------------------------------------
+const PASTA_PAINEL = path.join(__dirname, "..", "frontend", "dist");
+if (fs.existsSync(path.join(PASTA_PAINEL, "index.html"))) {
+  app.use(express.static(PASTA_PAINEL, { index: false, maxAge: "1h" }));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
+    if (!req.accepts("html")) return next();
+    res.sendFile(path.join(PASTA_PAINEL, "index.html"));
+  });
+}
 
 module.exports = app;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, useNavigate, useParams } from "react-router-dom";
-import api from "../api";
+import api, { API_URL } from "../api";
 
 const CATEGORIAS = ["fornecedores", "marketing", "impostos", "folha", "aluguel", "outros"];
 
@@ -5053,7 +5053,7 @@ const corStatusContrato = (status) => {
                   )}
 
                   <div style={{ display: "flex", gap: 8 }}>
-                    <a href={`http://localhost:3000/api/documentos/${d.id}/baixar`} target="_blank" rel="noreferrer"
+                    <a href={`${API_URL}/documentos/${d.id}/baixar`} target="_blank" rel="noreferrer"
                       style={{ flex: 1, textAlign: "center", background: "none", border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontFamily: "inherit", textDecoration: "none" }}>
                       Abrir
                     </a>
