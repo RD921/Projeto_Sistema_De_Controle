@@ -40,14 +40,18 @@ const SISTEMAS = [
 ];
 
 const AREAS = [
-  { id: "pedidos", label: "Gestão de Pedidos", desc: "Processamento e controle de pedidos", icon: "📦", modulo: { label: "Pedidos", rota: "/orders", disponivel: true } },
-  { id: "financeiro", label: "Financeiro", desc: "Contas a pagar/receber e fluxo de caixa", icon: "💰", modulo: { label: "Financeiro", disponivel: true } },
-  { id: "marketing", label: "Marketing", desc: "Campanhas e gestão de leads", icon: "📣", modulo: { label: "Marketing", rota: "/marketing", disponivel: true } },
-  { id: "clientes", label: "CRM", desc: "Gestão de clientes e oportunidades", icon: "👥", modulo: { label: "Clientes", rota: "/customers", disponivel: true } },
-  { id: "relatorios", label: "Relatórios e BI", desc: "Dashboards e análises inteligentes", icon: "📈", modulo: { label: "Relatórios", disponivel: true } },
-  { id: "logistica", label: "Logística", desc: "Envios e rastreamento de entregas", icon: "🚛", modulo: { label: "Logística", disponivel: true } },
-  { id: "compras", label: "Compras", desc: "Gestão de fornecedores e compras", icon: "🛍️", modulo: { label: "Compras", disponivel: false } },
+  { id: "pedidos", label: "Gestão de Pedidos", desc: "Processamento e controle de pedidos", icon: "📦" },
+  { id: "financeiro", label: "Financeiro", desc: "Contas a pagar/receber e fluxo de caixa", icon: "💰" },
+  { id: "marketing", label: "Marketing", desc: "Campanhas e gestão de leads", icon: "📣" },
+  { id: "clientes", label: "CRM", desc: "Gestão de clientes e oportunidades", icon: "👥" },
+  { id: "relatorios", label: "Relatórios e BI", desc: "Dashboards e análises inteligentes", icon: "📈" },
+  { id: "logistica", label: "Logística", desc: "Envios e rastreamento de entregas", icon: "🚛" },
+  { id: "compras", label: "Compras", desc: "Gestão de fornecedores e compras", icon: "🛍️" },
 ];
+
+const ICONES_MODULO = { ecommerce: "🛒", crm: "💼", marketing: "📣", relatorios: "📈", logistica: "🚛" };
+const TIPO_CANAL_LABEL = { loja_fisica: "Loja física", site: "Site", marketplace: "Marketplace", rede_social: "Rede social", outro: "Outro" };
+const LIMITE_PDF = 10 * 1024 * 1024;
 
 const TAMANHOS = [
   { id: "iniciante", label: "Iniciante", desc: "Até 100 pedidos/mês", icon: "🌱" },
@@ -104,6 +108,17 @@ export default function Onboarding() {
   const [tamanho, setTamanho] = useState(null);
   const [objetivo, setObjetivo] = useState(null);
 
+  // "Me conte mais sobre a sua empresa": texto livre (sem limite) e/ou PDF
+  const [descricao, setDescricao] = useState("");
+  const [arquivoPdf, setArquivoPdf] = useState(null);
+  const [documentoSalvo, setDocumentoSalvo] = useState(null);
+  const [removerDocumento, setRemoverDocumento] = useState(false);
+
+  // Plano montado pela Aria na etapa de recomendações
+  const [analisando, setAnalisando] = useState(false);
+  const [plano, setPlano] = useState(null);
+  const [modulosEscolhidos, setModulosEscolhidos] = useState([]);
+
   const [novoPin, setNovoPin] = useState("");
   const [confirmarPin, setConfirmarPin] = useState("");
   const [pinConfigurado, setPinConfigurado] = useState(false);
@@ -115,17 +130,71 @@ export default function Onboarding() {
     setLista(lista.includes(valor) ? lista.filter(v => v !== valor) : [...lista, valor]);
   };
 
+  // O onboarding só existe para conta recém-criada: se não estiver pendente, vai para o painel.
   useEffect(() => {
     api.get("/onboarding").then(r => {
-      if (r.data.completed) {
+      if (!r.data.pendente) {
         navigate("/", { replace: true });
+        return;
       }
+      const a = r.data.answers;
+      if (!a) return;
+      if (a.segmento) setSegmento(a.segmento);
+      if (a.canais?.length) setCanais(a.canais);
+      if (a.sistema_gestao) setSistemaGestao(a.sistema_gestao);
+      if (a.areas_automatizar?.length) setAreas(a.areas_automatizar);
+      if (a.tamanho_operacao) setTamanho(a.tamanho_operacao);
+      if (a.objetivo) setObjetivo(a.objetivo);
+      if (a.descricao_empresa) setDescricao(a.descricao_empresa);
+      if (a.documento_nome) setDocumentoSalvo(a.documento_nome);
     }).catch(() => {});
   }, [navigate]);
+
+  // Ao chegar nas recomendações, a Aria lê tudo (respostas, texto e PDF) e monta o plano.
+  // reanalisar = true quando as respostas mudaram (o plano antigo não vale mais).
+  const irParaRecomendacoes = (reanalisar = false) => {
+    setStep(4);
+    if (plano && !reanalisar) return;
+    setPlano(null);
+    setAnalisando(true);
+    setErro("");
+    api.post("/onboarding/analisar")
+      .then(r => {
+        setPlano(r.data);
+        setModulosEscolhidos((r.data.modulos || []).map(m => m.id));
+      })
+      .catch(err => {
+        setErro(err.response?.data?.error || "Não foi possível analisar sua empresa agora.");
+      })
+      .finally(() => setAnalisando(false));
+  };
+
+  const escolherPdf = (arquivo) => {
+    setErro("");
+    if (!arquivo) return;
+    if (arquivo.type !== "application/pdf" && !arquivo.name.toLowerCase().endsWith(".pdf")) {
+      setErro("Envie o arquivo em formato PDF.");
+      return;
+    }
+    if (arquivo.size > LIMITE_PDF) {
+      setErro("O PDF pode ter no máximo 10 MB.");
+      return;
+    }
+    setArquivoPdf(arquivo);
+    setRemoverDocumento(false);
+  };
+
+  const tirarPdf = () => {
+    setArquivoPdf(null);
+    if (documentoSalvo) setRemoverDocumento(true);
+  };
+
+  const nomeDocumento = arquivoPdf ? arquivoPdf.name : (!removerDocumento && documentoSalvo) || null;
 
   const podeAvancar = () => {
     if (step === 2) return segmento && canais.length > 0 && sistemaGestao && areas.length > 0 && tamanho && objetivo;
     if (step === 3) return pinConfigurado || (/^\d{4,6}$/.test(novoPin) && novoPin === confirmarPin);
+    if (step === 4) return !!plano && !analisando;
     return true;
   };
 
@@ -134,9 +203,7 @@ export default function Onboarding() {
     setInstalando(true);
     setProgresso(0);
 
-    const modulosRecomendados = AREAS.filter(a => areas.includes(a.id) && a.modulo.disponivel).map(a => a.id);
-
-    const chamadaApi = api.post("/onboarding/complete", { modulos_selecionados: modulosRecomendados })
+    const chamadaApi = api.post("/onboarding/complete", { modulos_selecionados: modulosEscolhidos })
       .catch(err => {
         setErro(err.response?.data?.error || "Erro ao concluir onboarding.");
       });
@@ -163,11 +230,31 @@ export default function Onboarding() {
     if (step === 2) {
       setSalvando(true);
       try {
-        await api.post("/onboarding", {
-          segmento, canais, sistema_gestao: sistemaGestao,
-          areas_automatizar: areas, tamanho_operacao: tamanho, objetivo,
-        });
-        setStep(3);
+        const dados = new FormData();
+        dados.append("segmento", segmento);
+        dados.append("canais", JSON.stringify(canais));
+        dados.append("sistema_gestao", sistemaGestao);
+        dados.append("areas_automatizar", JSON.stringify(areas));
+        dados.append("tamanho_operacao", tamanho);
+        dados.append("objetivo", objetivo);
+        dados.append("descricao_empresa", descricao);
+        if (arquivoPdf) dados.append("documento", arquivoPdf);
+        else if (removerDocumento) dados.append("remover_documento", "true");
+        await api.post("/onboarding", dados);
+        if (arquivoPdf) {
+          setDocumentoSalvo(arquivoPdf.name);
+          setArquivoPdf(null);
+        }
+        if (removerDocumento) {
+          setDocumentoSalvo(null);
+          setRemoverDocumento(false);
+        }
+        // Respostas mudaram: a Aria analisa de novo.
+        if (pinConfigurado) irParaRecomendacoes(true);
+        else {
+          setPlano(null);
+          setStep(3);
+        }
       } catch (err) {
         setErro(err.response?.data?.error || "Erro ao salvar respostas.");
       } finally {
@@ -175,7 +262,7 @@ export default function Onboarding() {
       }
     } else if (step === 3) {
       if (pinConfigurado) {
-        setStep(4);
+        irParaRecomendacoes(false);
         return;
       }
       if (!/^\d{4,6}$/.test(novoPin)) {
@@ -190,20 +277,20 @@ export default function Onboarding() {
       try {
         await api.put("/assistente/pin", { novo_pin: novoPin });
         setPinConfigurado(true);
-        setStep(4);
+        irParaRecomendacoes(false);
       } catch (err) {
         setErro(err.response?.data?.error || "Erro ao configurar o PIN.");
       } finally {
         setSalvando(false);
       }
     } else if (step === 4) {
+      if (!plano) return;
       instalarModulos();
     } else if (step === 5) {
       navigate("/");
     }
   };
 
-  const recomendados = AREAS.filter(a => areas.includes(a.id));
 
   const btnPrimary = { background: cor.accent, color: "#fff", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" };
   const btnGhost = { background: "none", color: cor.textMuted, border: `1px solid ${cor.border}`, borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "inherit" };
@@ -289,6 +376,54 @@ export default function Onboarding() {
                   <ToggleCard key={o.id} ativo={objetivo === o.id} onClick={() => setObjetivo(o.id)} icon={o.icon} label={o.label} desc={o.desc} />
                 ))}
               </div>
+
+              <p style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 2, color: cor.text }}>
+                7. Me conte mais sobre a sua empresa <span style={{ fontWeight: 400, color: cor.textMuted }}>(opcional)</span>
+              </p>
+              <p style={{ fontSize: 12, color: cor.textMuted, margin: "0 0 10px" }}>
+                Explique com suas palavras como a sua empresa funciona: o que vende, para quem, como é a operação e o que mais dá trabalho hoje.
+                A Aria vai ler isso para montar o sistema do jeito que o seu negócio precisa.
+              </p>
+              <textarea
+                value={descricao}
+                onChange={e => setDescricao(e.target.value)}
+                placeholder="Ex: Somos uma loja de roupas femininas com uma loja física no centro e vendas pelo Instagram e Mercado Livre..."
+                rows={7}
+                style={{ ...inputStyle, resize: "vertical", minHeight: 140, lineHeight: 1.5, marginBottom: 12 }}
+              />
+
+              <div
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); escolherPdf(e.dataTransfer.files?.[0]); }}
+                style={{ border: `2px dashed ${nomeDocumento ? cor.accent : cor.border}`, background: nomeDocumento ? "#faf5ff" : "#fff", borderRadius: 12, padding: 16, display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}
+              >
+                <span style={{ fontSize: 26 }}>📄</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {nomeDocumento ? (
+                    <>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: cor.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nomeDocumento}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11.5, color: cor.textMuted }}>A Aria vai ler este PDF para entender como a sua empresa funciona.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: cor.text }}>Prefere mandar um arquivo? Envie um PDF</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11.5, color: cor.textMuted }}>Um resumo de como a empresa funciona, apresentação, processos... Até 10 MB.</p>
+                    </>
+                  )}
+                </div>
+                {nomeDocumento && (
+                  <button type="button" onClick={tirarPdf} style={{ ...btnGhost, padding: "8px 14px", fontSize: 12.5 }}>Remover</button>
+                )}
+                <label style={{ ...btnGhost, padding: "8px 14px", fontSize: 12.5, color: cor.accent, borderColor: cor.accent }}>
+                  {nomeDocumento ? "Trocar" : "Escolher PDF"}
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    style={{ display: "none" }}
+                    onChange={e => { escolherPdf(e.target.files?.[0]); e.target.value = ""; }}
+                  />
+                </label>
+              </div>
             </>
           )}
 
@@ -336,32 +471,95 @@ export default function Onboarding() {
             </>
           )}
 
-          {step === 4 && !instalando && (
+          {step === 4 && !instalando && analisando && (
+            <div style={{ textAlign: "center", padding: "80px 0" }}>
+              <p style={{ fontSize: 34, marginBottom: 10 }}>🤖</p>
+              <p style={{ fontWeight: 600, color: cor.text, fontSize: 15, marginBottom: 6 }}>A Aria está analisando a sua empresa...</p>
+              <p style={{ color: cor.textMuted, fontSize: 13 }}>
+                {documentoSalvo ? "Lendo suas respostas, o seu texto e o PDF enviado." : "Lendo suas respostas para montar o sistema ideal."} Isso leva alguns segundos.
+              </p>
+            </div>
+          )}
+
+          {step === 4 && !instalando && !analisando && plano && (
             <>
-              <h1 style={{ fontSize: 24, fontWeight: 700, color: cor.text, marginBottom: 4 }}>Recomendações para o seu negócio</h1>
-              <p style={{ color: cor.textMuted, fontSize: 13.5, marginBottom: 28 }}>Com base nas suas respostas, estes são os módulos que fazem mais sentido.</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {recomendados.map(a => (
-                  <div key={a.id} style={{ background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-                    <span style={{ fontSize: 22 }}>{a.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: cor.text }}>{a.modulo.label}</p>
-                      <p style={{ margin: "2px 0 0", fontSize: 12, color: cor.textMuted }}>{a.desc}</p>
+              <h1 style={{ fontSize: 24, fontWeight: 700, color: cor.text, marginBottom: 4 }}>O sistema montado para o seu negócio</h1>
+              <p style={{ color: cor.textMuted, fontSize: 13.5, marginBottom: 24 }}>
+                {plano.origem === "ia"
+                  ? "A Aria leu tudo o que você contou e preparou esta configuração. Revise e desmarque o que não quiser."
+                  : "Com base nas suas respostas, esta é a configuração recomendada. Revise e desmarque o que não quiser."}
+              </p>
+
+              {plano.resumo && (
+                <div style={{ background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 12, padding: 16, marginBottom: 22 }}>
+                  <p style={{ margin: "0 0 6px", fontWeight: 600, fontSize: 13, color: cor.accent }}>Como a Aria entendeu a sua empresa</p>
+                  <p style={{ margin: 0, fontSize: 13, color: cor.text, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{plano.resumo}</p>
+                </div>
+              )}
+
+              <p style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: cor.text }}>Módulos que serão instalados</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+                {(plano.modulos || []).map(m => {
+                  const marcado = modulosEscolhidos.includes(m.id);
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => toggleEm(modulosEscolhidos, setModulosEscolhidos, m.id)}
+                      style={{ background: cor.card, border: `2px solid ${marcado ? cor.accent : cor.border}`, borderRadius: 12, padding: 14, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}
+                    >
+                      <span style={{ fontSize: 22 }}>{ICONES_MODULO[m.id] || "🧩"}</span>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: cor.text }}>{m.label || m.id}</p>
+                        {m.motivo && <p style={{ margin: "2px 0 0", fontSize: 12, color: cor.textMuted }}>{m.motivo}</p>}
+                      </div>
+                      <span style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${marcado ? cor.accent : cor.border}`, background: marcado ? cor.accent : "#fff", color: "#fff", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {marcado ? "✓" : ""}
+                      </span>
                     </div>
-                    <span style={{
-                      fontSize: 11, padding: "4px 12px", borderRadius: 20, fontWeight: 600,
-                      background: a.modulo.disponivel ? "#dcfce7" : "#f4f4f5",
-                      color: a.modulo.disponivel ? "#16a34a" : "#a3a3a3",
-                    }}>
-                      {a.modulo.disponivel ? "Disponível" : "Em breve"}
-                    </span>
-                  </div>
-                ))}
-                {recomendados.length === 0 && (
-                  <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma área selecionada na etapa anterior.</p>
+                  );
+                })}
+                {(plano.modulos || []).length === 0 && (
+                  <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum módulo extra recomendado. Automações, Integrações e Financeiro já vêm ativos.</p>
                 )}
               </div>
+
+              {((plano.centros_custo || []).length > 0 || (plano.canais_venda || []).length > 0) && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+                  <div style={{ background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 14 }}>
+                    <p style={{ margin: "0 0 8px", fontWeight: 600, fontSize: 13, color: cor.text }}>Centros de custo</p>
+                    <p style={{ margin: "0 0 4px", fontSize: 12.5, color: cor.text }}>• Geral</p>
+                    {(plano.centros_custo || []).map(c => (
+                      <p key={c.codigo} style={{ margin: "0 0 4px", fontSize: 12.5, color: cor.text }} title={c.descricao}>• {c.nome}</p>
+                    ))}
+                  </div>
+                  <div style={{ background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 14 }}>
+                    <p style={{ margin: "0 0 8px", fontWeight: 600, fontSize: 13, color: cor.text }}>Canais de venda</p>
+                    {(plano.canais_venda || []).map(c => (
+                      <p key={c.nome} style={{ margin: "0 0 4px", fontSize: 12.5, color: cor.text }}>
+                        • {c.nome} <span style={{ color: cor.textMuted }}>({TIPO_CANAL_LABEL[c.tipo] || c.tipo})</span>
+                      </p>
+                    ))}
+                    {(plano.canais_venda || []).length === 0 && <p style={{ margin: 0, fontSize: 12.5, color: cor.textMuted }}>Nenhum por enquanto.</p>}
+                  </div>
+                </div>
+              )}
+
+              {(plano.observacoes || []).length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: cor.text }}>Dicas da Aria</p>
+                  {plano.observacoes.map((o, i) => (
+                    <p key={i} style={{ margin: "0 0 4px", fontSize: 12.5, color: cor.textMuted }}>💡 {o}</p>
+                  ))}
+                </div>
+              )}
             </>
+          )}
+
+          {step === 4 && !instalando && !analisando && !plano && (
+            <div style={{ textAlign: "center", padding: "60px 0" }}>
+              <p style={{ color: cor.textMuted, fontSize: 13.5, marginBottom: 14 }}>A análise não foi concluída.</p>
+              <button onClick={() => irParaRecomendacoes(true)} style={btnPrimary}>Tentar de novo</button>
+            </div>
           )}
 
           {step === 4 && instalando && (

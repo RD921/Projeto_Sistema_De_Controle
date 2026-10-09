@@ -26,7 +26,7 @@ export default function Login() {
     localStorage.setItem("token", data.token);
     localStorage.setItem("tenant_id", data.tenant_id);
     api.get("/onboarding")
-      .then((onboarding) => navigate(onboarding.data.completed ? "/" : "/onboarding"))
+      .then((onboarding) => navigate(onboarding.data.pendente ? "/onboarding" : "/"))
       .catch(() => navigate("/"));
   };
 

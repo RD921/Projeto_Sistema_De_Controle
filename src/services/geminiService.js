@@ -58,6 +58,39 @@ async function chamarGeminiComFerramentas(contents, tools, tentativas = 3) {
   }
 }
 
+// Manda texto + arquivos (ex: PDF) e pede a resposta em JSON.
+// partes: [{ text }, { inline_data: { mime_type, data(base64) } }, ...]
+async function chamarGeminiJSON(partes, tentativas = 3) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      const response = await axios.post(
+        GEMINI_URL,
+        {
+          contents: [{ role: "user", parts: partes }],
+          generation_config: { response_mime_type: "application/json" },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": process.env.GEMINI_API_KEY,
+          },
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        }
+      );
+      const texto = response.data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
+      return JSON.parse(texto.replace(/```json|```/g, "").trim());
+    } catch (err) {
+      if (ehErroTemporario(err.response?.status) && i < tentativas - 1) {
+        console.log(`[GEMINI] Erro ${err.response?.status} (temporario) no JSON, tentativa ${i + 1}/${tentativas}, aguardando ${(i + 1) * 5}s...`);
+        await new Promise(r => setTimeout(r, (i + 1) * 5000));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 exports.gerarCopyMarketing = async (produto, publico, canal) => {
   const prompt = `VocÃª Ã© um especialista em marketing digital para o mercado brasileiro.
 Crie uma mensagem de marketing persuasiva:
@@ -124,3 +157,4 @@ Responda a Ãºltima mensagem do usuÃ¡rio:`;
 
 exports.chamarGemini = chamarGemini;
 exports.chamarGeminiComFerramentas = chamarGeminiComFerramentas;
+exports.chamarGeminiJSON = chamarGeminiJSON;

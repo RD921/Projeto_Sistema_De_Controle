@@ -89,6 +89,14 @@ exports.register = async (req, res) => {
       [nome_admin, email_admin, hash, tenantId]
     );
 
+    // Conta nova: o onboarding fica pendente até ser concluído. Só contas
+    // criadas por aqui passam pelo onboarding.
+    await pool.query("INSERT IGNORE INTO company_onboarding (tenant_id) VALUES (?)", [tenantId]);
+    await pool.query(
+      "INSERT IGNORE INTO user_tenants (user_id, tenant_id, role, is_default) VALUES (?, ?, 'admin', 1)",
+      [userResult.insertId, tenantId]
+    );
+
     const token = jwt.sign(
       { id: userResult.insertId, email: email_admin, role: "admin", tenant_id: tenantId },
       process.env.JWT_SECRET,

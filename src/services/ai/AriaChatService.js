@@ -1,6 +1,7 @@
 const gemini = require("../geminiService");
 const pool = require("../../config/db");
 const { toolDeclarations, executarFerramenta } = require("./businessTools");
+const { perfilParaAria } = require("../onboardingIAService");
 
 const DESCRICAO_DETALHAMENTO = {
   objetivo: "Seja extremamente objetiva e curta. Va direto ao ponto, sem explicacoes extras.",
@@ -48,7 +49,9 @@ async function chat(tenantId, mensagens = [], usuarioId = null) {
     // Se a tabela nao existir ou der erro, usa o padrao sem quebrar o chat
   }
 
-  const systemInstruction = montarSystemInstruction(comportamento);
+  // Como a empresa funciona (respostas do onboarding, texto do cliente e resumo do PDF)
+  const perfilEmpresa = await perfilParaAria(tenantId);
+  const systemInstruction = montarSystemInstruction(comportamento) + perfilEmpresa;
 
   // Ignora qualquer mensagem sem texto válido (evita mandar uma "parte" vazia
   // pro Gemini, que rejeita com erro 400 nesse caso).
