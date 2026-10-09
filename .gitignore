@@ -21,3 +21,6 @@ lote_*.txt
 schema_completo.sql
 copiar-banco.js
 *.log
+ecomflow.sql
+rodar_migrations.ps1
+*.sql.bak
