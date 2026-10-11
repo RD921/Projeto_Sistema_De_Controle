@@ -60,6 +60,7 @@ app.use("/api/webhooks",     webhookRoutes);
 app.use("/api/reports",      reportRoutes);
 app.use("/api/tenants",      tenantRoutes);
 app.use("/api/plans",        planRoutes);
+app.use("/api/marketing",    require("./services/marketingSchema").middleware);
 app.use("/api/marketing",    marketingRoutes);
 app.use("/api/events",       eventRoutes);
 app.use("/api/ai",           aiRoutes);
@@ -96,6 +97,7 @@ app.use("/api/marketing/dashboard", require("./routes/marketingDashboardRoutes")
 app.use("/api/marketing/forms", require("./routes/marketingFormsRoutes"));
 app.use("/api/marketing/landing-pages", require("./routes/marketingLandingPagesRoutes"));
 app.use("/api/marketing/ab-tests", require("./routes/marketingAbTestsRoutes"));
+app.use("/api/marketing", require("./routes/marketingCentralRoutes"));
 app.use("/api/stock", require("./routes/stockRoutes"));
 app.use("/api/crm", require("./routes/crmRoutes"));
 app.use("/api/crm/dashboard", require("./routes/crmDashboardRoutes"));

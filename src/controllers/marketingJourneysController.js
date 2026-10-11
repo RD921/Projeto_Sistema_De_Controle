@@ -21,6 +21,6 @@ exports.listarEnrollments = async (req, res) => {
 
     res.json({ campanha: campanha.nome, leads_na_jornada: rows });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao listar jornada", details: err.message });
+    res.status(500).json({ error: "Erro ao listar jornada" });
   }
 };

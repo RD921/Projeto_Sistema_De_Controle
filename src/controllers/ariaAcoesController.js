@@ -49,6 +49,12 @@ exports.confirmarAcao = async (req, res) => {
       case "criacao_automacao":
         resultado = await executarCriacaoAutomacao(parametros, req.tenant_id);
         break;
+      case "estrategia_marketing":
+        resultado = await executarEstrategiaMarketing(parametros, req.tenant_id, req.user.id);
+        break;
+      case "criacao_campanha":
+        resultado = await executarCriacaoCampanha(parametros, req.tenant_id, req.user.id);
+        break;
       default:
         return res.status(400).json({ error: `Tipo de ação desconhecido: ${acao.tipo}` });
     }
@@ -177,4 +183,17 @@ async function executarCriacaoAutomacao(parametros, tenantId) {
     nome, gatilho, acao_desejada,
     mensagem: "Confirmação registrada. A criação automática ainda depende de conectar esta ação ao motor de Automações — por enquanto, crie manualmente em Automações > Minhas Automações usando esses dados como referência.",
   };
+}
+
+async function executarEstrategiaMarketing(parametros, tenantId, usuarioId) {
+  const aria = require("../services/marketing/ariaMarketingService");
+  const r = await aria.aplicarEstrategia(tenantId, parametros.strategy_id, { userId: usuarioId });
+  if (!r) throw new Error("Plano de marketing não encontrado no momento da confirmação.");
+  return { ...r, mensagem: `${r.tarefas_criadas} tarefa(s) criada(s) em Marketing > Tarefas${r.aguardando_aprovacao ? `; ${r.aguardando_aprovacao} aguardam sua aprovação antes de serem executadas` : ""}.` };
+}
+
+async function executarCriacaoCampanha(parametros, tenantId, usuarioId) {
+  const campanhas = require("./marketingCampaignsController");
+  const c = await campanhas.criarRascunho(tenantId, parametros, usuarioId);
+  return { campaign_id: c.id, mensagem: `Campanha "${c.nome}" criada como rascunho. Ative e informe o investimento em Marketing > Leads & Campanhas.` };
 }

@@ -13,7 +13,7 @@ router.post("/copy", auth, async (req, res) => {
     const copy = await gemini.gerarCopyMarketing(produto, publico, canal);
     res.json({ copy });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao gerar copy", details: err.message });
+    res.status(500).json({ error: "Erro ao gerar copy" });
   }
 });
 
@@ -24,7 +24,7 @@ router.get("/prever/:id", auth, async (req, res) => {
     const previsao = await gemini.preverVenda(rows[0]);
     res.json(previsao);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao prever venda", details: err.message });
+    res.status(500).json({ error: "Erro ao prever venda" });
   }
 });
 
@@ -36,7 +36,7 @@ router.post("/scripts", auth, async (req, res) => {
     const scripts = await gemini.gerarScriptAbordagem(persona, produto);
     res.json({ scripts });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao gerar scripts", details: err.message });
+    res.status(500).json({ error: "Erro ao gerar scripts" });
   }
 });
 
@@ -54,7 +54,7 @@ router.get("/lead-scoring", auth, async (req, res) => {
     });
     res.json(resultado);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao calcular lead scoring", details: err.message });
+    res.status(500).json({ error: "Erro ao calcular lead scoring" });
   }
 });
 
@@ -67,7 +67,7 @@ router.post("/chat", auth, async (req, res) => {
     res.json({ resposta: texto, acao_proposta: acaoProposta });
   } catch (err) {
     console.error("[ARIA CHAT ERROR]", err.message);
-    res.status(500).json({ error: "Erro no chat", details: err.message });
+    res.status(500).json({ error: "Erro no chat" });
   }
 });
 

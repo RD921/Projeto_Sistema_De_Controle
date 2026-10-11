@@ -42,7 +42,7 @@ exports.calcularConversoes = async (req, res) => {
 
     res.json({ message: "Conversoes recalculadas", novas_conversoes: novasConversoes, candidatos_avaliados: candidatos.length });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao calcular conversoes", details: err.message });
+    res.status(500).json({ error: "Erro ao calcular conversoes" });
   }
 };
 
@@ -72,6 +72,6 @@ exports.roiCampanha = async (req, res) => {
       roas: roas !== null ? Number(roas.toFixed(2)) : null,
     });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao calcular ROI", details: err.message });
+    res.status(500).json({ error: "Erro ao calcular ROI" });
   }
 };

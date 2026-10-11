@@ -19,6 +19,7 @@ NodeRegistry.register("finance_get_entry", require("../nodes/FinanceGetEntryNode
 NodeRegistry.register("finance_mark_paid", require("../nodes/FinanceMarkPaidNode"));
 NodeRegistry.register("for_each", require("../nodes/ForEachNode"));
 NodeRegistry.register("marketing_send_email", require("../nodes/MarketingSendEmailNode"));
+NodeRegistry.register("marketing_lead_action", require("../nodes/MarketingLeadActionNode"));
 
 const MAX_STEPS = 200;
 const MAX_STEPS_LOOP_BODY = 50;
