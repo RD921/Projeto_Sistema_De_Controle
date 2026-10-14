@@ -19,7 +19,7 @@ exports.listar = async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao listar landing pages", details: err.message });
+    res.status(500).json({ error: "Erro ao listar landing pages" });
   }
 };
 
@@ -29,7 +29,7 @@ exports.obter = async (req, res) => {
     if (!lp) return res.status(404).json({ error: "Landing page nao encontrada" });
     res.json({ ...lp, blocos: typeof lp.blocos === "string" ? JSON.parse(lp.blocos) : lp.blocos });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao buscar landing page", details: err.message });
+    res.status(500).json({ error: "Erro ao buscar landing page" });
   }
 };
 
@@ -44,6 +44,11 @@ exports.criar = async (req, res) => {
       if (!f) return res.status(400).json({ error: "form_id invalido para este tenant" });
     }
 
+    if (campaign_id) {
+      const [[c]] = await pool.query("SELECT id FROM marketing_campaigns WHERE id = ? AND tenant_id = ?", [campaign_id, req.tenant_id]);
+      if (!c) return res.status(400).json({ error: "campaign_id invalido para este tenant" });
+    }
+
     let slug = slugify(nome);
     const [existentes] = await pool.query("SELECT slug FROM marketing_landing_pages WHERE tenant_id = ? AND slug LIKE ?", [req.tenant_id, `${slug}%`]);
     if (existentes.some(e => e.slug === slug)) {
@@ -56,7 +61,7 @@ exports.criar = async (req, res) => {
     );
     res.status(201).json({ id: result.insertId, slug, url_publica: `/api/marketing/landing-pages/public/${req.tenant_id}/${slug}` });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao criar landing page", details: err.message });
+    res.status(500).json({ error: "Erro ao criar landing page" });
   }
 };
 
@@ -69,7 +74,7 @@ exports.publicar = async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ error: "Landing page nao encontrada" });
     res.json({ message: "Landing page publicada" });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao publicar", details: err.message });
+    res.status(500).json({ error: "Erro ao publicar" });
   }
 };
 
@@ -79,7 +84,7 @@ exports.excluir = async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ error: "Landing page nao encontrada" });
     res.json({ message: "Landing page excluida" });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao excluir", details: err.message });
+    res.status(500).json({ error: "Erro ao excluir" });
   }
 };
 
@@ -104,20 +109,27 @@ exports.renderizarPublica = async (req, res) => {
       formToken = form?.token || null;
     }
 
+    const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const urlSegura = v => { try { const u = new URL(String(v)); return ["http:", "https:"].includes(u.protocol) ? u.toString() : "#"; } catch { return "#"; } };
+
     const blocos = typeof lp.blocos === "string" ? JSON.parse(lp.blocos) : lp.blocos;
     const htmlBlocos = blocos.map(b => {
-      if (b.tipo === "titulo") return `<h1>${b.texto}</h1>`;
-      if (b.tipo === "texto") return `<p>${b.texto}</p>`;
-      if (b.tipo === "imagem") return `<img src="${b.url}" style="max-width:100%" />`;
-      if (b.tipo === "botao") return `<a href="${b.url}" style="display:inline-block;padding:12px 24px;background:#a78bfa;color:#fff;border-radius:8px;text-decoration:none;">${b.texto}</a>`;
+      if (b.tipo === "titulo") return `<h1>${esc(b.texto)}</h1>`;
+      if (b.tipo === "texto") return `<p>${esc(b.texto)}</p>`;
+      if (b.tipo === "imagem") return `<img src="${esc(urlSegura(b.url))}" alt="" style="max-width:100%" />`;
+      if (b.tipo === "botao") return `<a href="${esc(urlSegura(b.url))}" style="display:inline-block;padding:12px 24px;background:#a78bfa;color:#fff;border-radius:8px;text-decoration:none;">${esc(b.texto)}</a>`;
       if (b.tipo === "formulario" && formToken) {
         return `
-          <form id="lp-form" action="/api/marketing/forms/public/${formToken}" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:400px;">
-            <input name="nome" placeholder="Seu nome" required style="padding:10px;border-radius:6px;border:1px solid #ccc;" />
-            <input name="email" type="email" placeholder="Seu e-mail" required style="padding:10px;border-radius:6px;border:1px solid #ccc;" />
-            <button type="submit" style="padding:10px;border-radius:6px;background:#a78bfa;color:#fff;border:none;">${b.texto_botao || "Enviar"}</button>
+          <form id="lp-form" action="/api/marketing/forms/public/${esc(formToken)}" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:400px;">
+            <input name="nome" placeholder="Seu nome" required maxlength="255" style="padding:10px;border-radius:6px;border:1px solid #ccc;" />
+            <input name="email" type="email" placeholder="Seu e-mail" required maxlength="255" style="padding:10px;border-radius:6px;border:1px solid #ccc;" />
+            <input name="telefone" type="tel" placeholder="Seu telefone (opcional)" maxlength="50" style="padding:10px;border-radius:6px;border:1px solid #ccc;" />
+            <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;" />
+            <label style="font-size:13px;color:#444;"><input type="checkbox" name="consentimento" value="1" /> Aceito receber contato sobre esta oferta.</label>
+            <button type="submit" style="padding:10px;border-radius:6px;background:#a78bfa;color:#fff;border:none;">${esc(b.texto_botao || "Enviar")}</button>
           </form>
-          <p id="lp-obrigado" style="display:none;color:#16a34a;font-weight:bold;">Obrigado pelo cadastro!</p>`;
+          <p id="lp-obrigado" style="display:none;color:#16a34a;font-weight:bold;">Obrigado pelo cadastro!</p>
+          <p id="lp-erro" style="display:none;color:#dc2626;"></p>`;
       }
       return "";
     }).join("\n");
@@ -129,29 +141,41 @@ exports.renderizarPublica = async (req, res) => {
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
     );
 
+    const campanhaRef = lp.campaign_id ? Number(lp.campaign_id) : "";
     res.send(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${lp.nome}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${esc(lp.nome)}</title>
 </head>
 <body style="font-family:sans-serif;max-width:700px;margin:40px auto;padding:0 20px;">
   ${htmlBlocos}
   <script>
     var form = document.getElementById('lp-form');
     if (form) {
+      var params = new URLSearchParams(window.location.search);
+      var rastreio = {};
+      ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','mkt'].forEach(function (k) { if (params.get(k)) rastreio[k] = params.get(k); });
+      var campanhaDaPagina = '${campanhaRef}';
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         var dados = Object.fromEntries(new FormData(form));
+        for (var k in rastreio) dados[k] = rastreio[k];
+        if (campanhaDaPagina) dados.campaign_id = campanhaDaPagina;
+        dados.pagina = window.location.pathname;
         fetch(form.action, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dados)
-        }).then(function () {
+        }).then(function (r) {
+          if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || 'Erro ao enviar'); });
           form.style.display = 'none';
           document.getElementById('lp-obrigado').style.display = 'block';
-        }).catch(function () {
-          alert('Erro ao enviar. Tente novamente.');
+        }).catch(function (err) {
+          var el = document.getElementById('lp-erro');
+          el.textContent = err.message || 'Erro ao enviar. Tente novamente.';
+          el.style.display = 'block';
         });
       });
     }

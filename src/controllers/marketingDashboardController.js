@@ -106,6 +106,6 @@ exports.resumo = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao gerar dashboard de marketing", details: err.message });
+    res.status(500).json({ error: "Erro ao gerar dashboard de marketing" });
   }
 };

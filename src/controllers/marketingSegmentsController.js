@@ -1,5 +1,6 @@
 const pool = require("../config/db");
-const { recalcularSegmento } = require("../services/marketingSegmentEngine");
+const { recalcularSegmento, previsao, catalogoDeCampos } = require("../services/marketingSegmentEngine");
+const { prepararTenant } = require("../services/marketingSchema");
 
 exports.listar = async (req, res) => {
   try {
@@ -10,34 +11,45 @@ exports.listar = async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao listar segmentos", details: err.message });
+    res.status(500).json({ error: "Erro ao listar segmentos" });
+  }
+};
+
+exports.campos = (req, res) => res.json(catalogoDeCampos());
+
+exports.previa = async (req, res) => {
+  try {
+    const { base, criterios } = req.body || {};
+    res.json(await previsao(req.tenant_id, base === "clientes" ? "clientes" : "leads", criterios));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 
 exports.criar = async (req, res) => {
   try {
-    const { nome, descricao, tipo, criterios } = req.body;
+    await prepararTenant(req.tenant_id);
+    const { nome, descricao, tipo, criterios, base } = req.body || {};
     if (!nome) return res.status(400).json({ error: "nome e obrigatorio" });
-
     const tipoFinal = tipo === "dinamico" ? "dinamico" : "estatico";
-    if (tipoFinal === "dinamico" && (!Array.isArray(criterios) || criterios.length === 0)) {
-      return res.status(400).json({ error: "segmentos dinamicos exigem ao menos um criterio" });
-    }
-
-    const [result] = await pool.query(
-      "INSERT INTO marketing_segments (tenant_id, nome, descricao, tipo, criterios, created_by) VALUES (?, ?, ?, ?, ?, ?)",
-      [req.tenant_id, nome, descricao || null, tipoFinal, tipoFinal === "dinamico" ? JSON.stringify(criterios) : null, req.user?.id || null]
-    );
-
-    const segmentId = result.insertId;
-
+    const baseFinal = base === "clientes" ? "clientes" : "leads";
     if (tipoFinal === "dinamico") {
-      try { await recalcularSegmento(req.tenant_id, segmentId); } catch { /* recalculo inicial e best-effort */ }
+      try { await previsao(req.tenant_id, baseFinal, criterios); }
+      catch (e) { return res.status(400).json({ error: e.message }); }
     }
-
-    res.status(201).json({ id: segmentId });
+    const [result] = await pool.query(
+      "INSERT INTO marketing_segments (tenant_id, nome, descricao, tipo, base, criterios, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [req.tenant_id, String(nome).slice(0, 255), descricao || null, tipoFinal, baseFinal, tipoFinal === "dinamico" ? JSON.stringify(criterios) : null, req.user?.id || null]
+    );
+    const segmentId = result.insertId;
+    let total = null;
+    if (tipoFinal === "dinamico") {
+      try { total = (await recalcularSegmento(req.tenant_id, segmentId)).total_membros; } catch { /* recalculo inicial e best-effort */ }
+    }
+    res.status(201).json({ id: segmentId, total_membros: total });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao criar segmento", details: err.message });
+    console.error("[SEGMENTS] criar:", err.message);
+    res.status(500).json({ error: "Erro ao criar segmento" });
   }
 };
 
@@ -57,7 +69,7 @@ exports.adicionarMembro = async (req, res) => {
     );
     res.status(201).json({ message: "Membro adicionado" });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao adicionar membro", details: err.message });
+    res.status(500).json({ error: "Erro ao adicionar membro" });
   }
 };
 
@@ -78,7 +90,7 @@ exports.listarMembros = async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao listar membros", details: err.message });
+    res.status(500).json({ error: "Erro ao listar membros" });
   }
 };
 
@@ -98,6 +110,6 @@ exports.excluir = async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ error: "Segmento nao encontrado" });
     res.json({ message: "Segmento excluido" });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao excluir segmento", details: err.message });
+    res.status(500).json({ error: "Erro ao excluir segmento" });
   }
 };

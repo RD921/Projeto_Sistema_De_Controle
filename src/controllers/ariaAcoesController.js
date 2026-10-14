@@ -26,6 +26,13 @@ exports.confirmarAcao = async (req, res) => {
       return res.status(410).json({ error: "Esta proposta expirou. Peça para a Aria gerar a proposta novamente." });
     }
 
+    // Propostas de marketing só podem ser confirmadas por quem pode editar o Marketing (admin sempre pode)
+    if (["estrategia_marketing", "criacao_campanha"].includes(acao.tipo) && req.user.role !== "admin") {
+      const [[perm]] = await pool.query(
+        `SELECT up.user_id FROM user_permissions up JOIN permissions p ON p.id = up.permission_id WHERE up.user_id = ? AND p.chave = 'marketing.editar'`, [req.user.id]);
+      if (!perm) return res.status(403).json({ error: "Você não tem permissão para confirmar ações de Marketing (marketing.editar)." });
+    }
+
     const [[usuario]] = await pool.query("SELECT id, nome, aria_pin_hash FROM users WHERE id = ? AND tenant_id = ?", [req.user.id, req.tenant_id]);
     if (!usuario?.aria_pin_hash) {
       return res.status(400).json({ error: "Você ainda não configurou um PIN de autorização. Configure em Configurações > IA." });
@@ -48,6 +55,12 @@ exports.confirmarAcao = async (req, res) => {
         break;
       case "criacao_automacao":
         resultado = await executarCriacaoAutomacao(parametros, req.tenant_id);
+        break;
+      case "estrategia_marketing":
+        resultado = await executarEstrategiaMarketing(parametros, req.tenant_id, req.user.id);
+        break;
+      case "criacao_campanha":
+        resultado = await executarCriacaoCampanha(parametros, req.tenant_id, req.user.id);
         break;
       default:
         return res.status(400).json({ error: `Tipo de ação desconhecido: ${acao.tipo}` });
@@ -177,4 +190,17 @@ async function executarCriacaoAutomacao(parametros, tenantId) {
     nome, gatilho, acao_desejada,
     mensagem: "Confirmação registrada. A criação automática ainda depende de conectar esta ação ao motor de Automações — por enquanto, crie manualmente em Automações > Minhas Automações usando esses dados como referência.",
   };
+}
+
+async function executarEstrategiaMarketing(parametros, tenantId, usuarioId) {
+  const aria = require("../services/marketing/ariaMarketingService");
+  const r = await aria.aplicarEstrategia(tenantId, parametros.strategy_id, { userId: usuarioId });
+  if (!r) throw new Error("Plano de marketing não encontrado no momento da confirmação.");
+  return { ...r, mensagem: `${r.tarefas_criadas} tarefa(s) criada(s) em Marketing > Tarefas${r.aguardando_aprovacao ? `; ${r.aguardando_aprovacao} aguardam sua aprovação antes de serem executadas` : ""}.` };
+}
+
+async function executarCriacaoCampanha(parametros, tenantId, usuarioId) {
+  const campanhas = require("./marketingCampaignsController");
+  const c = await campanhas.criarRascunho(tenantId, parametros, usuarioId);
+  return { campaign_id: c.id, mensagem: `Campanha "${c.nome}" criada como rascunho. Ative e informe o investimento em Marketing > Leads & Campanhas.` };
 }

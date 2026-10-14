@@ -230,6 +230,52 @@ const toolDeclarations = [
       required: ["nome", "gatilho", "acao_desejada"],
     },
   },
+  {
+    name: "marketing_visao_geral",
+    description: "Visao geral REAL do marketing no periodo: leads captados, qualificados, conversao, clientes adquiridos, investimento informado, CAC, receita atribuida, ROAS/ROI (cada metrica vem com tipo observado/calculado/atribuido), funil de conversao com gargalo, conversao por canal e desempenho das campanhas. Use para 'como esta meu marketing', 'por que meus leads nao convertem', 'qual canal converte mais'. Se uma metrica vier nula, explique que falta dado (ex: investimento nao informado) em vez de estimar.",
+    parameters: { type: "OBJECT", properties: { dias: { type: "NUMBER", description: "Janela em dias (padrao 30)." } } },
+  },
+  {
+    name: "marketing_leads_prioritarios",
+    description: "Lista os leads em aberto com maior prioridade, com o MOTIVO de cada um (composicao da pontuacao, dias sem contato) e a proxima acao sugerida. Use para 'quais leads devo atender primeiro' e 'por que este lead e prioridade'.",
+    parameters: { type: "OBJECT", properties: { limite: { type: "NUMBER", description: "Quantidade (padrao 10, maximo 50)." } } },
+  },
+  {
+    name: "marketing_oportunidades_recuperacao",
+    description: "Oportunidades de recuperacao encontradas agora pelas regras do usuario: leads sem contato, negociacoes e propostas paradas no CRM, clientes inativos, potencial de recompra (estimativa) e pedidos pendentes, com quantidade e valor em jogo.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "marketing_recomendacoes",
+    description: "Recomendacoes e alertas de marketing priorizados por impacto, esforco e confianca, cada um com explicacao baseada em numeros reais. Use para 'encontre oportunidades para aumentar minhas vendas'.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "marketing_planejar_aquisicao",
+    description: "Estima cenarios (conservador/base/otimista) para conquistar N novos clientes, a partir do historico real, e sugere distribuicao de orcamento e experimentos. Se nao houver dados suficientes, devolve o que falta. E uma ESTIMATIVA, nunca garantia: diga isso ao usuario.",
+    parameters: { type: "OBJECT", properties: {
+      meta_clientes: { type: "NUMBER", description: "Quantos novos clientes o usuario quer." },
+      prazo_dias: { type: "NUMBER", description: "Prazo em dias (padrao 90)." },
+      orcamento: { type: "NUMBER", description: "Orcamento disponivel em reais, se informado." },
+    }, required: ["meta_clientes"] },
+  },
+  {
+    name: "propor_estrategia_marketing",
+    description: "Monta um PLANO DE AÇÃO de marketing (etapas, publico, canais, tarefas, metas, indicadores) a partir de um pedido em linguagem natural, usando os dados reais da empresa, e cria uma PROPOSTA pendente de confirmacao com PIN. NAO cria tarefas ate o PIN ser confirmado. Use para 'quero mais clientes', 'recuperar clientes inativos', 'melhorar a conversao', 'plano para conquistar 100 clientes'.",
+    parameters: { type: "OBJECT", properties: { pedido: { type: "STRING", description: "O que o usuario quer, nas palavras dele." } }, required: ["pedido"] },
+  },
+  {
+    name: "propor_criacao_campanha",
+    description: "Cria uma PROPOSTA de campanha de marketing (sempre como rascunho, sem publicar nem gastar nada), pendente de confirmacao com PIN.",
+    parameters: { type: "OBJECT", properties: {
+      nome: { type: "STRING" }, objetivo: { type: "STRING" },
+      tipo: { type: "STRING", description: "email, sms, whatsapp, push, ads, social ou outro." },
+      canal: { type: "STRING" }, etapa_funil: { type: "STRING", description: "aquisicao, nutricao, conversao ou recompra." },
+      orcamento: { type: "NUMBER" }, meta_leads: { type: "NUMBER" }, meta_clientes: { type: "NUMBER" }, meta_receita: { type: "NUMBER" },
+      data_inicio: { type: "STRING", description: "AAAA-MM-DD" }, data_fim: { type: "STRING", description: "AAAA-MM-DD" },
+      conteudo: { type: "STRING", description: "Mensagem/copy sugerida, se houver." },
+    }, required: ["nome", "objetivo"] },
+  },
 ];
 
 async function consultar_estoque(args, tenantId) {
@@ -799,6 +845,72 @@ async function propor_criacao_automacao(args, tenantId, usuarioId) {
   };
 }
 
+// ---------- Marketing ----------
+async function marketing_visao_geral(args, tenantId) {
+  const analytics = require("./../marketing/analyticsService");
+  const r = await analytics.resumo(tenantId, { dias: Number(args.dias) || 30 });
+  return { periodo: r.periodo, kpis: r.kpis, funil: r.funil, canais: r.canais, campanhas: r.campanhas.slice(0, 10), dados: r.dados, regra_atribuicao: r.regra_atribuicao };
+}
+
+async function marketing_leads_prioritarios(args, tenantId) {
+  const { leadsPrioritarios } = require("../marketing/analyticsService");
+  return { leads: await leadsPrioritarios(tenantId, Number(args.limite) || 10) };
+}
+
+async function marketing_oportunidades_recuperacao(args, tenantId) {
+  const rec = require("../marketing/recoveryService");
+  return { grupos: await rec.oportunidades(tenantId, { detalhes: false }) };
+}
+
+async function marketing_recomendacoes(args, tenantId) {
+  const aria = require("../marketing/ariaMarketingService");
+  await aria.gerarRecomendacoes(tenantId);
+  const lista = await aria.listarRecomendacoes(tenantId);
+  return { recomendacoes: lista.slice(0, 8) };
+}
+
+async function marketing_planejar_aquisicao(args, tenantId) {
+  const aria = require("../marketing/ariaMarketingService");
+  return await aria.planejarAquisicao(tenantId, { meta_clientes: args.meta_clientes, prazo_dias: args.prazo_dias, orcamento: args.orcamento ?? null });
+}
+
+async function propor_estrategia_marketing(args, tenantId, usuarioId) {
+  const aria = require("../marketing/ariaMarketingService");
+  const e = await aria.gerarEstrategia(tenantId, args.pedido, { userId: usuarioId });
+  const tarefas = e.plano.etapas.reduce((a, et) => a + et.tarefas.length, 0);
+  const externas = e.plano.etapas.reduce((a, et) => a + et.tarefas.filter(t => t.externo).length, 0);
+  const resumo = `Aplicar o plano de marketing "${e.plano.titulo}": ${e.plano.etapas.length} etapa(s) e ${tarefas} tarefa(s).`;
+  const analise = `${e.plano.resumo} Ao confirmar, serao criadas ${tarefas} tarefa(s) em Marketing > Tarefas (${externas} aguardando aprovacao por envolver publicacao, envio ou investimento). Nada e publicado, enviado ou gasto automaticamente.` +
+    (e.dados_suficientes ? "" : ` Atencao: ${e.plano.lacunas.join(" ")}`);
+  const [result] = await pool.query(
+    `INSERT INTO aria_acoes (tenant_id, usuario_id, tipo, parametros, resumo, analise_impacto, nivel_risco, status)
+     VALUES (?, ?, 'estrategia_marketing', ?, ?, ?, 'baixo', 'pendente')`,
+    [tenantId, usuarioId, JSON.stringify({ strategy_id: e.id }), resumo, analise]);
+  return {
+    proposta_criada: true, proposta_id: result.insertId, tipo: "estrategia_marketing", resumo, analise_impacto: analise, nivel_risco: "baixo",
+    plano: e.plano, origem_do_plano: e.origem, dados_suficientes: e.dados_suficientes,
+    instrucao_para_aria: "Apresente o plano (etapas, publico, canais, metas, indicadores) e explique as decisoes com base nos numeros reais. Se dados_suficientes for falso, diga claramente o que falta. Informe que as tarefas so serao criadas apos a confirmacao com o PIN. NUNCA diga que ja foram criadas.",
+  };
+}
+
+async function propor_criacao_campanha(args, tenantId, usuarioId) {
+  if (!args.nome || !args.objetivo) return { erro: "nome e objetivo sao obrigatorios." };
+  const parametros = {};
+  for (const k of ["nome", "objetivo", "tipo", "canal", "etapa_funil", "orcamento", "meta_leads", "meta_clientes", "meta_receita", "data_inicio", "data_fim", "conteudo"]) {
+    if (args[k] !== undefined && args[k] !== null && args[k] !== "") parametros[k] = args[k];
+  }
+  const resumo = `Criar campanha "${args.nome}" (rascunho) — objetivo: ${args.objetivo}${args.orcamento ? `, orcamento R$ ${Number(args.orcamento).toFixed(2)}` : ""}.`;
+  const analise = "A campanha sera criada como RASCUNHO: nao e publicada, nao envia mensagens e nao registra gasto. Voce ativa e informa o investimento depois, em Marketing > Leads & Campanhas.";
+  const [result] = await pool.query(
+    `INSERT INTO aria_acoes (tenant_id, usuario_id, tipo, parametros, resumo, analise_impacto, nivel_risco, status)
+     VALUES (?, ?, 'criacao_campanha', ?, ?, ?, 'baixo', 'pendente')`,
+    [tenantId, usuarioId, JSON.stringify(parametros), resumo, analise]);
+  return {
+    proposta_criada: true, proposta_id: result.insertId, tipo: "criacao_campanha", resumo, analise_impacto: analise, nivel_risco: "baixo",
+    instrucao_para_aria: "Apresente a campanha proposta e diga que ela so sera criada (como rascunho) apos confirmacao com o PIN. NUNCA diga que ja foi criada.",
+  };
+}
+
 const executores = {
   consultar_estoque,
   consultar_pedidos,
@@ -824,6 +936,13 @@ const executores = {
   propor_lancamento_financeiro,
   propor_emissao_nota_fiscal,
   propor_criacao_automacao,
+  marketing_visao_geral,
+  marketing_leads_prioritarios,
+  marketing_oportunidades_recuperacao,
+  marketing_recomendacoes,
+  marketing_planejar_aquisicao,
+  propor_estrategia_marketing,
+  propor_criacao_campanha,
 };
 
 async function executarFerramenta(nome, args, tenantId, usuarioId) {

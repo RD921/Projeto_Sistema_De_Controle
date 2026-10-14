@@ -237,6 +237,25 @@ const NODE_TYPES_CONFIG = {
       { key: 'fromName', label: 'Nome do remetente', type: 'text' },
     ],
   },
+  marketing_lead_action: {
+    label: 'Ação no Lead (Marketing)',
+    color: '#0891b2',
+    bg: '#cffafe',
+    icon: '🎯',
+    category: 'marketing',
+    defaultConfig: { action: 'set_status', lead_id: '', status: 'qualificado', pontos: 10, titulo: '', descricao: '', prioridade: 'media', prazo_dias: 2, tipo: 'nota' },
+    fields: [
+      { key: 'action', label: 'Ação', type: 'select', options: ['set_status', 'add_score', 'create_task', 'send_to_crm', 'register_interaction'] },
+      { key: 'lead_id', label: 'Lead (vazio = lead do gatilho; aceita {{$json.lead_id}})', type: 'text' },
+      { key: 'status', label: 'Novo status (set_status)', type: 'select', options: ['novo', 'contactado', 'engajado', 'qualificado', 'oportunidade', 'cliente', 'perdido', 'inativo'] },
+      { key: 'pontos', label: 'Pontos (add_score, de -100 a 100)', type: 'text' },
+      { key: 'titulo', label: 'Título da tarefa (create_task)', type: 'text' },
+      { key: 'descricao', label: 'Descrição (tarefa ou interação)', type: 'text' },
+      { key: 'prioridade', label: 'Prioridade da tarefa', type: 'select', options: ['baixa', 'media', 'alta'] },
+      { key: 'prazo_dias', label: 'Prazo da tarefa (dias)', type: 'text' },
+      { key: 'tipo', label: 'Tipo da interação (register_interaction)', type: 'select', options: ['nota', 'ligacao', 'reuniao', 'resposta', 'proposta', 'email', 'whatsapp'] },
+    ],
+  },
 };
 
 let idCounter = 1;

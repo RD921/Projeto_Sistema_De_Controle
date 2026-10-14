@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
+const permission = require("../middleware/permissionMiddleware");
 const gemini = require("../services/geminiService");
 const ariaChat = require("../services/ai/AriaChatService");
 const pool = require("../config/db");
 
-router.post("/copy", auth, async (req, res) => {
+router.post("/copy", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const { produto, publico, canal } = req.body;
     if (!produto || !publico || !canal)
@@ -13,22 +14,22 @@ router.post("/copy", auth, async (req, res) => {
     const copy = await gemini.gerarCopyMarketing(produto, publico, canal);
     res.json({ copy });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao gerar copy", details: err.message });
+    res.status(500).json({ error: "Erro ao gerar copy" });
   }
 });
 
-router.get("/prever/:id", auth, async (req, res) => {
+router.get("/prever/:id", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM customers WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (rows.length === 0) return res.status(404).json({ error: "Cliente não encontrado" });
     const previsao = await gemini.preverVenda(rows[0]);
     res.json(previsao);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao prever venda", details: err.message });
+    res.status(500).json({ error: "Erro ao prever venda" });
   }
 });
 
-router.post("/scripts", auth, async (req, res) => {
+router.post("/scripts", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const { persona, produto } = req.body;
     if (!persona || !produto)
@@ -36,11 +37,11 @@ router.post("/scripts", auth, async (req, res) => {
     const scripts = await gemini.gerarScriptAbordagem(persona, produto);
     res.json({ scripts });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao gerar scripts", details: err.message });
+    res.status(500).json({ error: "Erro ao gerar scripts" });
   }
 });
 
-router.get("/lead-scoring", auth, async (req, res) => {
+router.get("/lead-scoring", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const [clientes] = await pool.query(
       "SELECT id, nome, email, telefone FROM customers WHERE tenant_id = ? LIMIT 20",
@@ -54,7 +55,7 @@ router.get("/lead-scoring", auth, async (req, res) => {
     });
     res.json(resultado);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao calcular lead scoring", details: err.message });
+    res.status(500).json({ error: "Erro ao calcular lead scoring" });
   }
 });
 
@@ -67,7 +68,7 @@ router.post("/chat", auth, async (req, res) => {
     res.json({ resposta: texto, acao_proposta: acaoProposta });
   } catch (err) {
     console.error("[ARIA CHAT ERROR]", err.message);
-    res.status(500).json({ error: "Erro no chat", details: err.message });
+    res.status(500).json({ error: "Erro no chat" });
   }
 });
 
