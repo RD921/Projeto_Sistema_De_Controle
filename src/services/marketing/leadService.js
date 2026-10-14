@@ -29,6 +29,15 @@ async function dispararEvento(nome, tenantId, payload) {
   try { await eventDispatcher.dispatch(nome, tenantId, payload); } catch { /* automação não pode travar o lead */ }
 }
 
+// O responsável precisa ser um usuário da mesma empresa (nunca de outra).
+async function validarResponsavel(tenantId, id) {
+  const n = Number(id);
+  if (!n) return null;
+  const [[u]] = await pool.query("SELECT id FROM users WHERE id = ? AND tenant_id = ?", [n, tenantId]);
+  if (!u) throw new ErroValidacao("responsável inválido para esta empresa");
+  return u.id;
+}
+
 // Descobre a campanha/UTM a partir do link rastreável (?mkt=slug) ou do formulário.
 async function resolverOrigem(tenantId, dados) {
   const out = {
@@ -77,6 +86,7 @@ async function criarLead(tenantId, dados, opts = {}) {
   const valor = dados.valor_estimado === undefined || dados.valor_estimado === "" || dados.valor_estimado === null ? null : Number(dados.valor_estimado);
   if (valor !== null && (Number.isNaN(valor) || valor < 0)) throw new ErroValidacao("valor estimado inválido");
 
+  const responsavelId = await validarResponsavel(tenantId, dados.responsavel_id);
   const origemInfo = await resolverOrigem(tenantId, dados);
   const origem = texto(dados.origem, 100) || opts.origemPadrao || origemInfo.utm_source || null;
   const canal = texto(dados.canal, 100) || opts.canalPadrao || origemInfo.utm_medium || null;
@@ -108,11 +118,11 @@ async function criarLead(tenantId, dados, opts = {}) {
     `INSERT INTO marketing_leads
        (tenant_id, nome, email, telefone, telefone_normalizado, empresa, origem, canal, interesse, valor_estimado,
         campaign_id, tracking_link_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, consentimento,
-        responsavel_id, funnel_stage_id, funnel_max_ordem)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        responsavel_id, funnel_stage_id, funnel_max_ordem, proxima_acao)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [tenantId, nome, email, telefone, tel || null, texto(dados.empresa, 255), origem, canal, texto(dados.interesse, 255), valor,
       origemInfo.campaign_id, origemInfo.tracking_link_id, origemInfo.utm_source, origemInfo.utm_medium, origemInfo.utm_campaign, origemInfo.utm_content, origemInfo.utm_term,
-      consentimento, Number(dados.responsavel_id) || null, etapa.id, etapa.ordem]);
+      consentimento, responsavelId, etapa.id, etapa.ordem, texto(dados.proxima_acao, 255)]);
   const leadId = r.insertId;
 
   await registrarEvento(tenantId, leadId, "criado", `Lead captado${origem ? ` via ${origem}` : ""}${canal ? ` / ${canal}` : ""}`,
@@ -142,7 +152,7 @@ async function editarLead(tenantId, leadId, dados, userId) {
     if (v !== null && (Number.isNaN(v) || v < 0)) throw new ErroValidacao("valor estimado inválido");
     campos.valor_estimado = v;
   }
-  if (dados.responsavel_id !== undefined) campos.responsavel_id = Number(dados.responsavel_id) || null;
+  if (dados.responsavel_id !== undefined) campos.responsavel_id = await validarResponsavel(tenantId, dados.responsavel_id);
   if (campos.email && !emailValido(campos.email)) throw new ErroValidacao("e-mail inválido");
   if (campos.telefone !== undefined) campos.telefone_normalizado = soDigitos(campos.telefone) || null;
   const chaves = Object.keys(campos);
@@ -314,6 +324,6 @@ async function sincronizarConversoes(tenantId) {
 }
 
 module.exports = {
-  STATUS_VALIDOS, STATUS_FINAIS, ErroValidacao, criarLead, editarLead, mudarStatus, moverEtapa,
+  validarResponsavel, STATUS_VALIDOS, STATUS_FINAIS, ErroValidacao, criarLead, editarLead, mudarStatus, moverEtapa,
   registrarInteracao, registrarEvento, enviarParaCRM, sincronizarConversoes,
 };

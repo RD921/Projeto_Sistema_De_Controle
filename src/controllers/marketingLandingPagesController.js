@@ -44,6 +44,11 @@ exports.criar = async (req, res) => {
       if (!f) return res.status(400).json({ error: "form_id invalido para este tenant" });
     }
 
+    if (campaign_id) {
+      const [[c]] = await pool.query("SELECT id FROM marketing_campaigns WHERE id = ? AND tenant_id = ?", [campaign_id, req.tenant_id]);
+      if (!c) return res.status(400).json({ error: "campaign_id invalido para este tenant" });
+    }
+
     let slug = slugify(nome);
     const [existentes] = await pool.query("SELECT slug FROM marketing_landing_pages WHERE tenant_id = ? AND slug LIKE ?", [req.tenant_id, `${slug}%`]);
     if (existentes.some(e => e.slug === slug)) {

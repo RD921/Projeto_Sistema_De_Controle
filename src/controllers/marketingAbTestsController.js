@@ -7,6 +7,11 @@ exports.criar = async (req, res) => {
     if (!nome) return res.status(400).json({ error: "nome e obrigatorio" });
     if (!Array.isArray(variants) || variants.length < 2) return res.status(400).json({ error: "sao necessarias pelo menos 2 variantes" });
 
+    if (segment_id) {
+      const [[sg]] = await pool.query("SELECT id FROM marketing_segments WHERE id = ? AND tenant_id = ?", [segment_id, req.tenant_id]);
+      if (!sg) return res.status(400).json({ error: "segment_id invalido para este tenant" });
+    }
+
     for (const v of variants) {
       if (!v.nome || !v.automation_id) return res.status(400).json({ error: "cada variante precisa de nome e automation_id" });
       const [[a]] = await pool.query("SELECT id FROM automations WHERE id = ? AND tenant_id = ?", [v.automation_id, req.tenant_id]);

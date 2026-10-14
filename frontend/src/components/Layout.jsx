@@ -176,6 +176,12 @@ export default function Layout() {
     { to: "/marketing/copy-ia", label: "Copy com IA", icon: "🤖" },
     { to: "/marketing/lead-scoring", label: "Lead Scoring", icon: "🎯" },
     { to: "/marketing/scripts-ia", label: "Scripts IA", icon: "🎭" },
+    { to: "/marketing/funis", label: "Funis de Conversão", icon: "🔻" },
+    { to: "/marketing/publicos", label: "Públicos", icon: "👥" },
+    { to: "/automacoes/minhas", label: "Automações", icon: "⚙️" },
+    { to: "/marketing/recuperacao", label: "Recuperação", icon: "♻️" },
+    { to: "/marketing/analises-roi", label: "Análises & ROI", icon: "💹" },
+    { to: "/marketing/tarefas", label: "Tarefas", icon: "✅" },
   ];
 
   const crmLinks = [

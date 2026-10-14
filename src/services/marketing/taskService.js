@@ -9,6 +9,17 @@ const PRIORIDADES = ["baixa", "media", "alta"];
 
 const txt = (v, max) => { const s = String(v ?? "").trim(); return s ? s.slice(0, max) : null; };
 
+// Lead, cliente, campanha e responsável precisam ser da mesma empresa da tarefa.
+async function validarReferencias(tenantId, t) {
+  const checks = [["lead_id", "marketing_leads", "lead"], ["customer_id", "customers", "cliente"], ["campaign_id", "marketing_campaigns", "campanha"], ["responsavel_id", "users", "responsável"]];
+  for (const [campo, tabela, nome] of checks) {
+    const id = Number(t[campo]);
+    if (!id) continue;
+    const [[r]] = await pool.query(`SELECT id FROM ${tabela} WHERE id = ? AND tenant_id = ?`, [id, tenantId]);
+    if (!r) throw new ErroValidacao(`${nome} inválido para esta empresa`);
+  }
+}
+
 async function criarTarefa(tenantId, t, { userId = null } = {}) {
   const titulo = txt(t.titulo, 255);
   if (!titulo) throw new ErroValidacao("titulo é obrigatório");
@@ -22,6 +33,7 @@ async function criarTarefa(tenantId, t, { userId = null } = {}) {
   } else if (t.prazo_dias !== undefined && Number.isFinite(Number(t.prazo_dias))) {
     prazo = new Date(Date.now() + Number(t.prazo_dias) * 86400000).toISOString().slice(0, 10);
   }
+  await validarReferencias(tenantId, t);
   const chave = txt(t.chave, 120);
   if (chave) {
     const [[aberta]] = await pool.query(
@@ -42,8 +54,8 @@ async function criarTarefa(tenantId, t, { userId = null } = {}) {
 
 async function listarTarefas(tenantId, { status, origem, responsavelId } = {}) {
   let sql = `SELECT t.*, u.nome AS responsavel_nome, l.nome AS lead_nome, c.nome AS campanha_nome
-             FROM marketing_tasks t LEFT JOIN users u ON u.id = t.responsavel_id
-             LEFT JOIN marketing_leads l ON l.id = t.lead_id LEFT JOIN marketing_campaigns c ON c.id = t.campaign_id
+             FROM marketing_tasks t LEFT JOIN users u ON u.id = t.responsavel_id AND u.tenant_id = t.tenant_id
+             LEFT JOIN marketing_leads l ON l.id = t.lead_id AND l.tenant_id = t.tenant_id LEFT JOIN marketing_campaigns c ON c.id = t.campaign_id AND c.tenant_id = t.tenant_id
              WHERE t.tenant_id = ?`;
   const params = [tenantId];
   if (status === "abertas") sql += " AND t.status IN ('aguardando_aprovacao','aberta','em_andamento')";
@@ -68,7 +80,7 @@ async function atualizarTarefa(tenantId, id, dados, userId) {
     if (dados.prazo && Number.isNaN(Date.parse(dados.prazo))) throw new ErroValidacao("prazo inválido");
     add("prazo", dados.prazo ? String(dados.prazo).slice(0, 10) : null);
   }
-  if (dados.responsavel_id !== undefined) add("responsavel_id", Number(dados.responsavel_id) || null);
+  if (dados.responsavel_id !== undefined) { await validarReferencias(tenantId, { responsavel_id: dados.responsavel_id }); add("responsavel_id", Number(dados.responsavel_id) || null); }
   if (dados.status !== undefined) {
     if (!["aberta", "em_andamento", "concluida", "cancelada"].includes(dados.status)) throw new ErroValidacao("status inválido");
     if (t.status === "aguardando_aprovacao" && dados.status !== "cancelada") throw new ErroValidacao("Esta tarefa precisa ser aprovada antes de ser executada");

@@ -119,7 +119,9 @@ exports.registrarInvestimento = async (req, res) => {
     const b = req.body || {};
     const valor = Number(b.valor);
     if (!valor || valor <= 0 || valor > 100000000) throw new ErroValidacao("valor deve ser maior que zero");
-    const data = limpar(b.data, 10) || new Date().toISOString().slice(0, 10);
+    const agora = new Date();
+    const dataLocal = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`; // dia do servidor, mesmo critério dos relatórios
+    const data = limpar(b.data, 10) || dataLocal;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || Number.isNaN(Date.parse(data))) throw new ErroValidacao("data inválida (use AAAA-MM-DD)");
     let campaignId = null;
     if (b.campaign_id) {

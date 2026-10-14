@@ -26,6 +26,13 @@ exports.confirmarAcao = async (req, res) => {
       return res.status(410).json({ error: "Esta proposta expirou. Peça para a Aria gerar a proposta novamente." });
     }
 
+    // Propostas de marketing só podem ser confirmadas por quem pode editar o Marketing (admin sempre pode)
+    if (["estrategia_marketing", "criacao_campanha"].includes(acao.tipo) && req.user.role !== "admin") {
+      const [[perm]] = await pool.query(
+        `SELECT up.user_id FROM user_permissions up JOIN permissions p ON p.id = up.permission_id WHERE up.user_id = ? AND p.chave = 'marketing.editar'`, [req.user.id]);
+      if (!perm) return res.status(403).json({ error: "Você não tem permissão para confirmar ações de Marketing (marketing.editar)." });
+    }
+
     const [[usuario]] = await pool.query("SELECT id, nome, aria_pin_hash FROM users WHERE id = ? AND tenant_id = ?", [req.user.id, req.tenant_id]);
     if (!usuario?.aria_pin_hash) {
       return res.status(400).json({ error: "Você ainda não configurou um PIN de autorização. Configure em Configurações > IA." });

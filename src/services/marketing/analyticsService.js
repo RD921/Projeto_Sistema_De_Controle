@@ -47,7 +47,8 @@ function filtroCampanha(campaignId, coluna = "campaign_id") {
   return campaignId ? { sql: ` AND ${coluna} = ?`, params: [Number(campaignId)] } : { sql: "", params: [] };
 }
 
-async function metricasPeriodo(tenantId, de, ate, campaignId, ordemQualificado) {
+// incluiHoje: no período atual o investimento lançado HOJE já conta (data é só dia, sem hora)
+async function metricasPeriodo(tenantId, de, ate, campaignId, ordemQualificado, incluiHoje = false) {
   const fc = filtroCampanha(campaignId, "l.campaign_id");
   const [[leads]] = await pool.query(
     `SELECT COUNT(*) AS captados,
@@ -60,7 +61,7 @@ async function metricasPeriodo(tenantId, de, ate, campaignId, ordemQualificado) 
     [tenantId, de, ate, ...fc.params]);
   const fs = filtroCampanha(campaignId, "campaign_id");
   const [[inv]] = await pool.query(
-    "SELECT COALESCE(SUM(valor), 0) AS total FROM marketing_spend WHERE tenant_id = ? AND data >= DATE(?) AND data < DATE(?)" + fs.sql,
+    `SELECT COALESCE(SUM(valor), 0) AS total FROM marketing_spend WHERE tenant_id = ? AND data >= DATE(?) AND data < ${incluiHoje ? "DATE_ADD(DATE(?), INTERVAL 1 DAY)" : "DATE(?)"}` + fs.sql,
     [tenantId, de, ate, ...fs.params]);
   const fm = filtroCampanha(campaignId, "mc.campaign_id");
   const [[rec]] = await pool.query(
@@ -164,7 +165,7 @@ async function campanhasDesempenho(tenantId, de, ate) {
     `SELECT c.id, c.nome, c.tipo, c.canal, c.status, c.etapa_funil, c.orcamento, c.data_inicio, c.data_fim, c.meta_leads, c.meta_clientes, c.meta_receita,
        (SELECT COUNT(*) FROM marketing_leads l WHERE l.campaign_id = c.id AND l.created_at >= ? AND l.created_at < ?) AS leads,
        (SELECT COUNT(*) FROM marketing_leads l WHERE l.campaign_id = c.id AND l.convertido_em >= ? AND l.convertido_em < ?) AS clientes,
-       (SELECT COALESCE(SUM(s.valor), 0) FROM marketing_spend s WHERE s.campaign_id = c.id AND s.data >= DATE(?) AND s.data < DATE(?)) AS investimento,
+       (SELECT COALESCE(SUM(s.valor), 0) FROM marketing_spend s WHERE s.campaign_id = c.id AND s.data >= DATE(?) AND s.data < DATE_ADD(DATE(?), INTERVAL 1 DAY)) AS investimento,
        (SELECT COALESCE(SUM(mc.valor), 0) FROM marketing_conversions mc JOIN orders o ON o.id = mc.order_id WHERE mc.campaign_id = c.id AND o.created_at >= ? AND o.created_at < ?) AS receita
      FROM marketing_campaigns c WHERE c.tenant_id = ?
      ORDER BY (c.status = 'ativa') DESC, c.created_at DESC LIMIT 50`,
@@ -206,7 +207,7 @@ async function resumo(tenantId, { dias = 30, campaignId = null } = {}) {
   const [[q]] = await pool.query("SELECT ordem FROM marketing_funnel_stages WHERE funnel_id = ? AND status_lead = 'qualificado' LIMIT 1", [funnelId]);
   const ordemQ = q?.ordem || 4;
   const [atual, anterior] = await Promise.all([
-    metricasPeriodo(tenantId, w.ini, w.fim, campaignId, ordemQ),
+    metricasPeriodo(tenantId, w.ini, w.fim, campaignId, ordemQ, true),
     metricasPeriodo(tenantId, w.iniAnt, w.ini, campaignId, ordemQ),
   ]);
   const [funil, canais, campanhas, prioritarios] = await Promise.all([

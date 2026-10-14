@@ -1,8 +1,18 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams, useOutletContext } from "react-router-dom";
 import api from "../api";
 import LandingPageEditor from "../components/marketing/LandingPageEditor";
-
+import VisaoGeral from "../components/marketing/VisaoGeral";
+import AlcanceMetricas from "../components/marketing/AlcanceMetricas";
+import LeadsCampanhas, { FormCampanha } from "../components/marketing/LeadsCampanhas";
+import FunisConversao from "../components/marketing/FunisConversao";
+import Publicos from "../components/marketing/Publicos";
+import Recuperacao from "../components/marketing/Recuperacao";
+import AnalisesROI from "../components/marketing/AnalisesROI";
+import Tarefas from "../components/marketing/Tarefas";
+import LeadScoring from "../components/marketing/LeadScoring";
+import { CopyIA, ScriptsIA } from "../components/marketing/CopyScriptsIA";
+import { Aviso, Modal, estilos, erroDe, Selo } from "../components/marketing/ui";
 
 const SECOES = {
   "visao-geral": "Visão Geral",
@@ -12,597 +22,163 @@ const SECOES = {
   "copy-ia": "Copy com IA",
   "lead-scoring": "Lead Scoring",
   "scripts-ia": "Scripts IA",
+  funis: "Funis de Conversão",
+  publicos: "Públicos",
+  automacoes: "Automações",
+  recuperacao: "Recuperação de Oportunidades",
+  "analises-roi": "Análises & ROI",
+  tarefas: "Tarefas",
 };
 
-const estadosSimulados = [
-  { uf: "SP", nome: "São Paulo", cidades: [{ nome: "São Paulo", acessos: 1240 }, { nome: "Campinas", acessos: 380 }, { nome: "Santos", acessos: 210 }] },
-  { uf: "RJ", nome: "Rio de Janeiro", cidades: [{ nome: "Rio de Janeiro", acessos: 890 }, { nome: "Niterói", acessos: 150 }] },
-  { uf: "MG", nome: "Minas Gerais", cidades: [{ nome: "Belo Horizonte", acessos: 620 }, { nome: "Uberlândia", acessos: 180 }] },
-  { uf: "ES", nome: "Espírito Santo", cidades: [{ nome: "Vitória", acessos: 340 }, { nome: "Vila Velha", acessos: 190 }, { nome: "Serra", acessos: 120 }] },
-  { uf: "PR", nome: "Paraná", cidades: [{ nome: "Curitiba", acessos: 410 }] },
-  { uf: "BA", nome: "Bahia", cidades: [{ nome: "Salvador", acessos: 290 }] },
-];
+function EstrategiaAria({ cor, onClose, avisar, recarregar }) {
+  const e = estilos(cor);
+  const [pedido, setPedido] = useState("");
+  const [gerando, setGerando] = useState(false);
+  const [est, setEst] = useState(null);
+  const [aplicando, setAplicando] = useState(false);
+  const gerar = async () => {
+    setGerando(true);
+    try { setEst((await api.post("/marketing/aria/estrategias", { pedido })).data); }
+    catch (err) { avisar({ tipo: "erro", texto: erroDe(err) }); } finally { setGerando(false); }
+  };
+  const decidir = async acao => {
+    setAplicando(true);
+    try {
+      const r = (await api.post(`/marketing/aria/estrategias/${est.id}/${acao}`)).data;
+      avisar({ tipo: "sucesso", texto: acao === "aplicar" ? `Estratégia aplicada: ${r.tarefas_criadas ?? 0} tarefa(s) criada(s)${r.aguardando_aprovacao ? `, ${r.aguardando_aprovacao} aguardando aprovação` : ""}.` : "Estratégia descartada." });
+      recarregar(); onClose();
+    } catch (err) { avisar({ tipo: "erro", texto: erroDe(err) }); } finally { setAplicando(false); }
+  };
+  const p = est?.plano;
+  return (
+    <Modal cor={cor} titulo="Estratégia com a Aria" onClose={onClose} largura={720}>
+      {!est ? (
+        <>
+          <p style={{ ...e.muted, marginTop: 0 }}>Descreva o objetivo. A Aria monta um plano com base nos dados reais do sistema. Nada é criado até você aplicar.</p>
+          <textarea style={{ ...e.input, minHeight: 90 }} value={pedido} onChange={x => setPedido(x.target.value)} placeholder="Ex: Quero conquistar 20 novos clientes nos próximos 60 dias" />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}><button style={e.btn} disabled={gerando || pedido.trim().length < 8} onClick={gerar}>{gerando ? "Gerando…" : "Gerar plano"}</button></div>
+        </>
+      ) : (
+        <div style={{ color: cor.text, fontSize: 13.5 }}>
+          <div style={{ marginBottom: 8 }}><Selo tipo="estimado" /> <span style={e.muted}>Gerado por {est.origem === "ia" ? "IA" : "regras (sem IA configurada)"}.</span></div>
+          <h3 style={{ ...e.h3, marginBottom: 4 }}>{p.titulo}</h3>
+          <p style={{ marginTop: 0 }}>{p.resumo}</p>
+          {p.lacunas?.length > 0 && <div style={{ background: "#fbbf2415", border: "1px solid #fbbf2440", color: "#fbbf24", borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>Dados que faltam: {p.lacunas.join(" · ")}</div>}
+          {p.publico_alvo && <p><b>Público:</b> {p.publico_alvo}</p>}
+          {p.diagnostico?.length > 0 && <><b>Diagnóstico</b><ul>{p.diagnostico.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+          {p.canais?.length > 0 && <><b>Canais</b><ul>{p.canais.map((c, i) => <li key={i}>{c.canal} — <span style={e.muted}>{c.motivo}</span></li>)}</ul></>}
+          <b>Etapas</b>
+          {p.etapas.map((s, i) => (
+            <div key={i} style={{ margin: "6px 0 10px" }}>
+              <div>{i + 1}. {s.titulo} <span style={e.muted}>({s.prazo_dias} dias)</span></div>
+              <div style={e.muted}>{s.descricao}</div>
+              <ul style={{ margin: "4px 0" }}>{s.tarefas?.map((t, j) => <li key={j}>{t.titulo}{t.externo ? " (fora do sistema)" : ""}</li>)}</ul>
+            </div>
+          ))}
+          {p.metas?.length > 0 && <><b>Metas</b><ul>{p.metas.map((m, i) => <li key={i}>{m.indicador}: {m.meta} em {m.prazo_dias} dias</li>)}</ul></>}
+          {p.riscos?.length > 0 && <><b>Riscos</b><ul>{p.riscos.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+          <p style={e.muted}>Aplicar cria as tarefas do plano (as que exigem aprovação ficam aguardando).</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button style={e.ghost} disabled={aplicando} onClick={() => decidir("descartar")}>Descartar</button>
+            <button style={e.btn} disabled={aplicando} onClick={() => decidir("aplicar")}>Aplicar plano</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 export default function Marketing() {
   const { secao } = useParams();
-  const secaoAtiva = secao || "visao-geral";
+  const secaoAtiva = SECOES[secao] ? secao : "visao-geral";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { cor } = useOutletContext();
-  const accent = cor.accent || "#38bdf8";
+  const e = estilos(cor);
 
-  const [stats, setStats] = useState(null);
-  const [clientes, setClientes] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [aviso, setAviso] = useState(() => {
+    if (searchParams.get("conectado") === "google") return { tipo: "sucesso", texto: "Google conectado com sucesso!" };
+    if (searchParams.get("erro")) return { tipo: "erro", texto: "Não foi possível conectar ao Google." };
+    return null;
+  });
+  const [dias, setDias] = useState(30);
+  const [campaignId, setCampaignId] = useState("");
+  const [campanhas, setCampanhas] = useState([]);
+  const [versao, setVersao] = useState(0);
+  const [modalCampanha, setModalCampanha] = useState(false);
+  const [modalAria, setModalAria] = useState(false);
 
-  const [produto, setProduto] = useState("");
-  const [publico, setPublico] = useState("");
-  const [canal, setCanal] = useState("WhatsApp");
-  const [copy, setCopy] = useState("");
-  const [loadingCopy, setLoadingCopy] = useState(false);
+  // Aceita avisar({tipo, texto}) e avisar("sucesso"|"erro", texto)
+  const avisar = useCallback((a, b) => setAviso(typeof a === "string" ? { tipo: a, texto: b } : a), []);
+  const ir = useCallback(s => navigate(s === "automacoes" ? "/automacoes/minhas" : `/marketing/${s}`), [navigate]);
 
-  const [leadScores, setLeadScores] = useState([]);
-  const [loadingScore, setLoadingScore] = useState(false);
-
-  const [persona, setPersona] = useState("");
-  const [produtoScript, setProdutoScript] = useState("");
-  const [scripts, setScripts] = useState([]);
-  const [loadingScripts, setLoadingScripts] = useState(false);
-
-  const [googleConectado, setGoogleConectado] = useState(false);
-  const [modalImagensAberto, setModalImagensAberto] = useState(false);
-  const [imagensGoogle, setImagensGoogle] = useState([]);
-  const [carregandoImagens, setCarregandoImagens] = useState(false);
-  const [imagemSelecionada, setImagemSelecionada] = useState(null);
-  const [aviso, setAviso] = useState(null);
-
-  const [dashboardMkt, setDashboardMkt] = useState(null);
-  const [leadsMkt, setLeadsMkt] = useState([]);
-  const [campanhasMkt, setCampanhasMkt] = useState([]);
-  const [loadingMkt, setLoadingMkt] = useState(false);
-
-  useEffect(() => {
-    const tid = localStorage.getItem("tenant_id") || 1;
-    api.get(`/tenants/${tid}/stats`).then(r => setStats(r.data)).catch(() => {});
-    api.get("/customers").then(r => setClientes(r.data.data || [])).catch(() => {});
-    api.get("/orders").then(r => setOrders(r.data.data || [])).catch(() => {});
-    api.get("/google/status").then(r => setGoogleConectado(r.data.conectado)).catch(() => {});
+  const carregarCampanhas = useCallback(() => {
+    api.get("/marketing/campaigns").then(r => setCampanhas(r.data || [])).catch(() => {});
   }, []);
+  useEffect(() => { carregarCampanhas(); }, [carregarCampanhas, versao]);
 
   useEffect(() => {
-    if (secao !== "leads-campanhas") return;
-    setLoadingMkt(true);
-    Promise.all([
-      api.get("/marketing/dashboard/resumo"),
-      api.get("/marketing/leads"),
-      api.get("/marketing/campaigns"),
-    ])
-      .then(([resDash, resLeads, resCampanhas]) => {
-        setDashboardMkt(resDash.data);
-        setLeadsMkt(resLeads.data || []);
-        setCampanhasMkt(resCampanhas.data || []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingMkt(false));
-  }, [secao]);
+    if (secao === "automacoes") navigate("/automacoes/minhas", { replace: true });
+  }, [secao, navigate]);
 
   useEffect(() => {
-    const conectado = searchParams.get("conectado");
-    const erroParam = searchParams.get("erro");
-    if (conectado === "google") {
-      setAviso({ tipo: "sucesso", texto: "Google conectado com sucesso!" });
-      setGoogleConectado(true);
-      searchParams.delete("conectado");
+    if (searchParams.has("conectado") || searchParams.has("erro")) {
+      searchParams.delete("conectado"); searchParams.delete("erro");
       setSearchParams(searchParams, { replace: true });
     }
-    if (erroParam) {
-      setAviso({ tipo: "erro", texto: "Não foi possível conectar ao Google." });
-      searchParams.delete("erro");
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 5000);
+    if (!aviso) return undefined;
+    const t = setTimeout(() => setAviso(null), 6000);
     return () => clearTimeout(t);
   }, [aviso]);
 
-  const conectarGoogle = async () => {
-    try {
-      const res = await api.get("/google/auth");
-      window.location.href = res.data.url;
-    } catch (err) {
-      alert("Erro ao iniciar conexão com Google: " + (err.response?.data?.error || err.message));
-    }
-  };
-
-  const abrirSeletorImagens = async () => {
-    setModalImagensAberto(true);
-    setCarregandoImagens(true);
-    try {
-      const res = await api.get("/google/imagens");
-      setImagensGoogle(res.data || []);
-    } catch (err) {
-      alert(err.response?.data?.error || "Erro ao buscar imagens do Google.");
-      setModalImagensAberto(false);
-    } finally {
-      setCarregandoImagens(false);
-    }
-  };
-
-  const gerarCopy = async () => {
-    if (!produto || !publico) return;
-    setLoadingCopy(true); setCopy("");
-    try {
-      const res = await api.post("/marketing/copy", { produto, publico, canal });
-      setCopy(res.data.copy);
-    } catch { setCopy("Erro ao gerar copy. Tente novamente."); }
-    finally { setLoadingCopy(false); }
-  };
-
-  const calcularLeadScore = async () => {
-    setLoadingScore(true);
-    try {
-      const res = await api.get("/marketing/lead-scoring");
-      setLeadScores(res.data);
-    } catch {}
-    finally { setLoadingScore(false); }
-  };
-
-  const gerarScripts = async () => {
-    if (!persona || !produtoScript) return;
-    setLoadingScripts(true); setScripts([]);
-    try {
-      const res = await api.post("/marketing/scripts", { persona, produto: produtoScript });
-      setScripts(res.data.scripts);
-    } catch {}
-    finally { setLoadingScripts(false); }
-  };
-
-  const cardStyle = { background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 12, padding: 24 };
-  const inputStyle = { width: "100%", padding: "10px 14px", background: cor.bg, border: `1px solid ${cor.border}`, borderRadius: 8, color: cor.text, fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "sans-serif" };
-
-  const pedidosPagos = orders.filter(o => o.status === "pago").length;
-  const pedidosPendentes = orders.filter(o => o.status === "pendente").length;
-  const pedidosCancelados = orders.filter(o => o.status === "cancelado").length;
-  const totalOrders = orders.length || 1;
-
-  const tempCor = { quente: "#f87171", morno: "#fbbf24", frio: "#60a5fa" };
-
-  const totalAcessos = estadosSimulados.reduce((acc, e) => acc + e.cidades.reduce((a, c) => a + c.acessos, 0), 0);
-  const totalClientesCadastrados = clientes.length;
-
-  const comprasPorCliente = {};
-  orders.forEach(o => {
-    const chave = o.cliente_id || o.cliente || o.customer_id;
-    if (!chave) return;
-    comprasPorCliente[chave] = (comprasPorCliente[chave] || 0) + 1;
-  });
-  const clientesRecorrentes = Object.values(comprasPorCliente).filter(qtd => qtd > 1).length;
-  const taxaRecorrencia = totalClientesCadastrados > 0 ? ((clientesRecorrentes / totalClientesCadastrados) * 100).toFixed(1) : "0.0";
+  const filtros = { dias, campaignId: campaignId || null };
+  const recarregarTudo = () => { setVersao(v => v + 1); carregarCampanhas(); };
+  const comFiltro = ["visao-geral", "alcance-metricas", "leads-campanhas", "analises-roi"].includes(secaoAtiva);
 
   return (
     <div>
-      <h1 style={{ color: cor.text, fontWeight: 700, marginBottom: 24 }}>{SECOES[secaoAtiva]}</h1>
-
-      {aviso && (
-        <div style={{
-          marginBottom: 18, padding: "12px 16px", borderRadius: 10, fontSize: 13.5,
-          background: aviso.tipo === "sucesso" ? "#16a34a15" : "#dc262615",
-          color: aviso.tipo === "sucesso" ? "#4ade80" : "#f87171",
-          border: `1px solid ${aviso.tipo === "sucesso" ? "#16a34a40" : "#dc262640"}`,
-        }}>
-          {aviso.texto}
-        </div>
-      )}
-
-      {secaoAtiva === "visao-geral" && (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 24 }}>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Total Clientes</p>
-              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{stats?.clientes ?? totalClientesCadastrados}</h2>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Taxa Conversão</p>
-              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{((pedidosPagos / totalOrders) * 100).toFixed(1)}%</h2>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={{ ...cardStyle, cursor: "pointer" }} onClick={() => navigate("/orders")}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ color: cor.text, fontSize: 15, margin: 0 }}>Status dos Pedidos</h3>
-                <span style={{ color: cor.textMuted, fontSize: 12 }}>Ver todos →</span>
-              </div>
-              {[
-                { label: "Pagos", value: pedidosPagos, cor: "#4ade80" },
-                { label: "Pendentes", value: pedidosPendentes, cor: "#fbbf24" },
-                { label: "Cancelados", value: pedidosCancelados, cor: "#f87171" },
-              ].map(item => (
-                <div key={item.label} style={{ marginBottom: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: cor.textMuted, fontSize: 13 }}>{item.label}</span>
-                    <span style={{ color: item.cor, fontSize: 13, fontWeight: 600 }}>{item.value}</span>
-                  </div>
-                  <div style={{ background: cor.border, borderRadius: 4, height: 6 }}>
-                    <div style={{ background: item.cor, borderRadius: 4, height: 6, width: `${(item.value / totalOrders) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ ...cardStyle, cursor: "pointer" }} onClick={() => navigate("/customers")}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ color: cor.text, fontSize: 15, margin: 0 }}>Clientes</h3>
-                <span style={{ color: cor.textMuted, fontSize: 12 }}>Ver todos →</span>
-              </div>
-              {clientes.slice(0, 5).map(c => (
-                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
-                  <div>
-                    <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{c.nome}</p>
-                    <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.email}</p>
-                  </div>
-                  <span style={{ color: "#4ade80", fontSize: 11, alignSelf: "center" }}>Ativo</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <h1 style={{ color: cor.text, fontWeight: 700, margin: 0 }}>{secaoAtiva === "visao-geral" ? "Central de Marketing" : SECOES[secaoAtiva]}</h1>
+          {secaoAtiva === "visao-geral" && <p style={{ ...e.muted, margin: "4px 0 0" }}>Resultados reais do seu negócio, com a origem de cada número.</p>}
         </div>
-      )}
-
-      {secaoAtiva === "alcance-metricas" && (
-        <div>
-          <div style={{ background: cor.cardHover, border: "1px solid #f59e0b40", borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 16 }}>⚠️</span>
-            <p style={{ color: "#fbbf24", fontSize: 13, margin: 0 }}>
-              Dados de estado/cidade e acessos são <strong>simulados</strong>.
-            </p>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>👁️ Acessos à Loja</p>
-              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{totalAcessos.toLocaleString("pt-BR")}</h2>
-              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>últimos 30 dias (simulado)</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>👥 Clientes Cadastrados</p>
-              <h2 style={{ color: "#4ade80", fontSize: 26, fontWeight: 700 }}>{totalClientesCadastrados}</h2>
-              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>total na base</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>🔁 Clientes Recorrentes</p>
-              <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{clientesRecorrentes}</h2>
-              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>com +1 compra</p>
-            </div>
-            <div style={cardStyle}>
-              <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>📊 Taxa de Recorrência</p>
-              <h2 style={{ color: "#f59e0b", fontSize: 26, fontWeight: 700 }}>{taxaRecorrencia}%</h2>
-              <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>clientes que voltaram</p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={cardStyle}>
-              <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>📍 Alcance por Estado</h3>
-              {estadosSimulados
-                .map(e => ({ ...e, total: e.cidades.reduce((a, c) => a + c.acessos, 0) }))
-                .sort((a, b) => b.total - a.total)
-                .map(e => (
-                  <div key={e.uf} style={{ marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ color: cor.text, fontSize: 13 }}>{e.nome} <span style={{ color: cor.textMuted }}>({e.uf})</span></span>
-                      <span style={{ color: accent, fontSize: 13, fontWeight: 600 }}>{e.total.toLocaleString("pt-BR")}</span>
-                    </div>
-                    <div style={{ background: cor.border, borderRadius: 4, height: 6 }}>
-                      <div style={{ background: accent, borderRadius: 4, height: 6, width: `${(e.total / totalAcessos) * 100}%` }} />
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            <div style={cardStyle}>
-              <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>🏙️ Top Cidades</h3>
-              {estadosSimulados
-                .flatMap(e => e.cidades.map(c => ({ ...c, uf: e.uf })))
-                .sort((a, b) => b.acessos - a.acessos)
-                .slice(0, 8)
-                .map((c, i) => (
-                  <div key={c.nome} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cor.border}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ color: cor.textMuted, fontSize: 12, width: 16 }}>{i + 1}</span>
-                      <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{c.nome} <span style={{ color: cor.textMuted }}>— {c.uf}</span></p>
-                    </div>
-                    <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 600 }}>{c.acessos.toLocaleString("pt-BR")}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {secaoAtiva === "copy-ia" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={cardStyle}>
-            <h3 style={{ color: cor.text, marginBottom: 8, fontSize: 15 }}>🤖 Gerador de Copy com IA</h3>
-            <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>A IA cria mensagens persuasivas para seu produto</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Produto ou Serviço</label>
-                <input value={produto} onChange={e => setProduto(e.target.value)} placeholder="Ex: Ventilador Industrial 65cm" style={inputStyle} />
-              </div>
-              <div>
-                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Público-alvo</label>
-                <input value={publico} onChange={e => setPublico(e.target.value)} placeholder="Ex: Donos de indústrias no interior de SP" style={inputStyle} />
-              </div>
-              <div>
-                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Canal</label>
-                <select value={canal} onChange={e => setCanal(e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
-                  <option>WhatsApp</option>
-                  <option>Email</option>
-                  <option>Instagram</option>
-                  <option>Facebook</option>
-                  <option>SMS</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Imagem (opcional)</label>
-                {!googleConectado ? (
-                  <button onClick={conectarGoogle} style={{ width: "100%", background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
-                    🔗 Conectar Google Drive/Fotos
-                  </button>
-                ) : imagemSelecionada ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <img src={imagemSelecionada.thumbnail} alt={imagemSelecionada.nome} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: `1px solid ${cor.border}` }} />
-                    <span style={{ color: cor.textMuted, fontSize: 12, flex: 1 }}>{imagemSelecionada.nome}</span>
-                    <button onClick={() => setImagemSelecionada(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12 }}>Remover</button>
-                  </div>
-                ) : (
-                  <button onClick={abrirSeletorImagens} style={{ width: "100%", background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "10px", fontSize: 13, cursor: "pointer", fontFamily: "sans-serif" }}>
-                    🖼️ Escolher imagem do Google
-                  </button>
-                )}
-              </div>
-
-              <button onClick={gerarCopy} disabled={loadingCopy || !produto || !publico} style={{
-                background: produto && publico ? accent : cor.border, color: "#fff",
-                border: "none", borderRadius: 8, padding: "12px", fontSize: 14,
-                fontWeight: 600, cursor: produto && publico ? "pointer" : "not-allowed",
-                fontFamily: "sans-serif", transition: "all 0.2s",
-              }}>
-                {loadingCopy ? "⏳ Gerando com IA..." : "✨ Gerar Copy com IA"}
-              </button>
-            </div>
-          </div>
-
-          <div style={cardStyle}>
-            <h3 style={{ color: cor.text, marginBottom: 8, fontSize: 15 }}>📝 Copy Gerada</h3>
-            <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>Resultado da IA aparece aqui</p>
-            {copy ? (
-              <>
-                <div style={{ background: cor.cardHover, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 16, minHeight: 200, color: cor.text, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
-                  {copy}
-                </div>
-                <button onClick={() => navigator.clipboard.writeText(copy)} style={{ marginTop: 12, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: "sans-serif" }}>
-                  📋 Copiar texto
-                </button>
-              </>
-            ) : (
-              <div style={{ background: cor.cardHover, border: `1px dashed ${cor.border}`, borderRadius: 10, padding: 16, minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <p style={{ color: cor.textMuted, fontSize: 14, textAlign: "center" }}>Preencha os campos e clique em<br/>"Gerar Copy com IA"</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {secaoAtiva === "lead-scoring" && (
-        <div style={cardStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-            <div>
-              <h3 style={{ color: cor.text, fontSize: 15, margin: 0 }}>🎯 Lead Scoring com IA</h3>
-              <p style={{ color: cor.textMuted, fontSize: 13, margin: "4px 0 0" }}>A IA analisa cada cliente e dá uma pontuação de compra</p>
-            </div>
-            <button onClick={calcularLeadScore} disabled={loadingScore} style={{
-              background: accent, color: "#fff", border: "none", borderRadius: 8,
-              padding: "10px 20px", fontSize: 13, fontWeight: 600,
-              cursor: loadingScore ? "not-allowed" : "pointer", fontFamily: "sans-serif",
-            }}>
-              {loadingScore ? "⏳ Analisando..." : "🤖 Analisar com IA"}
-            </button>
-          </div>
-
-          {leadScores.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {leadScores.sort((a, b) => b.score - a.score).map(lead => (
-                <div key={lead.id} style={{ background: cor.cardHover, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 16, display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: cor.border, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ color: tempCor[lead.temperatura] || cor.text, fontWeight: 700, fontSize: 16 }}>{lead.score}</span>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <p style={{ color: cor.text, fontSize: 14, fontWeight: 600, margin: 0 }}>{lead.nome}</p>
-                      <span style={{ background: lead.temperatura === "quente" ? "#f8717122" : lead.temperatura === "morno" ? "#fbbf2422" : "#60a5fa22", color: tempCor[lead.temperatura] || cor.text, fontSize: 11, padding: "2px 10px", borderRadius: 20 }}>
-                        {lead.temperatura}
-                      </span>
-                    </div>
-                    <div style={{ background: cor.border, borderRadius: 4, height: 6, marginBottom: 6 }}>
-                      <div style={{ background: tempCor[lead.temperatura] || cor.text, borderRadius: 4, height: 6, width: `${lead.score}%`, transition: "width 0.8s" }} />
-                    </div>
-                    <p style={{ color: cor.textMuted, fontSize: 12, margin: 0 }}>👉 {lead.proxima_acao}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ background: cor.cardHover, border: `1px dashed ${cor.border}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
-              <p style={{ color: cor.textMuted, fontSize: 14 }}>Clique em "Analisar com IA" para pontuar seus leads</p>
-            </div>
-          )}
-        </div>
-      )}
-
-            {secaoAtiva === "landing-pages" && <LandingPageEditor />}
-
-      {secaoAtiva === "leads-campanhas" && (
-        <div>
-          {loadingMkt ? (
-            <p style={{ color: cor.textMuted, fontSize: 14 }}>Carregando dados de marketing...</p>
-          ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {comFiltro && (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-                <div style={cardStyle}>
-                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Total de Leads</p>
-                  <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.leads?.total ?? 0}</h2>
-                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>score médio: {dashboardMkt?.leads?.score_medio ?? "0.0"}</p>
-                </div>
-                <div style={cardStyle}>
-                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Campanhas</p>
-                  <h2 style={{ color: accent, fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.campanhas?.total ?? 0}</h2>
-                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>cadastradas</p>
-                </div>
-                <div style={cardStyle}>
-                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>Conversões</p>
-                  <h2 style={{ color: "#4ade80", fontSize: 26, fontWeight: 700 }}>{dashboardMkt?.conversoes?.total ?? 0}</h2>
-                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>R$ {dashboardMkt?.conversoes?.receita_total_atribuida ?? "0.00"} atribuído</p>
-                </div>
-                <div style={cardStyle}>
-                  <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 8 }}>ROI Médio</p>
-                  <h2 style={{ color: "#f59e0b", fontSize: 26, fontWeight: 700 }}>
-                    {dashboardMkt?.roi?.medio != null ? `${dashboardMkt.roi.medio}%` : "—"}
-                  </h2>
-                  <p style={{ color: cor.textMuted, fontSize: 11, marginTop: 4 }}>
-                    {dashboardMkt?.roi?.melhor_campanha ? `melhor: ${dashboardMkt.roi.melhor_campanha.nome}` : "sem dados"}
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div style={cardStyle}>
-                  <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>👥 Leads Recentes</h3>
-                  {leadsMkt.length === 0 ? (
-                    <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhum lead cadastrado ainda.</p>
-                  ) : (
-                    leadsMkt.slice(0, 10).map(lead => (
-                      <div key={lead.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cor.border}` }}>
-                        <div>
-                          <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{lead.nome}</p>
-                          <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{lead.email || "sem e-mail"} · {lead.status}</p>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <span style={{ color: tempCor[lead.temperatura] || cor.textMuted, fontSize: 12, fontWeight: 600 }}>{lead.score}</span>
-                          <p style={{ color: cor.textMuted, fontSize: 10, margin: 0 }}>{lead.temperatura}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div style={cardStyle}>
-                  <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>🚀 Campanhas</h3>
-                  {campanhasMkt.length === 0 ? (
-                    <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma campanha cadastrada ainda.</p>
-                  ) : (
-                    campanhasMkt.slice(0, 10).map(c => {
-                      const corStatus = { ativa: "#4ade80", pausada: "#fbbf24", rascunho: cor.textMuted, finalizada: "#60a5fa", cancelada: "#f87171", agendada: accent };
-                      return (
-                        <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cor.border}` }}>
-                          <div>
-                            <p style={{ color: cor.text, fontSize: 13, margin: 0 }}>{c.nome}</p>
-                            <p style={{ color: cor.textMuted, fontSize: 11, margin: 0 }}>{c.tipo} {c.segmento_nome ? `· ${c.segmento_nome}` : ""}</p>
-                          </div>
-                          <span style={{ color: corStatus[c.status] || cor.textMuted, fontSize: 11, fontWeight: 600, textTransform: "uppercase" }}>{c.status}</span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+              <select aria-label="Período" style={{ ...e.input, width: 140 }} value={dias} onChange={x => setDias(Number(x.target.value))}>
+                <option value={7}>Últimos 7 dias</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 90 dias</option>
+              </select>
+              <select aria-label="Campanha" style={{ ...e.input, width: 200 }} value={campaignId} onChange={x => setCampaignId(x.target.value)}>
+                <option value="">Todas as campanhas</option>
+                {campanhas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
             </>
           )}
+          <button style={e.btn} onClick={() => setModalCampanha(true)}>+ Nova campanha</button>
+          <button style={e.ghost} onClick={() => setModalAria(true)}>Estratégia com Aria</button>
         </div>
-      )}
+      </div>
 
-      {secaoAtiva === "scripts-ia" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={cardStyle}>
-            <h3 style={{ color: cor.text, marginBottom: 8, fontSize: 15 }}>🎭 Gerador de Scripts com IA</h3>
-            <p style={{ color: cor.textMuted, fontSize: 13, marginBottom: 20 }}>A IA cria scripts personalizados por canal</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Persona do Cliente</label>
-                <input value={persona} onChange={e => setPersona(e.target.value)} placeholder="Ex: Empresário do setor industrial, 40 anos" style={inputStyle} />
-              </div>
-              <div>
-                <label style={{ color: cor.textMuted, fontSize: 12, display: "block", marginBottom: 6 }}>Produto</label>
-                <input value={produtoScript} onChange={e => setProdutoScript(e.target.value)} placeholder="Ex: Ventilador Industrial 65cm" style={inputStyle} />
-              </div>
-              <button onClick={gerarScripts} disabled={loadingScripts || !persona || !produtoScript} style={{
-                background: persona && produtoScript ? accent : cor.border, color: "#fff",
-                border: "none", borderRadius: 8, padding: "12px", fontSize: 14,
-                fontWeight: 600, cursor: persona && produtoScript ? "pointer" : "not-allowed",
-                fontFamily: "sans-serif",
-              }}>
-                {loadingScripts ? "⏳ Gerando scripts..." : "✨ Gerar Scripts com IA"}
-              </button>
-            </div>
-          </div>
+      <Aviso aviso={aviso} />
 
-          <div style={cardStyle}>
-            <h3 style={{ color: cor.text, marginBottom: 20, fontSize: 15 }}>📋 Scripts Gerados</h3>
-            {scripts.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {scripts.map((s, i) => (
-                  <div key={i} style={{ background: cor.cardHover, border: `1px solid ${cor.border}`, borderRadius: 10, padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ color: cor.text, fontSize: 13, fontWeight: 600 }}>{s.canal}</span>
-                      <button onClick={() => navigator.clipboard.writeText(s.script)} style={{ background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontFamily: "sans-serif" }}>
-                        📋 Copiar
-                      </button>
-                    </div>
-                    <p style={{ color: cor.textMuted, fontSize: 13, lineHeight: 1.6, margin: 0 }}>{s.script}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ background: cor.cardHover, border: `1px dashed ${cor.border}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
-                <p style={{ color: cor.textMuted, fontSize: 14 }}>Scripts gerados pela IA aparecerão aqui</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {secaoAtiva === "visao-geral" && <VisaoGeral key={versao} cor={cor} filtros={filtros} ir={ir} />}
+      {secaoAtiva === "alcance-metricas" && <AlcanceMetricas cor={cor} filtros={filtros} avisar={avisar} campanhas={campanhas} />}
+      {secaoAtiva === "leads-campanhas" && <LeadsCampanhas key={versao} cor={cor} filtros={filtros} avisar={avisar} campanhas={campanhas} recarregarCampanhas={recarregarTudo} />}
+      {secaoAtiva === "landing-pages" && <LandingPageEditor />}
+      {secaoAtiva === "copy-ia" && <CopyIA cor={cor} avisar={avisar} />}
+      {secaoAtiva === "lead-scoring" && <LeadScoring cor={cor} avisar={avisar} />}
+      {secaoAtiva === "scripts-ia" && <ScriptsIA cor={cor} avisar={avisar} />}
+      {secaoAtiva === "funis" && <FunisConversao cor={cor} avisar={avisar} />}
+      {secaoAtiva === "publicos" && <Publicos cor={cor} avisar={avisar} />}
+      {secaoAtiva === "recuperacao" && <Recuperacao cor={cor} avisar={avisar} />}
+      {secaoAtiva === "analises-roi" && <AnalisesROI cor={cor} filtros={filtros} avisar={avisar} campanhas={campanhas} />}
+      {secaoAtiva === "tarefas" && <Tarefas cor={cor} avisar={avisar} />}
 
-      {modalImagensAberto && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setModalImagensAberto(false)} />
-          <div style={{ position: "relative", background: cor.card, border: `1px solid ${cor.border}`, borderRadius: 16, padding: 24, width: "100%", maxWidth: 560, maxHeight: "70vh", overflowY: "auto" }}>
-            <h2 style={{ color: cor.text, fontSize: 16, marginBottom: 16 }}>Escolher imagem</h2>
-            {carregandoImagens ? (
-              <p style={{ color: cor.textMuted, fontSize: 13 }}>Carregando imagens...</p>
-            ) : imagensGoogle.length === 0 ? (
-              <p style={{ color: cor.textMuted, fontSize: 13 }}>Nenhuma imagem encontrada no Drive ou Fotos.</p>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10 }}>
-                {imagensGoogle.map(img => (
-                  <img
-                    key={`${img.origem}-${img.id}`}
-                    src={img.thumbnail}
-                    alt={img.nome}
-                    title={img.nome}
-                    onClick={() => { setImagemSelecionada(img); setModalImagensAberto(false); }}
-                    style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, cursor: "pointer", border: `1px solid ${cor.border}` }}
-                  />
-                ))}
-              </div>
-            )}
-            <button onClick={() => setModalImagensAberto(false)} style={{ marginTop: 16, background: "none", border: `1px solid ${cor.border}`, color: cor.textMuted, borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontFamily: "sans-serif" }}>
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
+      {modalCampanha && <FormCampanha cor={cor} e={e} avisar={avisar} onClose={() => setModalCampanha(false)} onOk={() => { setModalCampanha(false); recarregarTudo(); }} />}
+      {modalAria && <EstrategiaAria cor={cor} avisar={avisar} onClose={() => setModalAria(false)} recarregar={recarregarTudo} />}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
+const permission = require("../middleware/permissionMiddleware");
 const gemini = require("../services/geminiService");
 const ariaChat = require("../services/ai/AriaChatService");
 const pool = require("../config/db");
 
-router.post("/copy", auth, async (req, res) => {
+router.post("/copy", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const { produto, publico, canal } = req.body;
     if (!produto || !publico || !canal)
@@ -17,7 +18,7 @@ router.post("/copy", auth, async (req, res) => {
   }
 });
 
-router.get("/prever/:id", auth, async (req, res) => {
+router.get("/prever/:id", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM customers WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
     if (rows.length === 0) return res.status(404).json({ error: "Cliente não encontrado" });
@@ -28,7 +29,7 @@ router.get("/prever/:id", auth, async (req, res) => {
   }
 });
 
-router.post("/scripts", auth, async (req, res) => {
+router.post("/scripts", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const { persona, produto } = req.body;
     if (!persona || !produto)
@@ -40,7 +41,7 @@ router.post("/scripts", auth, async (req, res) => {
   }
 });
 
-router.get("/lead-scoring", auth, async (req, res) => {
+router.get("/lead-scoring", auth, permission("marketing.ver"), async (req, res) => {
   try {
     const [clientes] = await pool.query(
       "SELECT id, nome, email, telefone FROM customers WHERE tenant_id = ? LIMIT 20",
