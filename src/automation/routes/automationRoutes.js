@@ -1,9 +1,32 @@
-﻿const express = require("express");
+const express = require("express");
 const router = express.Router();
 const auth = require("../../middleware/authMiddleware");
 const pool = require("../../config/db");
 const engine = require("../engine/AutomationEngine");
 const scheduler = require("../engine/Scheduler");
+const { garantir: garantirSchema } = require("../../services/automationSchema");
+
+// Configurações do fluxo (opcionais): tempo máximo, variáveis fixas e automação que trata falhas.
+function normalizarSettings(bruto) {
+  const s = bruto && typeof bruto === "object" ? bruto : {};
+  const out = {};
+  if (s.timeoutMs !== undefined && s.timeoutMs !== null && s.timeoutMs !== "") {
+    const t = Number(s.timeoutMs);
+    if (!Number.isFinite(t) || t < 1000 || t > 1800000) throw new Error("timeoutMs deve estar entre 1000 e 1800000");
+    out.timeoutMs = Math.round(t);
+  }
+  if (s.vars !== undefined) {
+    if (!s.vars || typeof s.vars !== "object" || Array.isArray(s.vars)) throw new Error("vars deve ser um objeto");
+    if (JSON.stringify(s.vars).length > 20000) throw new Error("vars grande demais");
+    out.vars = s.vars;
+  }
+  if (s.errorAutomationId !== undefined && s.errorAutomationId !== null && s.errorAutomationId !== "") {
+    const id = Number(s.errorAutomationId);
+    if (!Number.isInteger(id) || id < 1) throw new Error("errorAutomationId inválido");
+    out.errorAutomationId = id;
+  }
+  return out;
+}
 
 // Bloqueia a rota se o usuário autenticado não for admin do tenant.
 function exigirAdmin(req, res, next) {
@@ -23,7 +46,7 @@ router.post("/", auth, async (req, res) => {
   if (!name) return res.status(400).json({ error: "name e obrigatorio" });
   const [result] = await pool.query(
     "INSERT INTO automations (tenant_id, name, description, status, created_by) VALUES (?, ?, ?, 'draft', ?)",
-    [req.tenant_id, name, description || null, req.user_id]
+    [req.tenant_id, name, description || null, req.user?.id || null]
   );
   res.json({ id: result.insertId });
 });
@@ -45,8 +68,11 @@ router.get("/:id/definicao", auth, async (req, res) => {
       [req.params.id]
     );
 
+    let settings = automation.settings;
+    if (typeof settings === "string") { try { settings = JSON.parse(settings); } catch { settings = {}; } }
     res.json({
       ...automation,
+      settings: settings || {},
       nodes: nodes.map(n => ({
         ...n,
         config: typeof n.config === "string" ? JSON.parse(n.config) : n.config,
@@ -60,8 +86,20 @@ router.get("/:id/definicao", auth, async (req, res) => {
 
 router.put("/:id/definicao", auth, async (req, res) => {
   const { nodes = [], edges = [] } = req.body;
+  let settings;
+  try {
+    settings = req.body.settings === undefined ? undefined : normalizarSettings(req.body.settings);
+    if (settings && settings.errorAutomationId) {
+      if (Number(settings.errorAutomationId) === Number(req.params.id)) throw new Error("a automação de erro não pode ser ela mesma");
+      const [[alvo]] = await pool.query("SELECT id FROM automations WHERE id = ? AND tenant_id = ?", [settings.errorAutomationId, req.tenant_id]);
+      if (!alvo) throw new Error("automação de erro não encontrada nesta empresa");
+    }
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
   const conn = await pool.getConnection();
   try {
+    await garantirSchema();
     await conn.beginTransaction();
 
     const [[automation]] = await conn.query("SELECT id FROM automations WHERE id = ? AND tenant_id = ?", [req.params.id, req.tenant_id]);
@@ -83,6 +121,9 @@ router.put("/:id/definicao", auth, async (req, res) => {
       );
     }
 
+    if (settings !== undefined && (await garantirSchema())) {
+      await conn.query("UPDATE automations SET settings = ? WHERE id = ?", [JSON.stringify(settings), req.params.id]);
+    }
     await conn.query("UPDATE automations SET version = version + 1 WHERE id = ?", [req.params.id]);
     await conn.commit();
     scheduler.reloadAutomation(req.params.id);
@@ -118,7 +159,7 @@ router.delete("/:id", auth, exigirAdmin, async (req, res) => {
 
 router.post("/:id/execute", auth, async (req, res) => {
   try {
-    const resultado = await engine.execute(req.params.id, req.tenant_id, req.body.data || {});
+    const resultado = await engine.execute(req.params.id, req.tenant_id, req.body.data || {}, { mode: "manual" });
     res.json(resultado);
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -210,6 +210,17 @@ const NODE_TYPES_CONFIG = {
     defaultConfig: {},
     fields: [{ key: 'entry_id', label: 'ID do lancamento (aceita {{$json.x}})', type: 'text' }],
   },
+  merge: {
+    label: 'Merge (juntar ramos)',
+    color: '#4338ca',
+    bg: '#e0e7ff',
+    icon: '⋈',
+    category: 'logic',
+    defaultConfig: { mode: 'merge' },
+    fields: [
+      { key: 'mode', label: 'Modo (merge = junta os campos; append = lista dos ramos; keyed = separa pelo nome de cada nó)', type: 'select', options: ['merge', 'append', 'keyed'] },
+    ],
+  },
     for_each: {
     label: 'For Each (repetir por item)',
     color: '#c2410c',
@@ -276,9 +287,13 @@ function CustomNode({ id, data, selected }) {
       : 'apollo-node--debug-success'
     : '';
 
-  const branchList = cfg.branches
+  let branchList = cfg.branches
     ? (typeof cfg.branches === 'function' ? cfg.branches(data.config) : cfg.branches)
     : null;
+  if (data.config?.__settings?.onError === 'error_branch' && cfg.category !== 'trigger') {
+    const base = branchList || ['default'];
+    branchList = base.includes('error') ? base : [...base, 'error'];
+  }
 
   return (
     <div
@@ -569,10 +584,94 @@ function ConfigPanel({ node, onChange, onClose, onDelete, eventTypes }) {
         </div>
       ))}
 
+      {cfg.category !== 'trigger' && (() => {
+        const aj = node.data.config?.__settings || {};
+        const setAj = (patch) => {
+          const novo = { ...aj, ...patch };
+          const cfgNovo = { ...node.data.config };
+          if (!novo.onError || novo.onError === 'stop') delete novo.onError;
+          if (novo.retry && !(Number(novo.retry.max) > 1)) delete novo.retry;
+          if (Object.keys(novo).length) cfgNovo.__settings = novo; else delete cfgNovo.__settings;
+          update({ config: cfgNovo });
+        };
+        const retry = aj.retry || {};
+        return (
+          <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #3f3f46' }}>
+            <label className="apollo-config__label">Tentativas se falhar (1 = sem repetir, máx. 10)</label>
+            <input
+              className="apollo-config__input"
+              type="number"
+              min="1"
+              max="10"
+              value={retry.max ?? 1}
+              onChange={(e) => setAj({ retry: { waitMs: 1000, backoff: true, ...retry, max: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } })}
+            />
+            {Number(retry.max) > 1 && (
+              <>
+                <label className="apollo-config__label">Espera entre tentativas (ms)</label>
+                <input
+                  className="apollo-config__input"
+                  type="number"
+                  min="0"
+                  value={retry.waitMs ?? 1000}
+                  onChange={(e) => setAj({ retry: { ...retry, waitMs: Math.max(0, Number(e.target.value) || 0) } })}
+                />
+                <label className="apollo-config__label">
+                  <input
+                    type="checkbox"
+                    checked={retry.backoff !== false}
+                    onChange={(e) => setAj({ retry: { ...retry, backoff: e.target.checked } })}
+                  />{' '}
+                  Dobrar a espera a cada tentativa
+                </label>
+              </>
+            )}
+            <label className="apollo-config__label">Se este passo falhar</label>
+            <select
+              className="apollo-config__input"
+              value={aj.onError || 'stop'}
+              onChange={(e) => setAj({ onError: e.target.value })}
+            >
+              <option value="stop">Parar a automação (padrão)</option>
+              <option value="continue">Continuar mesmo assim (segue com o erro nos dados)</option>
+              <option value="error_branch">Seguir pela saída "error"</option>
+            </select>
+          </div>
+        );
+      })()}
+
       <button className="apollo-config__delete" onClick={() => onDelete(node.id)}>
         Excluir node
       </button>
     </aside>
+  );
+}
+
+function VarsField({ value, onChange }) {
+  const [texto, setTexto] = useState(value ? JSON.stringify(value, null, 2) : '');
+  const [erro, setErro] = useState(false);
+  return (
+    <>
+      <textarea
+        className="apollo-config__input"
+        rows={5}
+        style={{ fontFamily: 'monospace', fontSize: 11, borderColor: erro ? '#ef4444' : undefined }}
+        value={texto}
+        placeholder='{"loja": "Minha Loja"}'
+        onChange={(e) => {
+          const t = e.target.value;
+          setTexto(t);
+          if (!t.trim()) { setErro(false); onChange(undefined); return; }
+          try {
+            const j = JSON.parse(t);
+            if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('x');
+            setErro(false);
+            onChange(j);
+          } catch { setErro(true); }
+        }}
+      />
+      {erro && <span style={{ color: '#ef4444', fontSize: 11 }}>JSON inválido (use um objeto)</span>}
+    </>
   );
 }
 
@@ -592,7 +691,11 @@ function EditorCanvas({
   onSelectExecution,
   logsByNode,
   eventTypes,
+  settings,
+  onSettingsChange,
+  outrasAutomacoes,
 }) {
+  const [mostrarAjustes, setMostrarAjustes] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -685,7 +788,7 @@ function EditorCanvas({
       target: e.target,
       sourceHandle: e.sourceHandle || null,
     }));
-    onSave({ nodes: payloadNodes, edges: payloadEdges });
+    onSave({ nodes: payloadNodes, edges: payloadEdges, settings });
   };
 
   return (
@@ -716,12 +819,58 @@ function EditorCanvas({
                 ))}
               </select>
             )}
+            <button className="apollo-btn" onClick={() => setMostrarAjustes((v) => !v)}>
+              ⚙ Configurações do fluxo
+            </button>
             {saveError && <span className="apollo-editor__error">{saveError}</span>}
             <button className="apollo-btn apollo-btn--primary" onClick={handleSave} disabled={saving}>
               {saving ? 'Salvando...' : 'Salvar automação'}
             </button>
           </div>
         </div>
+
+        {mostrarAjustes && (
+          <div style={{ position: 'absolute', top: 56, right: 12, zIndex: 20, width: 340, background: '#18181b', color: '#e4e4e7', border: '1px solid #3f3f46', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0,0,0,.35)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Configurações do fluxo</div>
+            <label className="apollo-config__label">Tempo máximo de execução (segundos, vazio = padrão)</label>
+            <input
+              className="apollo-config__input"
+              type="number"
+              min="1"
+              max="1800"
+              value={settings.timeoutMs ? Math.round(settings.timeoutMs / 1000) : ''}
+              onChange={(e) => {
+                const novo = { ...settings };
+                if (e.target.value === '') delete novo.timeoutMs; else novo.timeoutMs = Number(e.target.value) * 1000;
+                onSettingsChange(novo);
+              }}
+            />
+            <label className="apollo-config__label">Se esta automação falhar, executar</label>
+            <select
+              className="apollo-config__input"
+              value={settings.errorAutomationId || ''}
+              onChange={(e) => {
+                const novo = { ...settings };
+                if (!e.target.value) delete novo.errorAutomationId; else novo.errorAutomationId = Number(e.target.value);
+                onSettingsChange(novo);
+              }}
+            >
+              <option value="">Nenhuma</option>
+              {outrasAutomacoes.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <label className="apollo-config__label">Variáveis fixas (JSON, usadas como {'{{ $vars.nome }}'})</label>
+            <VarsField value={settings.vars} onChange={(v) => {
+              const novo = { ...settings };
+              if (v === undefined) delete novo.vars; else novo.vars = v;
+              onSettingsChange(novo);
+            }} />
+            <p style={{ fontSize: 10.5, color: '#a3a3a3', marginTop: 8, lineHeight: 1.4 }}>
+              Clique em "Salvar automação" para aplicar. A automação escolhida recebe o erro, o nome do passo e os dados da execução que falhou.
+            </p>
+          </div>
+        )}
 
         <ReactFlow
           nodes={nodes}
@@ -799,6 +948,8 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
   const [selectedExecutionId, setSelectedExecutionId] = useState(null);
   const [logsByNode, setLogsByNode] = useState({});
   const [eventTypes, setEventTypes] = useState([]);
+  const [settings, setSettings] = useState({});
+  const [outrasAutomacoes, setOutrasAutomacoes] = useState([]);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -811,6 +962,17 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
         });
         if (!res.ok) throw new Error(`Erro ao carregar automação (${res.status})`);
         const data = await res.json();
+
+        setSettings(data.settings && typeof data.settings === 'object' ? data.settings : {});
+        try {
+          const resLista = await fetch(apiBaseUrl, { headers: { Authorization: `Bearer ${getToken()}` } });
+          if (resLista.ok) {
+            const lista = await resLista.json();
+            setOutrasAutomacoes((lista || []).filter((a) => String(a.id) !== String(automationId)));
+          }
+        } catch {
+          // lista é opcional
+        }
 
         const rawNodes = data.nodes || [];
         const rawEdges = data.edges || [];
@@ -892,7 +1054,7 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
     }
   };
 
-  const handleSave = async ({ nodes, edges }) => {
+  const handleSave = async ({ nodes, edges, settings: ajustes }) => {
     try {
       setSaving(true);
       setSaveError(null);
@@ -912,6 +1074,7 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
           source_handle: e.sourceHandle || 'default',
           target_handle: 'default',
         })),
+        settings: ajustes,
       };
 
       const res = await fetch(`${apiBaseUrl}/${automationId}/definicao`, {
@@ -922,7 +1085,11 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
         },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`Falha ao salvar (${res.status})`);
+      if (!res.ok) {
+        let msg = `Falha ao salvar (${res.status})`;
+        try { const j = await res.json(); if (j?.error) msg = j.error; } catch { /* sem corpo */ }
+        throw new Error(msg);
+      }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
@@ -950,6 +1117,9 @@ export default function AutomationEditor({ automationId, apiBaseUrl = '/api/auto
         onSelectExecution={handleSelectExecution}
         logsByNode={logsByNode}
         eventTypes={eventTypes}
+        settings={settings}
+        onSettingsChange={setSettings}
+        outrasAutomacoes={outrasAutomacoes}
       />
       {saveSuccess && <div className="apollo-editor__toast">Automação salva ✓</div>}
     </ReactFlowProvider>
