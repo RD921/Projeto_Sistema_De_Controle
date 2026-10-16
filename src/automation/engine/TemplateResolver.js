@@ -1,31 +1,32 @@
-﻿function resolverTemplate(texto, context) {
+const { avaliarExpressao, str } = require("./ExpressionEngine");
+
+const RE = /\{\{([\s\S]*?)\}\}/g;
+
+function aviso(context, expr, err) {
+  if (context && Array.isArray(context.avisos) && context.avisos.length < 50) {
+    context.avisos.push(`Expressão "{{${expr}}}" não pôde ser calculada: ${err.message}`);
+  }
+}
+
+// Substitui cada {{ expressão }} do texto. Uma expressão inválida é mantida como está
+// (e registrada como aviso), para não quebrar automações antigas com textos parecidos.
+function resolverTemplate(texto, context) {
   if (typeof texto !== "string") return texto;
-  return texto.replace(/\{\{\s*\$json\.([\w.]+)\s*\}\}/g, (_, caminho) => {
-    const partes = caminho.split(".");
-    let valor = context.ultimoOutput;
-    for (const parte of partes) {
-      if (valor == null) return "";
-      valor = valor[parte];
-    }
-    return valor ?? "";
+  return texto.replace(RE, (original, expr) => {
+    try { return str(avaliarExpressao(expr, context)); }
+    catch (err) { aviso(context, expr.trim(), err); return original; }
   });
 }
 
-// Diferente do resolverTemplate (que sempre devolve string), esta funcao
-// devolve o VALOR REAL (array, objeto, numero) quando o texto e exatamente
-// um unico placeholder {{$json.caminho}}. Necessario para o For Each,
-// que precisa iterar sobre um array de verdade, nao sobre uma string.
+// Quando o texto é UM único {{ expressão }}, devolve o valor real (array, objeto, número...).
+// Necessário, por exemplo, para o For Each iterar sobre um array de verdade.
 function resolverValor(texto, context) {
   if (typeof texto !== "string") return texto;
-  const match = texto.trim().match(/^\{\{\s*\$json\.([\w.]+)\s*\}\}$/);
-  if (!match) return resolverTemplate(texto, context);
-  const partes = match[1].split(".");
-  let valor = context.ultimoOutput;
-  for (const parte of partes) {
-    if (valor == null) return undefined;
-    valor = valor[parte];
-  }
-  return valor;
+  const t = texto.trim();
+  const m = t.match(/^\{\{([\s\S]*?)\}\}$/);
+  if (!m || m[1].includes("{{")) return resolverTemplate(texto, context);
+  try { return avaliarExpressao(m[1], context); }
+  catch (err) { aviso(context, m[1].trim(), err); return undefined; }
 }
 
 module.exports = { resolverTemplate, resolverValor };
