@@ -81,7 +81,8 @@ exports.confirmarAcao = async (req, res) => {
 
     res.json({ status: "confirmada", resultado });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao confirmar ação.", details: err.message });
+    console.error("[ARIA] Erro ao confirmar ação:", err);
+    res.status(500).json({ error: `Erro ao confirmar ação: ${err.message}`, details: err.message });
   }
 };
 
@@ -156,17 +157,39 @@ exports.definirPin = async (req, res) => {
 // para eu não arriscar quebrar uma tabela com colunas que não conheço.
 
 async function executarLancamentoFinanceiro(parametros, tenantId) {
-  const { tipo, descricao, valor, data_vencimento, categoria } = parametros;
-  // TODO: trocar por uma chamada ao service/controller real que já cria
-  // lançamentos em Contas a Pagar/Receber, para garantir que todas as colunas
-  // obrigatórias de financial_entries sejam preenchidas (forma de pagamento,
-  // conta bancária, centro de custo etc.). Me manda esse arquivo que eu conecto.
+  const { tipo, descricao, valor, data_vencimento, categoria, cost_center_id, entidade_nome } = parametros;
+
+  // Mesmo cadastro que o Financeiro exige: todo lançamento precisa de um centro de custo.
+  // Usa o informado (se for desta empresa), senão o primeiro ativo, senão cria o "Geral".
+  let centroId = null;
+  if (cost_center_id) {
+    const [[c]] = await pool.query("SELECT id FROM cost_centers WHERE id = ? AND tenant_id = ?", [cost_center_id, tenantId]);
+    if (c) centroId = c.id;
+  }
+  if (!centroId) {
+    const [[c]] = await pool.query("SELECT id FROM cost_centers WHERE tenant_id = ? AND ativo = TRUE ORDER BY id LIMIT 1", [tenantId]);
+    if (c) centroId = c.id;
+  }
+  if (!centroId) {
+    const [r] = await pool.query(
+      "INSERT INTO cost_centers (tenant_id, codigo, nome, descricao) VALUES (?, 'GERAL', 'Geral', 'Centro de custo padrão para lançamentos não classificados')",
+      [tenantId]
+    );
+    centroId = r.insertId;
+  }
+
   const [result] = await pool.query(
-    `INSERT INTO financial_entries (tenant_id, tipo, descricao, valor, categoria, data_vencimento, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'pendente')`,
-    [tenantId, tipo, descricao, valor, categoria || null, data_vencimento]
+    `INSERT INTO financial_entries
+      (tenant_id, tipo, categoria, cost_center_id, descricao, entidade_nome, valor, data_vencimento,
+       parcela_atual, total_parcelas, status, aprovacao_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 'pendente', 'nao_requer')`,
+    [tenantId, tipo, categoria || "outros", centroId, descricao, entidade_nome || null, valor, data_vencimento]
   );
-  return { financial_entry_id: result.insertId, mensagem: "Lançamento criado. Confira em Financeiro se campos como forma de pagamento/conta/centro de custo precisam de complemento." };
+
+  // Roda o mesmo motor de regras que o lançamento manual usa (não bloqueia se falhar)
+  try { await require("../services/automacaoFinanceiraService").avaliarLancamento(tenantId, result.insertId); } catch { /* regras não podem travar o lançamento */ }
+
+  return { financial_entry_id: result.insertId, cost_center_id: centroId, mensagem: "Lançamento criado em Financeiro (centro de custo: o primeiro ativo ou \"Geral\"). Ajuste o centro de custo ali se precisar." };
 }
 
 async function executarEmissaoNotaFiscal(parametros, tenantId) {
